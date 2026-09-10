@@ -14,6 +14,15 @@ from workspace.kraken.kraken_integration import KrakenOrderConflict, KrakenPosit
 logger = logging.getLogger(__name__)
 
 
+class VenueCapabilityError(RuntimeError):
+    """A venue nao confirmou a operacao, ou nao consegue executa-la.
+
+    Existe para que "a corretora nao confirmou" nunca seja confundido com
+    sucesso. Todo caminho que protege posicao levanta isto em vez de seguir.
+    """
+
+
+
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         if value is None:
@@ -385,17 +394,55 @@ class GenericCcxtTrader:
         logger.info("[%s %s] MARKET %s %s %s", self.exchange_id, self.venue, side.upper(), quantity, native)
         return self.client.create_order(native, "market", side, quantity, None, params)
 
+    # Denylist, nao allowlist: o CCXT repassa status nao mapeados das venues
+    # ("active", "triggered", "working"...). Uma allowlist rejeitaria ordem
+    # aceita -- o chamador marcaria a posicao como desprotegida e um retry
+    # anexaria um segundo stop para a mesma quantidade.
+    _REJECTED_ORDER_STATUS = frozenset({"canceled", "cancelled", "rejected", "expired", "failed"})
+
+    def _validate_order_response(self, response: Any, *, what: str) -> dict[str, Any]:
+        """Confirma que a corretora aceitou a ordem de protecao.
+
+        Antes, qualquer objeto nao-`None` contava como sucesso: uma rejeicao
+        estruturada passava por "protecao anexada", porque os chamadores so
+        testam `if order is None`. A posicao ficava sem protecao e ninguem
+        sabia.
+        """
+        if not isinstance(response, dict):
+            raise VenueCapabilityError(
+                f"{self.exchange_id} nao confirmou {what}: resposta inesperada ({type(response).__name__})"
+            )
+        status = str(response.get("status") or "").lower()
+        if status in self._REJECTED_ORDER_STATUS:
+            raise VenueCapabilityError(
+                f"{self.exchange_id} rejeitou {what}: status={status!r} (ordem {response.get('id')})"
+            )
+        if not response.get("id"):
+            # Sem id nao da para cancelar nem substituir depois. Tratar como
+            # sucesso deixaria um stop possivelmente vivo e irrastreavel.
+            raise VenueCapabilityError(
+                f"{self.exchange_id} nao devolveu id para {what}; a ordem pode ter sido "
+                "criada e nao podera ser cancelada por este bot. Verifique a posicao na corretora."
+            )
+        return response
+
     def place_stop_loss(self, symbol: str, quantity: float, trigger_price: float, is_long: bool = True) -> dict[str, Any]:
         native = self._resolve_market_symbol(symbol)
         side = "sell" if is_long else "buy"
         params = {"stopLossPrice": trigger_price, "reduceOnly": True}
-        return self.client.create_order(native, "market", side, quantity, None, params)
+        return self._validate_order_response(
+            self.client.create_order(native, "market", side, quantity, None, params),
+            what="stop loss",
+        )
 
     def place_take_profit(self, symbol: str, quantity: float, trigger_price: float, is_long: bool = True) -> dict[str, Any]:
         native = self._resolve_market_symbol(symbol)
         side = "sell" if is_long else "buy"
         params = {"takeProfitPrice": trigger_price, "reduceOnly": True}
-        return self.client.create_order(native, "market", side, quantity, None, params)
+        return self._validate_order_response(
+            self.client.create_order(native, "market", side, quantity, None, params),
+            what="take profit",
+        )
 
     def capabilities(self) -> Dict[str, bool]:
         return {
