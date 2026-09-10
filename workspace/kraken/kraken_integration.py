@@ -18,6 +18,8 @@ from typing import Any, Dict, List, Optional
 
 import ccxt
 
+from workspace.venues.order_validation import validate_order_response, wrap_replace_failure
+
 logger = logging.getLogger(__name__)
 
 # ─── Fees Kraken ─────────────────────────────────────────────────
@@ -740,7 +742,11 @@ class KrakenTrader:
         side = "sell" if is_long else "buy"
         params = {"stopLossPrice": trigger_price, "reduceOnly": True}
         logger.info("🛑 [Kraken %s] SL %s %s trigger=%.4f", self.venue, side, quantity, trigger_price)
-        return self.client.create_order(symbol, "market", side, quantity, None, params)
+        return validate_order_response(
+            self.client.create_order(symbol, "market", side, quantity, None, params),
+            exchange_id=f"kraken-{self.venue}",
+            what="stop loss",
+        )
 
     def place_take_profit(
         self,
@@ -753,7 +759,11 @@ class KrakenTrader:
         side = "sell" if is_long else "buy"
         params = {"takeProfitPrice": trigger_price, "reduceOnly": True}
         logger.info("🎯 [Kraken %s] TP %s %s trigger=%.4f", self.venue, side, quantity, trigger_price)
-        return self.client.create_order(symbol, "market", side, quantity, None, params)
+        return validate_order_response(
+            self.client.create_order(symbol, "market", side, quantity, None, params),
+            exchange_id=f"kraken-{self.venue}",
+            what="take profit",
+        )
 
     def capabilities(self) -> Dict[str, bool]:
         return {
@@ -779,7 +789,10 @@ class KrakenTrader:
         if not order_id:
             return {"cancelled": False, "order": None, "skipped_reason": "missing_previous_order_id"}
         self.cancel_order(order_id, symbol)
-        order = self.place_stop_loss(symbol, quantity, trigger_price, is_long=is_long)
+        try:
+            order = self.place_stop_loss(symbol, quantity, trigger_price, is_long=is_long)
+        except Exception as exc:
+            raise wrap_replace_failure(exc, symbol=symbol, cancelled_order_id=order_id) from exc
         return {"cancelled": True, "order": order}
 
     def place_market_order_with_tp_sl(

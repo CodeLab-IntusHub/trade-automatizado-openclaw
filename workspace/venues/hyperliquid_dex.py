@@ -14,6 +14,11 @@ from typing import Any, Dict, List, Optional
 
 import ccxt
 
+from workspace.venues.order_validation import (
+    validate_order_response,
+    wrap_replace_failure,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -408,7 +413,11 @@ class HyperliquidDexTrader:
         params: dict[str, Any] = {"stopLossPrice": trigger_price, "reduceOnly": True}
         if slippage_pct is not None:
             params["slippage"] = float(slippage_pct)
-        return self.client.create_order(native, "market", side, quantity, trigger_price, self._order_params(params))
+        return validate_order_response(
+            self.client.create_order(native, "market", side, quantity, trigger_price, self._order_params(params)),
+            exchange_id="hyperliquid",
+            what="stop loss",
+        )
 
     def place_take_profit(
         self,
@@ -424,7 +433,11 @@ class HyperliquidDexTrader:
         params: dict[str, Any] = {"takeProfitPrice": trigger_price, "reduceOnly": True}
         if slippage_pct is not None:
             params["slippage"] = float(slippage_pct)
-        return self.client.create_order(native, "market", side, quantity, trigger_price, self._order_params(params))
+        return validate_order_response(
+            self.client.create_order(native, "market", side, quantity, trigger_price, self._order_params(params)),
+            exchange_id="hyperliquid",
+            what="take profit",
+        )
 
     def capabilities(self) -> Dict[str, bool]:
         return {
@@ -451,13 +464,16 @@ class HyperliquidDexTrader:
         if not order_id:
             return {"cancelled": False, "order": None, "skipped_reason": "missing_previous_order_id"}
         self.cancel_order(order_id, product_id)
-        order = self.place_stop_loss(
-            product_id,
-            quantity,
-            trigger_price,
-            is_long=is_long,
-            slippage_pct=slippage_pct,
-        )
+        try:
+            order = self.place_stop_loss(
+                product_id,
+                quantity,
+                trigger_price,
+                is_long=is_long,
+                slippage_pct=slippage_pct,
+            )
+        except Exception as exc:
+            raise wrap_replace_failure(exc, symbol=product_id, cancelled_order_id=order_id) from exc
         return {"cancelled": True, "order": order}
 
     def cancel_all_orders(self, product_id: object | None = None):
