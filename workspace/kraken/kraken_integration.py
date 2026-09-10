@@ -18,6 +18,8 @@ from typing import Any, Dict, List, Optional
 
 import ccxt
 
+from workspace.venues.order_validation import validate_order_response, wrap_replace_failure
+
 logger = logging.getLogger(__name__)
 
 # ─── Fees Kraken ─────────────────────────────────────────────────
@@ -740,7 +742,11 @@ class KrakenTrader:
         side = "sell" if is_long else "buy"
         params = {"stopLossPrice": trigger_price, "reduceOnly": True}
         logger.info("🛑 [Kraken %s] SL %s %s trigger=%.4f", self.venue, side, quantity, trigger_price)
-        return self.client.create_order(symbol, "market", side, quantity, None, params)
+        return validate_order_response(
+            self.client.create_order(symbol, "market", side, quantity, None, params),
+            exchange_id=f"kraken-{self.venue}",
+            what="stop loss",
+        )
 
     def place_take_profit(
         self,
@@ -753,7 +759,11 @@ class KrakenTrader:
         side = "sell" if is_long else "buy"
         params = {"takeProfitPrice": trigger_price, "reduceOnly": True}
         logger.info("🎯 [Kraken %s] TP %s %s trigger=%.4f", self.venue, side, quantity, trigger_price)
-        return self.client.create_order(symbol, "market", side, quantity, None, params)
+        return validate_order_response(
+            self.client.create_order(symbol, "market", side, quantity, None, params),
+            exchange_id=f"kraken-{self.venue}",
+            what="take profit",
+        )
 
     def capabilities(self) -> Dict[str, bool]:
         return {
@@ -779,7 +789,10 @@ class KrakenTrader:
         if not order_id:
             return {"cancelled": False, "order": None, "skipped_reason": "missing_previous_order_id"}
         self.cancel_order(order_id, symbol)
-        order = self.place_stop_loss(symbol, quantity, trigger_price, is_long=is_long)
+        try:
+            order = self.place_stop_loss(symbol, quantity, trigger_price, is_long=is_long)
+        except Exception as exc:
+            raise wrap_replace_failure(exc, symbol=symbol, cancelled_order_id=order_id) from exc
         return {"cancelled": True, "order": order}
 
     def place_market_order_with_tp_sl(
@@ -802,13 +815,31 @@ class KrakenTrader:
             logger.warning("   ⚠️ Fill parcial detectado (size=%.6f esperado=%.6f) — SL/TP não enviados.",
                            pos.size, quantity if is_buy else -quantity)
             return order
+        # A entrada ja executou. Engolir a falha de protecao aqui descartaria
+        # exatamente o sinal que a validacao de resposta existe para produzir,
+        # e o chamador receberia a ordem de entrada sem saber que a posicao
+        # esta nua. O resultado passa a carregar o estado da protecao.
+        result: dict[str, Any] = {
+            "order": order,
+            "protected": False,
+            "stop_loss": None,
+            "take_profit": None,
+            "protection_error": None,
+        }
         try:
-            self.place_stop_loss(symbol, quantity, stop_loss, is_long=is_buy)
-            self.place_take_profit(symbol, quantity, take_profit, is_long=is_buy)
+            result["stop_loss"] = self.place_stop_loss(symbol, quantity, stop_loss, is_long=is_buy)
+            result["take_profit"] = self.place_take_profit(symbol, quantity, take_profit, is_long=is_buy)
+            result["protected"] = True
             logger.info("   ✅ SL + TP anexados")
         except Exception as exc:  # noqa: BLE001
-            logger.error("   ❌ Falha ao anexar SL/TP: %s", exc)
-        return order
+            # `stop_loss` pode ja estar preenchido: se o SL entrou e o TP
+            # falhou, o id do SL precisa chegar ao chamador para poder ser
+            # cancelado depois.
+            result["protection_error"] = str(exc)
+            logger.error(
+                "   ❌ POSICAO DESPROTEGIDA em %s: falha ao anexar SL/TP: %s", symbol, exc
+            )
+        return result
 
     def cancel_all_orders(self, symbol: Optional[str] = None):
         symbol = self._resolve_market_symbol(symbol) if symbol else None

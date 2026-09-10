@@ -15,6 +15,7 @@ from typing import Any, Dict, Optional
 from eth_account import Account
 
 from workspace.nado.units import from_x18, from_x6  # reexport: conversao sem SDK
+from workspace.venues.order_validation import wrap_replace_failure
 
 from nado_protocol.client import create_nado_client, NadoClientMode
 from nado_protocol.engine_client.types.execute import (
@@ -869,7 +870,14 @@ class NadoTrader:
             subaccount_name=self.subaccount_name,
             reduce_only=True,
         )
-        logger.info(f"   ✅ Stop Loss colocada! Resultado: {res}")
+        # LACUNA CONHECIDA: ao contrario dos adapters CCXT (Kraken,
+        # Hyperliquid, generico), a resposta do SDK da Nado nao e validada --
+        # este log declara sucesso qualquer que seja o retorno. O formato de
+        # resposta do SDK nao esta documentado em lugar nenhum deste modulo e
+        # nao ha como verifica-lo sem uma conta Nado ativa, entao inventar um
+        # validador aqui seria adivinhar. Ver `workspace/venues/order_validation.py`
+        # para o padrao a seguir quando a forma da resposta for conhecida.
+        logger.info(f"   ✅ Stop Loss enviada (resposta nao validada): {res}")
         return res
 
     def place_limit_order_with_tp_sl(
@@ -1140,13 +1148,18 @@ class NadoTrader:
         if not digest:
             return {"cancelled": False, "order": None, "skipped_reason": "missing_previous_order_digest"}
         self.cancel_trigger_orders(product_id, [digest])
-        order = self.place_stop_loss(
-            product_id=product_id,
-            quantity=quantity,
-            trigger_price=trigger_price,
-            is_long=is_long,
-            slippage_pct=slippage_pct,
-        )
+        try:
+            order = self.place_stop_loss(
+                product_id=product_id,
+                quantity=quantity,
+                trigger_price=trigger_price,
+                is_long=is_long,
+                slippage_pct=slippage_pct,
+            )
+        except Exception as exc:
+            # Mesmo padrao dos outros adapters: o trigger antigo ja foi
+            # cancelado, entao a falha aqui deixa a posicao sem stop.
+            raise wrap_replace_failure(exc, symbol=product_id, cancelled_order_id=digest) from exc
         return {"cancelled": True, "order": order}
 
     def cancel_order(self, product_id: int, digest: str):
