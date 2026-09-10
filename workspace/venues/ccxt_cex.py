@@ -101,8 +101,8 @@ class GenericCcxtTrader:
                 # usuario, que pediu exatamente o contrario.
                 raise VenueCapabilityError(
                     f"sandbox indisponivel em {self.exchange_id}: {exc}. "
-                    f"Defina {self.exchange_id.upper()}_SANDBOX=false para operar em producao "
-                    "de forma explicita, ou escolha outra venue."
+                    "Defina CEX_SANDBOX=false para operar em producao de forma "
+                    "explicita, ou escolha outra venue."
                 ) from exc
         if load_markets:
             try:
@@ -401,7 +401,11 @@ class GenericCcxtTrader:
         logger.info("[%s %s] MARKET %s %s %s", self.exchange_id, self.venue, side.upper(), quantity, native)
         return self.client.create_order(native, "market", side, quantity, None, params)
 
-    _ACCEPTED_ORDER_STATUS = {"open", "closed", "new", "live", "untriggered", "accepted", "pending"}
+    # Denylist, nao allowlist: o CCXT repassa status nao mapeados das venues
+    # ("active", "triggered", "working"...). Uma allowlist rejeitava ordem
+    # aceita, o chamador marcava a posicao como desprotegida, e o retry
+    # anexava um segundo stop para a mesma quantidade.
+    _REJECTED_ORDER_STATUS = {"canceled", "cancelled", "rejected", "expired", "failed"}
 
     def _validate_order_response(self, response: Any, *, what: str) -> dict[str, Any]:
         """Confirma que a corretora aceitou a ordem.
@@ -415,7 +419,7 @@ class GenericCcxtTrader:
                 f"{self.exchange_id} nao confirmou {what}: resposta sem id de ordem ({response!r})"
             )
         status = str(response.get("status") or "").lower()
-        if status and status not in self._ACCEPTED_ORDER_STATUS:
+        if status in self._REJECTED_ORDER_STATUS:
             raise VenueCapabilityError(
                 f"{self.exchange_id} rejeitou {what}: status={status!r} (ordem {response.get('id')})"
             )
@@ -433,7 +437,9 @@ class GenericCcxtTrader:
         self._require("native_sl", "stop loss")
         native = self._resolve_market_symbol(symbol)
         side = "sell" if is_long else "buy"
-        params = {"stopLossPrice": trigger_price, "reduceOnly": True}
+        params: dict[str, Any] = {"stopLossPrice": trigger_price}
+        if self.capabilities()["reduce_only"]:
+            params["reduceOnly"] = True
         return self._validate_order_response(
             self.client.create_order(native, "market", side, quantity, None, params),
             what="stop loss",
@@ -443,7 +449,9 @@ class GenericCcxtTrader:
         self._require("native_tp", "take profit")
         native = self._resolve_market_symbol(symbol)
         side = "sell" if is_long else "buy"
-        params = {"takeProfitPrice": trigger_price, "reduceOnly": True}
+        params: dict[str, Any] = {"takeProfitPrice": trigger_price}
+        if self.capabilities()["reduce_only"]:
+            params["reduceOnly"] = True
         return self._validate_order_response(
             self.client.create_order(native, "market", side, quantity, None, params),
             what="take profit",
@@ -461,9 +469,16 @@ class GenericCcxtTrader:
         venue que nao tem. O CCXT ja publica isso em `client.has`.
         """
         return {
-            "native_sl": self._has("createStopLossOrder", "createStopOrder", "createTriggerOrder"),
-            "native_tp": self._has("createTakeProfitOrder", "createTriggerOrder"),
-            "edit_stop": self._has("editOrder"),
+            # Atado ao flag que gateia o param que este adapter envia. No CCXT
+            # `stopLossPrice` e gated por `createStopLossOrder`;
+            # `createTriggerOrder`/`createStopOrder` gateiam `triggerPrice`/
+            # `stopPrice`, que nao usamos. Aceita-los admitiria 46 exchanges
+            # onde o param seria descartado e a ordem viraria market comum.
+            "native_sl": self._has("createStopLossOrder"),
+            "native_tp": self._has("createTakeProfitOrder"),
+            # `replace_stop_loss` cancela e recria; nunca chama `edit_order`.
+            # Declarar `editOrder` prometeria edicao in-place que nao existe.
+            "edit_stop": False,
             "cancel_trigger": self._has("cancelOrder"),
             # `reduceOnly` so faz sentido em derivativo; em spot nao existe
             # posicao a reduzir.
@@ -479,6 +494,10 @@ class GenericCcxtTrader:
         previous_order_ref: dict | str | None = None,
         **_: object,
     ) -> dict[str, Any]:
+        # Antes de tocar no stop que esta protegendo a posicao: se a recriacao
+        # vai ser recusada, cancelar deixaria a posicao sem protecao alguma --
+        # e o chamador ainda registraria o stop novo no estado.
+        self._require("native_sl", "stop loss")
         order_id = previous_order_ref if isinstance(previous_order_ref, str) else None
         if isinstance(previous_order_ref, dict):
             order_id = str(previous_order_ref.get("id") or previous_order_ref.get("digest") or "")

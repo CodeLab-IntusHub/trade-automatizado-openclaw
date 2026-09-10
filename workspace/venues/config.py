@@ -17,6 +17,13 @@ class VenueSelection:
 
 CAPABILITY_KEYS = ("native_sl", "native_tp", "edit_stop", "cancel_trigger", "reduce_only")
 
+# Fonte unica de "o que conta como Kraken nativa". O CLI importa daqui: manter
+# duas listas fazia `CEX_ID=krakenex` ser aceito por um lado e recusado pelo
+# outro.
+BUILTIN_KRAKEN_CEX_IDS = frozenset(
+    {"kraken", "krakenfutures", "kraken-futures", "kraken_futures", "kraken-spot"}
+)
+
 
 def _capabilities(
     *,
@@ -35,7 +42,7 @@ def _capabilities(
     }
 
 
-def venue_capabilities(venue_kind: str, venue_id: str) -> dict[str, bool]:
+def venue_capabilities(venue_kind: str, venue_id: str, market_type: str | None = None) -> dict[str, bool]:
     """Static execution capability matrix for the selected venue adapter."""
     kind = str(venue_kind or "").strip().lower()
     venue = str(venue_id or "").strip().lower()
@@ -46,14 +53,14 @@ def venue_capabilities(venue_kind: str, venue_id: str) -> dict[str, bool]:
             return _capabilities(native_sl=True, native_tp=True, cancel_trigger=True, reduce_only=True)
         return _capabilities()
     if kind == "cex":
-        if venue in {"kraken", "krakenfutures", "kraken-futures", "kraken_futures", "kraken-spot"}:
+        if venue in BUILTIN_KRAKEN_CEX_IDS:
             # Adapter proprio (`KrakenTrader`), com SL/TP implementados aqui.
             return _capabilities(native_sl=True, native_tp=True, cancel_trigger=True, reduce_only=True)
-        return _ccxt_capabilities(venue)
+        return _ccxt_capabilities(venue, market_type=market_type)
     return _capabilities()
 
 
-def _ccxt_capabilities(venue_id: str) -> dict[str, bool]:
+def _ccxt_capabilities(venue_id: str, market_type: str | None = None) -> dict[str, bool]:
     """Le as capacidades declaradas pelo proprio CCXT para a exchange.
 
     Os dois ramos deste `if` devolviam exatamente a mesma coisa -- tudo `True`
@@ -84,13 +91,17 @@ def _ccxt_capabilities(venue_id: str) -> dict[str, bool]:
         return any(bool(table.get(name)) for name in names)
 
     return _capabilities(
-        native_sl=has("createStopLossOrder", "createStopOrder", "createTriggerOrder"),
-        native_tp=has("createTakeProfitOrder", "createTriggerOrder"),
-        edit_stop=has("editOrder"),
+        # Mesmos flags que o `GenericCcxtTrader` usa: sao os que gateiam
+        # `stopLossPrice`/`takeProfitPrice`, os params que o adapter envia.
+        native_sl=has("createStopLossOrder"),
+        native_tp=has("createTakeProfitOrder"),
+        # O adapter cancela e recria em vez de editar; nao prometer edicao.
+        edit_stop=False,
         cancel_trigger=has("cancelOrder"),
-        # `reduceOnly` so existe em derivativo; o tipo de mercado efetivo vem
-        # da configuracao, entao aqui reportamos o que a exchange oferece.
-        reduce_only=has("createOrder"),
+        # `reduceOnly` so existe em derivativo. Sem o tipo de mercado nao da
+        # para afirmar, e `createOrder` (que toda exchange tem) diria sempre
+        # sim -- contradizendo o adapter para o mesmo par venue/mercado.
+        reduce_only=str(market_type or "").lower() in {"swap", "future", "futures"},
     )
 
 
@@ -215,9 +226,13 @@ def venue_summary() -> dict[str, Any]:
     cex_names = cex_env_names(selection.cex_id)
     dex_names = dex_env_names(selection.dex_id)
     cex_creds = cex_credentials(selection.cex_id)
+    cex_market_type = _normalize_cex_market_type(
+        _first_env("CEX_MARKET_TYPE", "CEX_DEFAULT_TYPE", f"{_prefix(selection.cex_id)}_MARKET_TYPE"),
+        selection.cex_id,
+    )
     capabilities = {
         "dex": venue_capabilities("dex", selection.dex_id),
-        "cex": venue_capabilities("cex", selection.cex_id),
+        "cex": venue_capabilities("cex", selection.cex_id, market_type=cex_market_type),
     }
     return {
         "dex_id": selection.dex_id,
@@ -230,12 +245,13 @@ def venue_summary() -> dict[str, Any]:
             else "missing"
         ),
         "cex_adapter": "builtin:kraken" if selection.cex_id in {"kraken", "krakenfutures", "kraken-futures", "kraken_futures", "kraken-spot"} else "ccxt",
-        "cex_market_type": _normalize_cex_market_type(_first_env("CEX_MARKET_TYPE", "CEX_DEFAULT_TYPE", f"{_prefix(selection.cex_id)}_MARKET_TYPE"), selection.cex_id),
-        # "nao_definido" em vez de assumir producao: o CLI recusa essa config,
-        # e o diagnostico nao pode dar um veredito diferente do executor.
+        "cex_market_type": cex_market_type,
+        # String vazia quando nao ha decisao, nunca um sentinela: este campo
+        # e republicado em `safe_defaults`, que o wizard usa para semear o env
+        # -- um sentinela voltaria parseado como producao.
         "cex_sandbox": (
             _first_env(f"{_prefix(selection.cex_id)}_SANDBOX", "CEX_SANDBOX")
-            or ("true" if selection.cex_id.startswith("kraken") else "nao_definido")
+            or ("true" if selection.cex_id in BUILTIN_KRAKEN_CEX_IDS else "")
         ),
         "cex_required_env": cex_names,
         "cex_credentials_configured": bool(cex_creds["api_key"] and cex_creds["api_secret"]),

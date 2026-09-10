@@ -99,7 +99,7 @@ def test_capabilities_refletem_o_has_do_ccxt(monkeypatch) -> None:
                                      "editOrder": True, "cancelOrder": True})
     caps = com_sl.capabilities()
     assert caps["native_sl"] is True and caps["native_tp"] is True
-    assert caps["edit_stop"] is True and caps["cancel_trigger"] is True
+    assert caps["cancel_trigger"] is True
 
 
 def test_reduce_only_nao_e_declarado_em_spot(monkeypatch) -> None:
@@ -212,7 +212,140 @@ def test_diagnostico_nao_afirma_producao_onde_o_cli_recusa(monkeypatch) -> None:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("CEX_ID", "bybit")
 
-    assert venue_summary()["cex_sandbox"] == "nao_definido"
+    assert venue_summary()["cex_sandbox"] == ""
 
     monkeypatch.setenv("CEX_SANDBOX", "false")
     assert venue_summary()["cex_sandbox"] == "false"
+
+
+# --- Correcoes do code-review da PR #3 --------------------------------------
+
+def test_trigger_order_sozinho_nao_conta_como_stop_loss_nativo(monkeypatch) -> None:
+    """`stopLossPrice` e gated por `createStopLossOrder` no CCXT.
+
+    `createTriggerOrder`/`createStopOrder` gateiam `triggerPrice`/`stopPrice`.
+    Aceitar esses flags admitia 46 exchanges onde o param seria descartado e a
+    ordem viraria market comum -- exatamente o desfecho que o guard promete
+    impedir.
+    """
+    trader = _make(monkeypatch, has={"createTriggerOrder": True, "createStopOrder": True,
+                                     "createStopLossOrder": False, "createTakeProfitOrder": False})
+    assert trader.capabilities()["native_sl"] is False
+    assert trader.capabilities()["native_tp"] is False
+    with pytest.raises(VenueCapabilityError):
+        trader.place_stop_loss("ETH/USDT:USDT", 1.0, 2000.0, is_long=True)
+    assert trader.client.created == []
+
+
+@pytest.mark.parametrize("status", ["active", "triggered", "created", "placed", "submitted", "working", "unfilled", ""])
+def test_status_incomum_porem_aceito_nao_e_tratado_como_falha(monkeypatch, status) -> None:
+    """Allowlist de status rejeitava ordem aceita.
+
+    O efeito era pior que o bug original: o chamador marcava a posicao como
+    desprotegida enquanto havia stop real na corretora, e o retry anexava um
+    segundo stop para a mesma quantidade.
+    """
+    trader = _make(monkeypatch, has={"createStopLossOrder": True},
+                   order_response={"id": "sl-9", "status": status})
+    assert trader.place_stop_loss("ETH/USDT:USDT", 1.0, 2000.0, is_long=True)["id"] == "sl-9"
+
+
+@pytest.mark.parametrize("status", ["canceled", "cancelled", "rejected", "expired"])
+def test_status_terminal_de_falha_e_recusado(monkeypatch, status) -> None:
+    trader = _make(monkeypatch, has={"createStopLossOrder": True},
+                   order_response={"id": "sl-9", "status": status})
+    with pytest.raises(VenueCapabilityError):
+        trader.place_stop_loss("ETH/USDT:USDT", 1.0, 2000.0, is_long=True)
+
+
+def test_edit_stop_nao_e_declarado_porque_o_adapter_nao_edita(monkeypatch) -> None:
+    """`replace_stop_loss` cancela e recria; nunca chama `edit_order`."""
+    trader = _make(monkeypatch, has={"createStopLossOrder": True, "editOrder": True})
+    assert trader.capabilities()["edit_stop"] is False
+
+
+def test_replace_stop_loss_checa_suporte_antes_de_cancelar(monkeypatch) -> None:
+    """Cancelar primeiro deixava a posicao sem stop algum quando a recriacao
+    era recusada -- e o estado ainda registrava o stop novo."""
+    trader = _make(monkeypatch, has={"createStopLossOrder": False, "cancelOrder": True})
+    cancelados = []
+    trader.cancel_order = lambda order_id, symbol=None: cancelados.append(order_id)
+    with pytest.raises(VenueCapabilityError):
+        trader.replace_stop_loss("ETH/USDT:USDT", 1.0, 2000.0, previous_order_ref={"id": "old"})
+    assert cancelados == [], "nao pode ter cancelado o stop vivo"
+
+
+def test_reduce_only_nao_e_enviado_em_spot(monkeypatch) -> None:
+    trader = _make(monkeypatch, has={"createStopLossOrder": True}, market_type="spot")
+    trader.place_stop_loss("ETH/USDT:USDT", 1.0, 2000.0, is_long=True)
+    assert "reduceOnly" not in trader.client.created[0]["params"]
+
+
+def test_valor_de_sandbox_ilegivel_nao_vira_producao(monkeypatch, _limpa_env_sandbox) -> None:
+    """`raw.lower() in {...}` fazia qualquer string desconhecida virar `false`.
+
+    `CEX_SANDBOX=ture` (typo) resolvia para dinheiro real, em silencio, numa
+    funcao cujo contrato e nao assumir producao por omissao.
+    """
+    import workspace.cli as cli
+
+    for valor in ("ture", "sandbox", "nao_definido", "maybe"):
+        monkeypatch.setenv("CEX_SANDBOX", valor)
+        with pytest.raises(SystemExit, match="(?i)sandbox"):
+            cli._load_cex_sandbox("bybit")
+
+
+def test_diagnostico_nao_emite_sentinela_que_volte_como_config(monkeypatch) -> None:
+    """A sentinela era publicada em `safe_defaults.cex_sandbox`, que o wizard
+    usa para semear o env -- e voltava parseada como producao."""
+    import workspace.run as run
+    from workspace.venues.config import venue_summary
+
+    for name in ("CEX_SANDBOX", "BYBIT_SANDBOX"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("CEX_ID", "bybit")
+
+    assert venue_summary()["cex_sandbox"] == ""
+    assert run.setup_check()["safe_defaults"]["cex_sandbox"] == ""
+
+
+def test_execucao_so_dex_nao_exige_sandbox_de_cex_nao_usada(_limpa_env_sandbox) -> None:
+    """`build_engine(require_kraken=False)` constroi a perna CEX assim mesmo.
+
+    Exigir config de sandbox para uma venue que a execucao nunca toca derruba
+    runs DEX-only que antes funcionavam.
+    """
+    import workspace.cli as cli
+
+    assert cli._load_cex_sandbox("bybit", required=False) is True
+
+
+def test_entrada_recusada_antes_de_enviar_quando_a_venue_nao_protege() -> None:
+    """Entrada e stop viviam no mesmo `try`: stop que falhava virava `blocked`,
+    indistinguivel de "nao abriu", com posicao aberta e nua."""
+    import workspace.cli as cli
+
+    class SemStop:
+        def capabilities(self):
+            return {"native_sl": False}
+
+    class ComStop:
+        def capabilities(self):
+            return {"native_sl": True}
+
+    with pytest.raises(cli.VenueCapabilityError, match="(?i)recusada"):
+        cli._assert_can_protect_before_entry(SemStop(), 2000.0, label="cex:ETH")
+
+    cli._assert_can_protect_before_entry(ComStop(), 2000.0, label="cex:ETH")
+    cli._assert_can_protect_before_entry(SemStop(), 0.0, label="cex:ETH")  # sem stop planejado
+
+
+def test_falha_de_venue_sai_como_erro_de_configuracao(monkeypatch) -> None:
+    """`VenueCapabilityError` cru de `build_engine` daria traceback onde toda
+    falha de config vizinha usa SystemExit."""
+    import workspace.cli as cli
+
+    assert issubclass(cli.VenueCapabilityError, RuntimeError)
+    fonte = Path("workspace/cli.py").read_text(encoding="utf-8")
+    assert "except VenueCapabilityError as exc:" in fonte
+    assert "raise SystemExit(str(exc)) from exc" in fonte

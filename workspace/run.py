@@ -509,7 +509,9 @@ def setup_check() -> dict[str, object]:
             "dex_id": _clean_env_value(os.environ.get("DEX_ID") or os.environ.get("TRADE_DEX_ID") or "nado"),
             "cex_id": _clean_env_value(os.environ.get("CEX_ID") or os.environ.get("TRADE_CEX_ID") or "kraken"),
             "dex_network": _clean_env_value(os.environ.get("DEX_NETWORK") or os.environ.get("NADO_NETWORK") or os.environ.get("NETWORK") or "testnet"),
-            "cex_sandbox": _clean_env_value(os.environ.get("CEX_SANDBOX") or venues.get("cex_sandbox") or "false"),
+            # Sem fallback para "false": este bloco semeia o env do wizard, e
+            # oferecer producao como "safe default" e o oposto do nome.
+            "cex_sandbox": _clean_env_value(os.environ.get("CEX_SANDBOX") or venues.get("cex_sandbox") or ""),
             "nado_network": _clean_env_value(os.environ.get("NADO_NETWORK") or os.environ.get("NETWORK") or "testnet"),
             "kraken_sandbox": _clean_env_value(os.environ.get("KRAKEN_SANDBOX") or "true"),
             "cex_market_type": _clean_env_value(os.environ.get("CEX_MARKET_TYPE") or os.environ.get("CEX_DEFAULT_TYPE") or ""),

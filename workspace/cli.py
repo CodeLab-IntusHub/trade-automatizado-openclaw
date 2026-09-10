@@ -171,6 +171,7 @@ from workspace.core import (  # noqa: E402
 )
 from workspace.kraken.kraken_integration import KrakenTrader, _first_float  # noqa: E402
 from workspace.nado.units import from_x18  # noqa: E402
+from workspace.venues.config import BUILTIN_KRAKEN_CEX_IDS  # noqa: E402
 from workspace.venues import (  # noqa: E402
     cex_credentials,
     dex_adapter_spec,
@@ -178,7 +179,7 @@ from workspace.venues import (  # noqa: E402
     selected_venues,
     venue_summary,
 )
-from workspace.venues.ccxt_cex import GenericCcxtTrader  # noqa: E402
+from workspace.venues.ccxt_cex import GenericCcxtTrader, VenueCapabilityError  # noqa: E402
 from workspace.venues.custom_dex import load_custom_dex_adapter  # noqa: E402
 from workspace.venues.hyperliquid_dex import HyperliquidDexTrader  # noqa: E402
 
@@ -194,6 +195,10 @@ SETUP_LIVE_STATE_FILE = STATE_DIR / "setup_live_state.json"
 SETUP_LIVE_STATE_LOCK_FILE = STATE_DIR / "setup_live_state.lock"
 # Espera maxima pelo lock do state file antes de desistir (segundos).
 SETUP_STATE_LOCK_TIMEOUT = 30.0
+# Vocabulario aceito para sandbox. Fora dele o valor e recusado, nunca
+# interpretado como producao por descarte.
+SANDBOX_TRUE_VALUES = frozenset({"1", "true", "yes", "sim", "on"})
+SANDBOX_FALSE_VALUES = frozenset({"0", "false", "no", "nao", "off"})
 
 CORE_MAJOR_ALLOWLIST_SYMBOLS = ("BTC/USDT", "BTC/USDC", "ETH/USDT", "ETH/USDC")
 
@@ -4184,6 +4189,17 @@ def _execute_live_hedges(
                     require_subaccount=getattr(eng, "kraken_require_subaccount", False),
                     declared_is_subaccount=getattr(eng, "kraken_api_is_subaccount", False),
                 )
+                # Confere a capacidade de stop ANTES da entrada. Descobrir na
+                # hora de proteger que a venue nao suporta stop nativo deixaria
+                # a posicao aberta e nua, e o contador ainda reportaria
+                # "blocked" -- lendo como "nao abriu".
+                _assert_can_protect_before_entry(
+                    eng.kraken,
+                    eng.protective_stop_price(
+                        action.target_mark_price, "long" if action.is_buy else "short"
+                    ),
+                    label=f"cex:{action.symbol}",
+                )
                 eng.kraken.place_market_order(
                     symbol=action.kraken_symbol,
                     quantity=action.order_qty,
@@ -4228,6 +4244,26 @@ def _execute_live_hedges(
             logger.error("falha no live-hedge %s: %s", action.symbol, exc)
             blocked += 1
     return executed, blocked
+
+
+def _assert_can_protect_before_entry(trader: object, stop_price: float, *, label: str) -> None:
+    """Recusa a entrada quando a venue nao consegue anexar o stop planejado.
+
+    Entrada e stop viviam no mesmo `try`: se o stop falhasse, o `except`
+    contava como `blocked`, indistinguivel de "nao abriu" -- enquanto havia
+    posicao aberta e desprotegida. Verificar antes torna a recusa barata e
+    reversivel, porque nada foi enviado ainda.
+    """
+    if stop_price <= 0:
+        return
+    caps = getattr(trader, "capabilities", None)
+    if not callable(caps):
+        return
+    if not caps().get("native_sl"):
+        raise VenueCapabilityError(
+            f"{label}: a venue nao expoe stop loss nativo, e a entrada exige stop "
+            f"em {stop_price}. Entrada recusada antes de enviar ordem."
+        )
 
 
 def load_state() -> PairState | None:
@@ -5052,7 +5088,7 @@ def _load_pair_cex_market_type(cex_id: str) -> str:
     return _normalize_cex_market_type(value, cex_id)
 
 
-def _resolve_cex_sandbox(cex_id: str) -> bool:
+def _resolve_cex_sandbox(cex_id: str, *, required: bool = True) -> bool:
     """Decide sandbox vs producao para a CEX, exigindo escolha explicita.
 
     O default anterior era `cex_id.startswith("kraken")`: a Kraken ia para
@@ -5068,9 +5104,25 @@ def _resolve_cex_sandbox(cex_id: str) -> bool:
     prefix = _venue_prefix(cex_id)
     raw = _first_env(f"{prefix}_SANDBOX", "CEX_SANDBOX")
     if raw is not None:
-        return raw.lower() in {"1", "true", "yes", "sim"}
+        value = raw.lower()
+        if value in SANDBOX_TRUE_VALUES:
+            return True
+        if value in SANDBOX_FALSE_VALUES:
+            return False
+        # `value in {"1","true",...}` fazia qualquer string desconhecida virar
+        # producao. Num helper cujo contrato e nao assumir producao por
+        # omissao, um typo (`ture`) mandava dinheiro real sem um aviso.
+        raise SystemExit(
+            f"Valor invalido para {prefix}_SANDBOX/CEX_SANDBOX: {raw!r}. "
+            f"Use um de {sorted(SANDBOX_TRUE_VALUES)} ou {sorted(SANDBOX_FALSE_VALUES)}."
+        )
     if _is_builtin_kraken_cex(cex_id):
         return True  # default seguro, ja documentado para a venue nativa
+    if not required:
+        # A perna CEX e construida mesmo quando a execucao nao a usa
+        # (`build_engine(require_kraken=False)`). Exigir decisao para uma venue
+        # que nunca recebe ordem derrubaria runs DEX-only que funcionavam.
+        return True
     raise SystemExit(
         f"Defina {prefix}_SANDBOX ou CEX_SANDBOX (true|false) para a CEX {cex_id}: "
         "esta skill nao assume producao por omissao. Use `false` para operar com "
@@ -5078,8 +5130,8 @@ def _resolve_cex_sandbox(cex_id: str) -> bool:
     )
 
 
-def _load_pair_cex_sandbox(cex_id: str) -> bool:
-    return _resolve_cex_sandbox(cex_id)
+def _load_pair_cex_sandbox(cex_id: str, required: bool = True) -> bool:
+    return _resolve_cex_sandbox(cex_id, required=required)
 
 
 def _pair_cex_credentials(cex_id: str) -> dict[str, str]:
@@ -5489,7 +5541,7 @@ def _is_builtin_hyperliquid_dex(dex_id: str) -> bool:
 
 
 def _is_builtin_kraken_cex(cex_id: str) -> bool:
-    return cex_id in {"kraken", "krakenfutures", "kraken-futures", "kraken_futures", "kraken-spot"}
+    return cex_id in BUILTIN_KRAKEN_CEX_IDS
 
 
 def _load_cex_market_type(cex_id: str) -> str:
@@ -5497,8 +5549,8 @@ def _load_cex_market_type(cex_id: str) -> str:
     return _normalize_cex_market_type(value, cex_id)
 
 
-def _load_cex_sandbox(cex_id: str) -> bool:
-    return _resolve_cex_sandbox(cex_id)
+def _load_cex_sandbox(cex_id: str, required: bool = True) -> bool:
+    return _resolve_cex_sandbox(cex_id, required=required)
 
 
 def _load_hyperliquid_config(dex_id: str) -> dict:
@@ -5599,15 +5651,20 @@ def build_engine(*, require_nado: bool = True, require_kraken: bool = True) -> D
         kraken_require_subaccount = False
         kraken_api_is_subaccount = True
         kraken_allow_main_account_requested = False
-        kraken = GenericCcxtTrader.from_options_json(
-            cex_id,
-            creds["api_key"],
-            creds["api_secret"],
-            api_password=creds["api_password"],
-            market_type=_load_cex_market_type(cex_id),
-            sandbox=_load_cex_sandbox(cex_id),
-            options_json=_first_env("CEX_OPTIONS_JSON", f"{cex_id.upper().replace('-', '_')}_OPTIONS_JSON"),
-        )
+        try:
+            kraken = GenericCcxtTrader.from_options_json(
+                cex_id,
+                creds["api_key"],
+                creds["api_secret"],
+                api_password=creds["api_password"],
+                market_type=_load_cex_market_type(cex_id),
+                sandbox=_load_cex_sandbox(cex_id, required=require_cex),
+                options_json=_first_env("CEX_OPTIONS_JSON", f"{cex_id.upper().replace('-', '_')}_OPTIONS_JSON"),
+            )
+        except VenueCapabilityError as exc:
+            # Falha de configuracao de venue sai como as vizinhas: mensagem
+            # acionavel, nao traceback.
+            raise SystemExit(str(exc)) from exc
 
     privileged_fallback_confirmed = _load_bool_env("DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK", False)
     nado_allow_owner_fallback = False
