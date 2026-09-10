@@ -68,8 +68,8 @@ def _kraken(monkeypatch, response):
     from workspace.kraken.kraken_integration import KrakenTrader
 
     adapter = object.__new__(KrakenTrader)
+    # `KrakenTrader` nao tem `exchange_id`; o rotulo de erro vem de `self.venue`.
     adapter.venue = "futures"
-    adapter.exchange_id = "krakenfutures"
     adapter._resolve_market_symbol = lambda s: s
     adapter.client = type("C", (), {"create_order": lambda *_a, **_k: response})()
     return adapter
@@ -111,3 +111,51 @@ def test_kraken_avisa_quando_a_troca_deixa_a_posicao_nua(monkeypatch) -> None:
     with pytest.raises(VenueCapabilityError, match="(?i)sem stop|desprotegida"):
         adapter.replace_stop_loss("ETH/USDT", 1.0, 2000.0, previous_order_ref={"id": "old"})
     assert cancelados == ["old"]
+
+
+def test_entrada_com_tp_sl_reporta_que_a_protecao_falhou(monkeypatch) -> None:
+    """`place_market_order_with_tp_sl` capturava a excecao, logava e devolvia a
+    ordem de entrada -- descartando exatamente o sinal que a validacao existe
+    para produzir. O chamador nao tinha como saber que a posicao estava nua."""
+    from workspace.kraken.kraken_integration import KrakenPosition, KrakenTrader
+
+    adapter = object.__new__(KrakenTrader)
+    adapter.venue = "futures"
+    adapter._resolve_market_symbol = lambda s: s
+    adapter.place_market_order = lambda *a, **k: {"id": "entry-1", "status": "closed"}
+    adapter.get_position = lambda _s: KrakenPosition(
+        symbol="ETH/USD", side="long", size=1.0, entry_price=2500.0,
+        mark_price=2500.0, unrealized_pnl=0.0, leverage=1.0,
+    )
+    adapter.place_stop_loss = lambda *a, **k: (_ for _ in ()).throw(
+        VenueCapabilityError("kraken rejeitou stop loss")
+    )
+    adapter.place_take_profit = lambda *a, **k: {"id": "tp-1", "status": "open"}
+
+    resultado = adapter.place_market_order_with_tp_sl(
+        "ETH/USD", 1.0, stop_loss=2400.0, take_profit=2600.0, is_buy=True, verify_fill_wait_secs=0.0
+    )
+    assert resultado["protected"] is False
+    assert "stop loss" in str(resultado["protection_error"]).lower()
+    assert resultado["order"]["id"] == "entry-1", "a ordem de entrada continua acessivel"
+
+
+def test_entrada_com_tp_sl_protegida_reporta_as_ordens(monkeypatch) -> None:
+    from workspace.kraken.kraken_integration import KrakenPosition, KrakenTrader
+
+    adapter = object.__new__(KrakenTrader)
+    adapter.venue = "futures"
+    adapter._resolve_market_symbol = lambda s: s
+    adapter.place_market_order = lambda *a, **k: {"id": "entry-1", "status": "closed"}
+    adapter.get_position = lambda _s: KrakenPosition(
+        symbol="ETH/USD", side="long", size=1.0, entry_price=2500.0,
+        mark_price=2500.0, unrealized_pnl=0.0, leverage=1.0,
+    )
+    adapter.place_stop_loss = lambda *a, **k: {"id": "sl-1", "status": "open"}
+    adapter.place_take_profit = lambda *a, **k: {"id": "tp-1", "status": "open"}
+
+    resultado = adapter.place_market_order_with_tp_sl(
+        "ETH/USD", 1.0, stop_loss=2400.0, take_profit=2600.0, is_buy=True, verify_fill_wait_secs=0.0
+    )
+    assert resultado["protected"] is True
+    assert resultado["stop_loss"]["id"] == "sl-1" and resultado["take_profit"]["id"] == "tp-1"

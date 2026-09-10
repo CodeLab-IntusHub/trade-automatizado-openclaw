@@ -10,12 +10,23 @@ from typing import Any, Dict, List, Optional
 import ccxt
 
 from workspace.kraken.kraken_integration import KrakenOrderConflict, KrakenPosition
-from workspace.venues.order_validation import (  # reexport: chamadores antigos importam daqui
+from workspace.venues.order_validation import (  # noqa: F401  (reexport)
     UnconfirmedOrderError,
     VenueCapabilityError,
     validate_order_response,
     wrap_replace_failure,
 )
+
+# Reexportados de proposito: `cli.py` e os testes importam estes nomes daqui
+# desde antes da extracao. Sem o `__all__`, uma limpeza de dead-code removeria
+# os imports "nao usados" e quebraria os chamadores em silencio.
+__all__ = [
+    "GenericCcxtTrader",
+    "UnconfirmedOrderError",
+    "VenueCapabilityError",
+    "validate_order_response",
+    "wrap_replace_failure",
+]
 
 logger = logging.getLogger(__name__)
 

@@ -15,9 +15,11 @@ from __future__ import annotations
 from typing import Any
 
 __all__ = [
+    "REJECTED_ORDER_STATUS",
     "UnconfirmedOrderError",
     "VenueCapabilityError",
     "validate_order_response",
+    "wrap_replace_failure",
 ]
 
 # Denylist, nao allowlist: o CCXT repassa status nao mapeados das venues
