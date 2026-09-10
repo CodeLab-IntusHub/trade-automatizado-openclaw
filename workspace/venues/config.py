@@ -47,9 +47,51 @@ def venue_capabilities(venue_kind: str, venue_id: str) -> dict[str, bool]:
         return _capabilities()
     if kind == "cex":
         if venue in {"kraken", "krakenfutures", "kraken-futures", "kraken_futures", "kraken-spot"}:
+            # Adapter proprio (`KrakenTrader`), com SL/TP implementados aqui.
             return _capabilities(native_sl=True, native_tp=True, cancel_trigger=True, reduce_only=True)
-        return _capabilities(native_sl=True, native_tp=True, cancel_trigger=True, reduce_only=True)
+        return _ccxt_capabilities(venue)
     return _capabilities()
+
+
+def _ccxt_capabilities(venue_id: str) -> dict[str, bool]:
+    """Le as capacidades declaradas pelo proprio CCXT para a exchange.
+
+    Os dois ramos deste `if` devolviam exatamente a mesma coisa -- tudo `True`
+    para qualquer CEX, sem consultar nada. O diagnostico afirmava SL/TP nativo
+    para venues que nao tem, e era com esse diagnostico que o operador decidia
+    se podia usar a corretora.
+
+    O cliente e instanciado sem credencial: `has` e estatico por exchange e nao
+    exige rede nem chave. Venue desconhecida devolve tudo `False` -- na duvida,
+    nao prometer.
+    """
+    try:
+        import ccxt
+    except ImportError:  # pragma: no cover - ccxt e dependencia base
+        return _capabilities()
+
+    exchange_cls = getattr(ccxt, str(venue_id or "").replace("-", "").replace("_", ""), None)
+    if exchange_cls is None:
+        exchange_cls = getattr(ccxt, str(venue_id or ""), None)
+    if exchange_cls is None:
+        return _capabilities()
+    try:
+        table = getattr(exchange_cls(), "has", None) or {}
+    except Exception:  # noqa: BLE001 - exchange invalida/instanciacao recusada
+        return _capabilities()
+
+    def has(*names: str) -> bool:
+        return any(bool(table.get(name)) for name in names)
+
+    return _capabilities(
+        native_sl=has("createStopLossOrder", "createStopOrder", "createTriggerOrder"),
+        native_tp=has("createTakeProfitOrder", "createTriggerOrder"),
+        edit_stop=has("editOrder"),
+        cancel_trigger=has("cancelOrder"),
+        # `reduceOnly` so existe em derivativo; o tipo de mercado efetivo vem
+        # da configuracao, entao aqui reportamos o que a exchange oferece.
+        reduce_only=has("createOrder"),
+    )
 
 
 def _clean(value: str | None) -> str:
@@ -189,7 +231,12 @@ def venue_summary() -> dict[str, Any]:
         ),
         "cex_adapter": "builtin:kraken" if selection.cex_id in {"kraken", "krakenfutures", "kraken-futures", "kraken_futures", "kraken-spot"} else "ccxt",
         "cex_market_type": _normalize_cex_market_type(_first_env("CEX_MARKET_TYPE", "CEX_DEFAULT_TYPE", f"{_prefix(selection.cex_id)}_MARKET_TYPE"), selection.cex_id),
-        "cex_sandbox": _first_env("CEX_SANDBOX", f"{_prefix(selection.cex_id)}_SANDBOX") or ("true" if selection.cex_id.startswith("kraken") else "false"),
+        # "nao_definido" em vez de assumir producao: o CLI recusa essa config,
+        # e o diagnostico nao pode dar um veredito diferente do executor.
+        "cex_sandbox": (
+            _first_env(f"{_prefix(selection.cex_id)}_SANDBOX", "CEX_SANDBOX")
+            or ("true" if selection.cex_id.startswith("kraken") else "nao_definido")
+        ),
         "cex_required_env": cex_names,
         "cex_credentials_configured": bool(cex_creds["api_key"] and cex_creds["api_secret"]),
         "dex_required_env": dex_names,

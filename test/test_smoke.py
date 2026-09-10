@@ -811,7 +811,18 @@ def test_generic_ccxt_trader_uses_any_ccxt_exchange(monkeypatch):
     from workspace.venues.ccxt_cex import GenericCcxtTrader
 
     class FakeExchange:
-        has = {"fetchFundingRate": True, "fetchPositions": True, "setLeverage": False, "setMarginMode": False}
+        # `has` precisa declarar o que o teste exercita: sem
+        # `createStopLossOrder`, este fake modelava uma exchange incapaz de
+        # stop loss nativo enquanto o teste afirmava o contrario.
+        has = {
+            "fetchFundingRate": True,
+            "fetchPositions": True,
+            "setLeverage": False,
+            "setMarginMode": False,
+            "createStopLossOrder": True,
+            "createTakeProfitOrder": True,
+            "cancelOrder": True,
+        }
 
         def __init__(self, config):
             self.config = config

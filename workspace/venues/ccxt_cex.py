@@ -14,6 +14,15 @@ from workspace.kraken.kraken_integration import KrakenOrderConflict, KrakenPosit
 logger = logging.getLogger(__name__)
 
 
+class VenueCapabilityError(RuntimeError):
+    """A venue nao suporta a operacao, ou nao confirmou que a executou.
+
+    Existe para que "esta corretora nao faz isso" nunca seja confundido com
+    sucesso. Todo caminho que protege posicao levanta isto em vez de seguir.
+    """
+
+
+
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         if value is None:
@@ -86,8 +95,15 @@ class GenericCcxtTrader:
         if self.sandbox:
             try:
                 self.client.set_sandbox_mode(True)
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("Sandbox indisponivel para %s: %s", self.exchange_id, exc)
+            except Exception as exc:
+                # Nem toda CEX tem testnet. Seguir apos a falha deixaria o
+                # cliente apontando para producao com as chaves reais do
+                # usuario, que pediu exatamente o contrario.
+                raise VenueCapabilityError(
+                    f"sandbox indisponivel em {self.exchange_id}: {exc}. "
+                    f"Defina {self.exchange_id.upper()}_SANDBOX=false para operar em producao "
+                    "de forma explicita, ou escolha outra venue."
+                ) from exc
         if load_markets:
             try:
                 self.client.load_markets()
@@ -385,25 +401,73 @@ class GenericCcxtTrader:
         logger.info("[%s %s] MARKET %s %s %s", self.exchange_id, self.venue, side.upper(), quantity, native)
         return self.client.create_order(native, "market", side, quantity, None, params)
 
+    _ACCEPTED_ORDER_STATUS = {"open", "closed", "new", "live", "untriggered", "accepted", "pending"}
+
+    def _validate_order_response(self, response: Any, *, what: str) -> dict[str, Any]:
+        """Confirma que a corretora aceitou a ordem.
+
+        Antes, qualquer objeto nao-`None` contava como sucesso: uma rejeicao
+        estruturada passava por "protecao anexada". Como o chamador so testava
+        `if order is None`, a posicao ficava sem protecao e ninguem sabia.
+        """
+        if not isinstance(response, dict) or not response.get("id"):
+            raise VenueCapabilityError(
+                f"{self.exchange_id} nao confirmou {what}: resposta sem id de ordem ({response!r})"
+            )
+        status = str(response.get("status") or "").lower()
+        if status and status not in self._ACCEPTED_ORDER_STATUS:
+            raise VenueCapabilityError(
+                f"{self.exchange_id} rejeitou {what}: status={status!r} (ordem {response.get('id')})"
+            )
+        return response
+
+    def _require(self, capability: str, what: str) -> None:
+        if not self.capabilities().get(capability):
+            raise VenueCapabilityError(
+                f"{self.exchange_id} ({self.venue}) nao expoe {what} nativo via CCXT. "
+                "Enviar a ordem assim mesmo poderia virar uma ordem a mercado comum, "
+                "dobrando a posicao em vez de protege-la."
+            )
+
     def place_stop_loss(self, symbol: str, quantity: float, trigger_price: float, is_long: bool = True) -> dict[str, Any]:
+        self._require("native_sl", "stop loss")
         native = self._resolve_market_symbol(symbol)
         side = "sell" if is_long else "buy"
         params = {"stopLossPrice": trigger_price, "reduceOnly": True}
-        return self.client.create_order(native, "market", side, quantity, None, params)
+        return self._validate_order_response(
+            self.client.create_order(native, "market", side, quantity, None, params),
+            what="stop loss",
+        )
 
     def place_take_profit(self, symbol: str, quantity: float, trigger_price: float, is_long: bool = True) -> dict[str, Any]:
+        self._require("native_tp", "take profit")
         native = self._resolve_market_symbol(symbol)
         side = "sell" if is_long else "buy"
         params = {"takeProfitPrice": trigger_price, "reduceOnly": True}
-        return self.client.create_order(native, "market", side, quantity, None, params)
+        return self._validate_order_response(
+            self.client.create_order(native, "market", side, quantity, None, params),
+            what="take profit",
+        )
+
+    def _has(self, *features: str) -> bool:
+        table = getattr(self.client, "has", None) or {}
+        return any(bool(table.get(name)) for name in features)
 
     def capabilities(self) -> Dict[str, bool]:
+        """Le as capacidades do proprio CCXT em vez de declara-las.
+
+        A versao anterior devolvia tudo `True` para qualquer exchange, sem
+        consultar nada -- entao o diagnostico afirmava SL/TP nativo mesmo em
+        venue que nao tem. O CCXT ja publica isso em `client.has`.
+        """
         return {
-            "native_sl": True,
-            "native_tp": True,
-            "edit_stop": False,
-            "cancel_trigger": True,
-            "reduce_only": True,
+            "native_sl": self._has("createStopLossOrder", "createStopOrder", "createTriggerOrder"),
+            "native_tp": self._has("createTakeProfitOrder", "createTriggerOrder"),
+            "edit_stop": self._has("editOrder"),
+            "cancel_trigger": self._has("cancelOrder"),
+            # `reduceOnly` so faz sentido em derivativo; em spot nao existe
+            # posicao a reduzir.
+            "reduce_only": self.venue in {"swap", "future"},
         }
 
     def replace_stop_loss(

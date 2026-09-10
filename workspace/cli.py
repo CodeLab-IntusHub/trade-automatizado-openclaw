@@ -5052,13 +5052,34 @@ def _load_pair_cex_market_type(cex_id: str) -> str:
     return _normalize_cex_market_type(value, cex_id)
 
 
-def _load_pair_cex_sandbox(cex_id: str) -> bool:
+def _resolve_cex_sandbox(cex_id: str) -> bool:
+    """Decide sandbox vs producao para a CEX, exigindo escolha explicita.
+
+    O default anterior era `cex_id.startswith("kraken")`: a Kraken ia para
+    sandbox e **toda outra CEX ia para producao**. Quem trocasse de venue
+    herdava dinheiro real sem nunca ter dito isso. Como nem toda exchange tem
+    testnet, inverter o default tambem nao serve -- silenciaria o problema no
+    outro sentido. Entao a venue sem default seguro conhecido exige decisao.
+
+    Precedencia: `<VENUE>_SANDBOX` vence `CEX_SANDBOX`. As duas versoes deste
+    helper discordavam nisso; a especifica ganhar e a convencao do resto da
+    configuracao.
+    """
     prefix = _venue_prefix(cex_id)
-    default = cex_id.startswith("kraken")
     raw = _first_env(f"{prefix}_SANDBOX", "CEX_SANDBOX")
-    if raw is None:
-        return default
-    return raw.lower() in {"1", "true", "yes", "sim"}
+    if raw is not None:
+        return raw.lower() in {"1", "true", "yes", "sim"}
+    if _is_builtin_kraken_cex(cex_id):
+        return True  # default seguro, ja documentado para a venue nativa
+    raise SystemExit(
+        f"Defina {prefix}_SANDBOX ou CEX_SANDBOX (true|false) para a CEX {cex_id}: "
+        "esta skill nao assume producao por omissao. Use `false` para operar com "
+        "dinheiro real de forma explicita."
+    )
+
+
+def _load_pair_cex_sandbox(cex_id: str) -> bool:
+    return _resolve_cex_sandbox(cex_id)
 
 
 def _pair_cex_credentials(cex_id: str) -> dict[str, str]:
@@ -5477,8 +5498,7 @@ def _load_cex_market_type(cex_id: str) -> str:
 
 
 def _load_cex_sandbox(cex_id: str) -> bool:
-    default = cex_id.startswith("kraken")
-    return _load_bool_env("CEX_SANDBOX", _load_bool_env(f"{cex_id.upper().replace('-', '_')}_SANDBOX", default))
+    return _resolve_cex_sandbox(cex_id)
 
 
 def _load_hyperliquid_config(dex_id: str) -> dict:
