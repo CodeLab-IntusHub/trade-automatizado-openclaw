@@ -22,7 +22,6 @@ class VenueCapabilityError(RuntimeError):
     """
 
 
-
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         if value is None:
@@ -468,7 +467,16 @@ class GenericCcxtTrader:
         if not order_id:
             return {"cancelled": False, "order": None, "skipped_reason": "missing_previous_order_id"}
         self.cancel_order(order_id, symbol)
-        order = self.place_stop_loss(symbol, quantity, trigger_price, is_long=is_long)
+        try:
+            order = self.place_stop_loss(symbol, quantity, trigger_price, is_long=is_long)
+        except VenueCapabilityError as exc:
+            # O stop antigo ja foi cancelado neste ponto. Sem este aviso, o
+            # operador le no log so que a troca falhou -- e nao que a posicao
+            # ficou sem stop nenhum, que e a parte urgente.
+            raise VenueCapabilityError(
+                f"{exc} | ATENCAO: o stop anterior ({order_id}) JA FOI CANCELADO, "
+                f"entao {symbol} esta sem stop na corretora ate uma nova tentativa ter sucesso."
+            ) from exc
         return {"cancelled": True, "order": order}
 
     def cancel_all_orders(self, symbol: Optional[str] = None):

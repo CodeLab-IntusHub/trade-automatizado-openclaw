@@ -89,3 +89,25 @@ def test_ordem_sem_id_avisa_que_pode_existir_na_corretora(monkeypatch) -> None:
 def test_ordem_confirmada_e_devolvida(monkeypatch) -> None:
     trader = _make(monkeypatch, {"id": "sl-1", "status": "open"})
     assert trader.place_stop_loss("ETH/USDT:USDT", 1.0, 2000.0, is_long=True)["id"] == "sl-1"
+
+
+def test_falha_apos_o_cancelamento_avisa_que_a_posicao_ficou_nua(monkeypatch) -> None:
+    """`replace_stop_loss` cancela o stop vivo antes de criar o novo.
+
+    Se a criacao falhar, a posicao fica sem stop nenhum. O erro precisa dizer
+    isso: o chamador loga a mensagem e e por ela que o operador descobre.
+    """
+    trader = _make(monkeypatch, {"status": "rejected", "id": "x"})
+    cancelados = []
+    trader.cancel_order = lambda order_id, symbol=None: cancelados.append(order_id)
+
+    with pytest.raises(VenueCapabilityError, match="(?i)sem stop|desprotegida"):
+        trader.replace_stop_loss("ETH/USDT:USDT", 1.0, 2000.0, previous_order_ref={"id": "old-sl"})
+    assert cancelados == ["old-sl"], "o cancelamento ocorreu; o aviso tem de refletir isso"
+
+
+def test_substituicao_bem_sucedida_nao_alarma(monkeypatch) -> None:
+    trader = _make(monkeypatch, {"id": "sl-2", "status": "open"})
+    trader.cancel_order = lambda order_id, symbol=None: None
+    resultado = trader.replace_stop_loss("ETH/USDT:USDT", 1.0, 2000.0, previous_order_ref={"id": "old-sl"})
+    assert resultado["cancelled"] is True and resultado["order"]["id"] == "sl-2"
