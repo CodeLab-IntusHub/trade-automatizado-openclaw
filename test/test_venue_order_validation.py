@@ -16,9 +16,13 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# ccxt e dependencia base (workspace/requirements.txt). Ausencia e falha de
-# ambiente, nao motivo para pular silenciosamente testes de protecao de ordem.
-import ccxt  # noqa: E402
+# ccxt e dependencia base (workspace/requirements.txt) e o CI a instala, entao
+# na pratica isto nunca pula la -- estes testes sempre valem nota. Localmente,
+# um import duro faria o pytest abortar a COLETA INTEIRA por um modulo, em vez
+# de reportar so este; o `reason` mantem o pulo visivel.
+ccxt = pytest.importorskip(
+    "ccxt", reason="ccxt e dependencia base; ausente so em ambiente local incompleto"
+)
 
 from workspace.venues.ccxt_cex import GenericCcxtTrader, VenueCapabilityError  # noqa: E402
 
@@ -82,7 +86,7 @@ def test_ordem_sem_id_avisa_que_pode_existir_na_corretora(monkeypatch) -> None:
     """Sem id nao da para cancelar nem substituir depois; tratar como sucesso
     deixaria um stop possivelmente vivo e irrastreavel."""
     trader = _make(monkeypatch, {"status": "open"})
-    with pytest.raises(VenueCapabilityError, match="(?i)verifique a posicao"):
+    with pytest.raises(VenueCapabilityError, match="(?i)confira as ordens abertas"):
         trader.place_stop_loss("ETH/USDT:USDT", 1.0, 2000.0, is_long=True)
 
 
@@ -111,3 +115,35 @@ def test_substituicao_bem_sucedida_nao_alarma(monkeypatch) -> None:
     trader.cancel_order = lambda order_id, symbol=None: None
     resultado = trader.replace_stop_loss("ETH/USDT:USDT", 1.0, 2000.0, previous_order_ref={"id": "old-sl"})
     assert resultado["cancelled"] is True and resultado["order"]["id"] == "sl-2"
+
+
+@pytest.mark.parametrize("erro", ["RequestTimeout", "NetworkError", "ExchangeError", "InvalidOrder", "InsufficientFunds"])
+def test_erro_cru_do_ccxt_apos_cancelamento_tambem_avisa(monkeypatch, erro) -> None:
+    """O aviso de posicao nua nao pode cobrir so a rejeicao estruturada.
+
+    `create_order` levanta excecao crua do CCXT muito mais vezes do que
+    devolve dict de rejeicao. Se o aviso so cobre o caso raro, o caminho
+    dominante segue silencioso -- que era o proposito da correcao.
+    """
+    trader = _make(monkeypatch, {"id": "ok", "status": "open"})
+    trader.cancel_order = lambda order_id, symbol=None: None
+
+    def explode(*_a, **_k):
+        raise getattr(ccxt, erro)("falha de rede")
+
+    trader.client.create_order = explode
+    with pytest.raises(VenueCapabilityError, match="(?i)sem stop|desprotegida"):
+        trader.replace_stop_loss("ETH/USDT:USDT", 1.0, 2000.0, previous_order_ref={"id": "old-sl"})
+
+
+def test_ordem_sem_id_nao_manda_retentar_por_cima_de_stop_vivo(monkeypatch) -> None:
+    """Sem id, a ordem PODE ter sido criada. Mandar tentar de novo empilharia
+    um segundo stop reduce-only sobre um vivo e irrastreavel."""
+    trader = _make(monkeypatch, {"status": "open"})
+    trader.cancel_order = lambda order_id, symbol=None: None
+    with pytest.raises(VenueCapabilityError) as exc:
+        trader.replace_stop_loss("ETH/USDT:USDT", 1.0, 2000.0, previous_order_ref={"id": "old-sl"})
+    msg = str(exc.value).lower()
+    assert "pode ter sido criada" in msg
+    assert "sem stop" not in msg, "nao pode afirmar ausencia e possivel existencia na mesma linha"
+    assert "confira" in msg or "verifique" in msg

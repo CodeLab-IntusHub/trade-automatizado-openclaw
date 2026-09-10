@@ -2288,6 +2288,30 @@ def _record_native_order_ref(
     return ref
 
 
+def _invalidate_native_stop_ref(state: ManagedSetupState, role: str, *, reason: str) -> None:
+    """Marca a referencia de stop nativo como morta.
+
+    `replace_stop_loss` cancela o stop antigo antes de criar o novo. Quando a
+    criacao falha, a referencia guardada aponta para uma ordem que nao existe
+    mais -- e o ciclo seguinte tentaria cancelar esse id de novo, empilhando um
+    `OrderNotFound` por cima do erro real e escondendo que a posicao esta nua.
+    """
+    native_orders = state.metadata.get("native_orders")
+    if not isinstance(native_orders, dict):
+        return
+    role_orders = native_orders.get(role)
+    if not isinstance(role_orders, dict):
+        return
+    ref = role_orders.get("sl")
+    if not isinstance(ref, dict):
+        return
+    ref.pop("id", None)
+    ref.pop("digest", None)
+    ref["tracked"] = False
+    ref["invalidated_reason"] = reason
+    ref["invalidated_at"] = time.time()
+
+
 def _role_stop_order_ref(state: ManagedSetupState, role: str) -> dict[str, Any]:
     native_orders = state.metadata.get("native_orders")
     if not isinstance(native_orders, dict):
@@ -2369,7 +2393,11 @@ def _replace_native_stop_loss(eng: DeltaNeutralEngine, state: ManagedSetupState,
                 )
         except Exception as exc:  # noqa: BLE001
             logger.error("setup-live stop-alvo | falha ao trocar SL nativo %s em %s: %s", role, state.symbol, exc)
-            results.append({"role": role, "replaced": False, "reason": str(exc)})
+            # A troca cancela antes de criar: a referencia guardada agora
+            # aponta para ordem morta. Deixa-la faria o proximo ciclo cancelar
+            # um id inexistente em vez de perceber a posicao desprotegida.
+            _invalidate_native_stop_ref(state, role, reason=str(exc))
+            results.append({"role": role, "replaced": False, "reason": str(exc), "stop_ref_invalidated": True})
             continue
         order = result.get("order") if isinstance(result, dict) else result
         skipped_reason = result.get("skipped_reason") if isinstance(result, dict) else ""

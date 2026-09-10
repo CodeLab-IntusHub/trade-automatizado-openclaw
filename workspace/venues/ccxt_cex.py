@@ -22,6 +22,14 @@ class VenueCapabilityError(RuntimeError):
     """
 
 
+class UnconfirmedOrderError(VenueCapabilityError):
+    """A ordem pode ter sido criada, mas o bot nao consegue rastrea-la.
+
+    Distinto de "nao existe": quem trata isto nao pode recomendar retry, que
+    empilharia uma segunda ordem sobre uma viva e invisivel.
+    """
+
+
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         if value is None:
@@ -419,9 +427,10 @@ class GenericCcxtTrader:
         if not response.get("id"):
             # Sem id nao da para cancelar nem substituir depois. Tratar como
             # sucesso deixaria um stop possivelmente vivo e irrastreavel.
-            raise VenueCapabilityError(
-                f"{self.exchange_id} nao devolveu id para {what}; a ordem pode ter sido "
-                "criada e nao podera ser cancelada por este bot. Verifique a posicao na corretora."
+            raise UnconfirmedOrderError(
+                f"{self.exchange_id} nao devolveu id para {what}: a ordem PODE ter sido criada "
+                "e este bot nao consegue rastrea-la. Confira as ordens abertas na corretora "
+                "antes de tentar de novo -- uma nova tentativa empilharia um segundo stop."
             )
         return response
 
@@ -469,13 +478,21 @@ class GenericCcxtTrader:
         self.cancel_order(order_id, symbol)
         try:
             order = self.place_stop_loss(symbol, quantity, trigger_price, is_long=is_long)
-        except VenueCapabilityError as exc:
-            # O stop antigo ja foi cancelado neste ponto. Sem este aviso, o
-            # operador le no log so que a troca falhou -- e nao que a posicao
-            # ficou sem stop nenhum, que e a parte urgente.
+        except UnconfirmedOrderError as exc:
+            # Caso ambiguo: pode haver um stop novo, vivo e sem id. Nao afirmar
+            # ausencia nem mandar retentar -- as duas coisas causariam dano.
+            raise UnconfirmedOrderError(
+                f"{exc} | O stop anterior ({order_id}) ja foi cancelado."
+            ) from exc
+        except Exception as exc:
+            # `create_order` levanta excecao crua do CCXT (timeout, rede,
+            # rejeicao da exchange) muito mais vezes do que devolve dict de
+            # rejeicao. Cobrir so o caso estruturado deixaria o caminho
+            # dominante sem aviso, que era exatamente o buraco a fechar.
             raise VenueCapabilityError(
-                f"{exc} | ATENCAO: o stop anterior ({order_id}) JA FOI CANCELADO, "
-                f"entao {symbol} esta sem stop na corretora ate uma nova tentativa ter sucesso."
+                f"{type(exc).__name__}: {exc} | ATENCAO: o stop anterior ({order_id}) "
+                f"JA FOI CANCELADO, entao {symbol} esta sem stop na corretora ate "
+                "uma nova tentativa ter sucesso."
             ) from exc
         return {"cancelled": True, "order": order}
 
