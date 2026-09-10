@@ -14,6 +14,22 @@ from workspace.kraken.kraken_integration import KrakenOrderConflict, KrakenPosit
 logger = logging.getLogger(__name__)
 
 
+class VenueCapabilityError(RuntimeError):
+    """A venue nao confirmou a operacao, ou nao consegue executa-la.
+
+    Existe para que "a corretora nao confirmou" nunca seja confundido com
+    sucesso. Todo caminho que protege posicao levanta isto em vez de seguir.
+    """
+
+
+class UnconfirmedOrderError(VenueCapabilityError):
+    """A ordem pode ter sido criada, mas o bot nao consegue rastrea-la.
+
+    Distinto de "nao existe": quem trata isto nao pode recomendar retry, que
+    empilharia uma segunda ordem sobre uma viva e invisivel.
+    """
+
+
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         if value is None:
@@ -385,17 +401,56 @@ class GenericCcxtTrader:
         logger.info("[%s %s] MARKET %s %s %s", self.exchange_id, self.venue, side.upper(), quantity, native)
         return self.client.create_order(native, "market", side, quantity, None, params)
 
+    # Denylist, nao allowlist: o CCXT repassa status nao mapeados das venues
+    # ("active", "triggered", "working"...). Uma allowlist rejeitaria ordem
+    # aceita -- o chamador marcaria a posicao como desprotegida e um retry
+    # anexaria um segundo stop para a mesma quantidade.
+    _REJECTED_ORDER_STATUS = frozenset({"canceled", "cancelled", "rejected", "expired", "failed"})
+
+    def _validate_order_response(self, response: Any, *, what: str) -> dict[str, Any]:
+        """Confirma que a corretora aceitou a ordem de protecao.
+
+        Antes, qualquer objeto nao-`None` contava como sucesso: uma rejeicao
+        estruturada passava por "protecao anexada", porque os chamadores so
+        testam `if order is None`. A posicao ficava sem protecao e ninguem
+        sabia.
+        """
+        if not isinstance(response, dict):
+            raise VenueCapabilityError(
+                f"{self.exchange_id} nao confirmou {what}: resposta inesperada ({type(response).__name__})"
+            )
+        status = str(response.get("status") or "").lower()
+        if status in self._REJECTED_ORDER_STATUS:
+            raise VenueCapabilityError(
+                f"{self.exchange_id} rejeitou {what}: status={status!r} (ordem {response.get('id')})"
+            )
+        if not response.get("id"):
+            # Sem id nao da para cancelar nem substituir depois. Tratar como
+            # sucesso deixaria um stop possivelmente vivo e irrastreavel.
+            raise UnconfirmedOrderError(
+                f"{self.exchange_id} nao devolveu id para {what}: a ordem PODE ter sido criada "
+                "e este bot nao consegue rastrea-la. Confira as ordens abertas na corretora "
+                "antes de tentar de novo -- uma nova tentativa empilharia um segundo stop."
+            )
+        return response
+
     def place_stop_loss(self, symbol: str, quantity: float, trigger_price: float, is_long: bool = True) -> dict[str, Any]:
         native = self._resolve_market_symbol(symbol)
         side = "sell" if is_long else "buy"
         params = {"stopLossPrice": trigger_price, "reduceOnly": True}
-        return self.client.create_order(native, "market", side, quantity, None, params)
+        return self._validate_order_response(
+            self.client.create_order(native, "market", side, quantity, None, params),
+            what="stop loss",
+        )
 
     def place_take_profit(self, symbol: str, quantity: float, trigger_price: float, is_long: bool = True) -> dict[str, Any]:
         native = self._resolve_market_symbol(symbol)
         side = "sell" if is_long else "buy"
         params = {"takeProfitPrice": trigger_price, "reduceOnly": True}
-        return self.client.create_order(native, "market", side, quantity, None, params)
+        return self._validate_order_response(
+            self.client.create_order(native, "market", side, quantity, None, params),
+            what="take profit",
+        )
 
     def capabilities(self) -> Dict[str, bool]:
         return {
@@ -421,7 +476,24 @@ class GenericCcxtTrader:
         if not order_id:
             return {"cancelled": False, "order": None, "skipped_reason": "missing_previous_order_id"}
         self.cancel_order(order_id, symbol)
-        order = self.place_stop_loss(symbol, quantity, trigger_price, is_long=is_long)
+        try:
+            order = self.place_stop_loss(symbol, quantity, trigger_price, is_long=is_long)
+        except UnconfirmedOrderError as exc:
+            # Caso ambiguo: pode haver um stop novo, vivo e sem id. Nao afirmar
+            # ausencia nem mandar retentar -- as duas coisas causariam dano.
+            raise UnconfirmedOrderError(
+                f"{exc} | O stop anterior ({order_id}) ja foi cancelado."
+            ) from exc
+        except Exception as exc:
+            # `create_order` levanta excecao crua do CCXT (timeout, rede,
+            # rejeicao da exchange) muito mais vezes do que devolve dict de
+            # rejeicao. Cobrir so o caso estruturado deixaria o caminho
+            # dominante sem aviso, que era exatamente o buraco a fechar.
+            raise VenueCapabilityError(
+                f"{type(exc).__name__}: {exc} | ATENCAO: o stop anterior ({order_id}) "
+                f"JA FOI CANCELADO, entao {symbol} esta sem stop na corretora ate "
+                "uma nova tentativa ter sucesso."
+            ) from exc
         return {"cancelled": True, "order": order}
 
     def cancel_all_orders(self, symbol: Optional[str] = None):
