@@ -1,0 +1,45 @@
+//@version=5
+indicator("Aspira Institutional Strict 1H", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+
+emaFastLen = input.int(9, "EMA fast", minval=1)
+emaMidLen = input.int(21, "EMA mid", minval=1)
+emaTrendLen = input.int(50, "EMA trend", minval=1)
+rsiLen = input.int(14, "RSI length", minval=1)
+volumeAvgLen = input.int(20, "Volume SMA length", minval=1)
+rsiMin = input.float(52.0, "RSI min", minval=0.0, maxval=100.0, step=0.5)
+rsiMax = input.float(65.0, "RSI max", minval=0.0, maxval=100.0, step=0.5)
+volumeMultiplier = input.float(1.15, "Volume multiplier", minval=0.0, step=0.05)
+emaGapMin = input.float(0.001, "EMA gap min", minval=0.0, step=0.0001)
+macdGapMin = input.float(0.002, "MACD gap min", minval=0.0, step=0.0001)
+macdGapMax = input.float(0.005, "MACD gap max", minval=0.0, step=0.0001)
+stopPct = input.float(0.02, "Stop pct", minval=0.0, step=0.001)
+enforceTimeframe = input.bool(true, "Enforce 1H timeframe")
+
+timeframeOk = not enforceTimeframe or timeframe.period == "60"
+ema9 = ta.ema(close, emaFastLen)
+ema21 = ta.ema(close, emaMidLen)
+ema50 = ta.ema(close, emaTrendLen)
+rsi = ta.rsi(close, rsiLen)
+[macd, macdSignal, _] = ta.macd(close, 12, 26, 9)
+volumeSma = ta.sma(volume, volumeAvgLen)
+emaGap = close > 0 ? (ema9 - ema21) / close : 0.0
+macdGap = close > 0 ? (macd - macdSignal) / close : 0.0
+
+longSignal = timeframeOk and bar_index >= 50 and ema9 > ema21 and close > ema50 and rsi > rsiMin and rsi < rsiMax and volume > volumeSma * volumeMultiplier and emaGap > emaGapMin and macdGap > macdGapMin and macdGap < macdGapMax
+stopPrice = close * (1.0 - stopPct)
+risk = close - stopPrice
+tp1 = close + risk
+tp2 = close + risk * 1.5
+tp3 = close + risk * 2.0
+tp4 = close + risk * 2.5
+
+plot(ema9, "EMA 9", color=color.new(color.aqua, 0), linewidth=1)
+plot(ema21, "EMA 21", color=color.new(color.yellow, 0), linewidth=1)
+plot(ema50, "EMA 50", color=color.new(color.orange, 0), linewidth=2)
+plotshape(longSignal, title="Institutional Strict LONG", style=shape.labelup, location=location.belowbar, color=color.new(color.lime, 0), text="INST LONG", textcolor=color.black)
+
+if longSignal
+    label.new(bar_index, low, "Institutional Strict LONG\nRSI " + str.tostring(rsi, "#.0") + " | Vol " + str.tostring(volume / volumeSma, "#.00") + "x\nSL " + str.tostring(stopPrice, format.mintick) + " | TP4 " + str.tostring(tp4, format.mintick), style=label.style_label_up, color=color.new(color.lime, 0), textcolor=color.black)
+
+alertcondition(longSignal, "Institutional Strict 1h LONG", "Institutional Strict 1h LONG {{ticker}} {{interval}}")
+

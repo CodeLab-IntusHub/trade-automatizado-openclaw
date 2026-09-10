@@ -1,0 +1,18 @@
+{
+  "name": "trade-automatizado-openclaw",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Playwright checks for the OpenClaw trade dashboard.",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
+    "playwright:install": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,43 @@
+//@version=5
+indicator("Aspira Funding Arb 1H Context", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+
+fundingSource = input.string("manual", "Funding source", options=["manual", "proxy"])
+manualFundingRate = input.float(0.0, "Manual funding rate 8h", step=0.00001)
+manualSpreadBps = input.float(0.0, "Manual spread bps", step=0.1)
+minRate = input.float(0.00030, "Min funding rate", minval=0.0, step=0.00001)
+neutralExitRate = input.float(0.00002, "Neutral exit rate", minval=0.0, step=0.00001)
+maxHoldHours = input.int(72, "Max hold hours", minval=8, step=8)
+maxSpreadBps = input.float(20.0, "Max spread bps", minval=0.0, step=0.5)
+minExpectedCarryPct = input.float(0.15, "Min expected carry pct", minval=0.0, step=0.01)
+basisLen = input.int(21, "Proxy basis EMA", minval=1)
+enforceTimeframe = input.bool(true, "Enforce 1H timeframe")
+
+timeframeOk = not enforceTimeframe or timeframe.period == "60"
+basis = ta.ema(close, basisLen)
+basisBps = close > 0 ? (close - basis) / close * 10000.0 : 0.0
+pctChange = close[1] > 0 ? (close - close[1]) / close[1] : 0.0
+proxyFunding = math.max(math.min(ta.ema(pctChange, 8) * 0.12 + (basisBps / 10000.0) * 0.02, 0.00045), -0.00045)
+fundingRate = fundingSource == "manual" ? manualFundingRate : proxyFunding
+spreadBps = fundingSource == "manual" ? manualSpreadBps : basisBps
+maxHoldIntervals = math.max(1.0, maxHoldHours / 8.0)
+expectedCarryPct = math.abs(fundingRate) * 100.0 * maxHoldIntervals
+
+contextOk = timeframeOk and math.abs(fundingRate) >= minRate and math.abs(spreadBps) <= maxSpreadBps and expectedCarryPct >= minExpectedCarryPct
+positiveFunding = contextOk and fundingRate > 0
+negativeFunding = contextOk and fundingRate < 0
+neutralFunding = math.abs(fundingRate) <= neutralExitRate
+
+plot(basis, "Proxy basis EMA", color=color.new(color.aqua, 0), linewidth=2)
+plotshape(positiveFunding, title="Funding Arb positive carry", style=shape.labelup, location=location.belowbar, color=color.new(color.lime, 0), text="FUND +", textcolor=color.black)
+plotshape(negativeFunding, title="Funding Arb negative carry", style=shape.labeldown, location=location.abovebar, color=color.new(color.red, 0), text="FUND -", textcolor=color.white)
+plotshape(neutralFunding, title="Funding neutral", style=shape.circle, location=location.bottom, color=color.new(color.gray, 0), size=size.tiny)
+
+if positiveFunding
+    label.new(bar_index, low, "Funding Arb context LONG\nFunding " + str.tostring(fundingRate * 100, "#.0000") + "%/8h | Spread " + str.tostring(spreadBps, "#.0") + "bps\nCarry exp " + str.tostring(expectedCarryPct, "#.000") + "%", style=label.style_label_up, color=color.new(color.lime, 0), textcolor=color.black)
+if negativeFunding
+    label.new(bar_index, high, "Funding Arb context SHORT\nFunding " + str.tostring(fundingRate * 100, "#.0000") + "%/8h | Spread " + str.tostring(spreadBps, "#.0") + "bps\nCarry exp " + str.tostring(expectedCarryPct, "#.000") + "%", style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white)
+
+alertcondition(positiveFunding, "Funding Arb 1h positive carry", "Funding Arb 1h positive carry {{ticker}} {{interval}}")
+alertcondition(negativeFunding, "Funding Arb 1h negative carry", "Funding Arb 1h negative carry {{ticker}} {{interval}}")
+alertcondition(neutralFunding, "Funding Arb neutral exit", "Funding Arb neutral exit {{ticker}} {{interval}}")
+

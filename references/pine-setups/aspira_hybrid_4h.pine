@@ -1,0 +1,50 @@
+//@version=5
+indicator("Aspira HYBRID 4H", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+
+emaLen = input.int(50, "EMA trend", minval=1)
+rsiLen = input.int(14, "RSI length", minval=1)
+stochLen = input.int(14, "Stoch length", minval=1)
+volumeAvgLen = input.int(20, "Volume SMA length", minval=1)
+atrLen = input.int(14, "ATR length", minval=1)
+profile = input.string("moderate", "Risk profile", options=["conservative", "moderate", "degen"])
+enforceTimeframe = input.bool(true, "Enforce 4H timeframe")
+
+timeframeOk = not enforceTimeframe or timeframe.period == "240"
+ema50 = ta.ema(close, emaLen)
+rsi14 = ta.rsi(close, rsiLen)
+stochK = ta.stoch(close, high, low, stochLen)
+volumeSma = ta.sma(volume, volumeAvgLen)
+atr14 = ta.atr(atrLen)
+
+slMult = profile == "degen" ? 1.2 : 1.0
+tpMult = profile == "conservative" ? 2.0 : profile == "degen" ? 3.0 : 2.5
+volumeOk = volume > volumeSma * 1.2
+longSignal = timeframeOk and bar_index >= 50 and rsi14 < 32 and stochK < 25 and volumeOk and close > ema50
+shortSignal = timeframeOk and bar_index >= 50 and rsi14 > 68 and stochK > 75 and volumeOk and close < ema50
+
+longStop = close - atr14 * slMult
+longFinalTarget = close + atr14 * tpMult
+longStep = (longFinalTarget - close) / 3.0
+longTp1 = close + longStep
+longTp2 = close + longStep * 2.0
+longTp3 = longFinalTarget
+
+shortStop = close + atr14 * slMult
+shortFinalTarget = close - atr14 * tpMult
+shortStep = (close - shortFinalTarget) / 3.0
+shortTp1 = close - shortStep
+shortTp2 = close - shortStep * 2.0
+shortTp3 = shortFinalTarget
+
+plot(ema50, "EMA 50", color=color.new(color.orange, 0), linewidth=2)
+plotshape(longSignal, title="HYBRID LONG", style=shape.labelup, location=location.belowbar, color=color.new(color.lime, 0), text="HYB LONG", textcolor=color.black)
+plotshape(shortSignal, title="HYBRID SHORT", style=shape.labeldown, location=location.abovebar, color=color.new(color.red, 0), text="HYB SHORT", textcolor=color.white)
+
+if longSignal
+    label.new(bar_index, low, "HYBRID 4h LONG " + profile + "\nRSI " + str.tostring(rsi14, "#.0") + " | K " + str.tostring(stochK, "#.0") + "\nSL " + str.tostring(longStop, format.mintick) + " | TP3 " + str.tostring(longTp3, format.mintick), style=label.style_label_up, color=color.new(color.lime, 0), textcolor=color.black)
+if shortSignal
+    label.new(bar_index, high, "HYBRID 4h SHORT " + profile + "\nRSI " + str.tostring(rsi14, "#.0") + " | K " + str.tostring(stochK, "#.0") + "\nSL " + str.tostring(shortStop, format.mintick) + " | TP3 " + str.tostring(shortTp3, format.mintick), style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white)
+
+alertcondition(longSignal, "HYBRID 4h LONG", "HYBRID 4h LONG {{ticker}} {{interval}}")
+alertcondition(shortSignal, "HYBRID 4h SHORT", "HYBRID 4h SHORT {{ticker}} {{interval}}")
+

@@ -1,0 +1,196 @@
+name: Tests
+
+# O workflow `ci.yml` (QuickClaw-Skills/skill-ci) cuida da higiene de skill:
+# estrutura, frontmatter, secret scan, syntax check. O que faltava era o que
+# de fato exercita o codigo -- a suite nunca gateou merge nenhum, e foi por
+# isso que um `import fcntl` no topo do CLI atravessou a CI inteira: `py_compile`
+# confirma que o arquivo parseia, e no Linux o modulo ate existe.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # O diagnostico provisiona venv e roda `pip install` quando falta dependencia.
+  # Num runner isso e lento e desnecessario: as deps ja vem instaladas abaixo.
+  DELTA_NEUTRAL_NO_BOOTSTRAP: "1"
+
+jobs:
+  pytest:
+    name: pytest (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows nao e cortesia: e alvo suportado (`run.py` trata os.name == "nt")
+        # e onde vivia o bug do `fcntl`, estruturalmente invisivel num runner Linux.
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: workspace/requirements*.txt
+
+      - name: Instalar dependencias base
+        # Instalar de verdade tambem prova o que a CI antiga nunca provou:
+        # que o requirements.txt instala sem toolchain de build nativo.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r workspace/requirements.txt
+
+      - name: pytest
+        run: python -m pytest test/ -q --junitxml=junit-${{ matrix.os }}-${{ matrix.python }}.xml
+
+      - name: Publicar resultado
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.os }}-py${{ matrix.python }}
+          path: junit-*.xml
+          if-no-files-found: ignore
+
+  pytest-nado:
+    name: pytest com SDK da Nado
+    runs-on: ubuntu-latest
+    # Bloqueante. Entrou como canario porque `nado-protocol==0.3.5` fixa
+    # pydantic v1, web3 v6 e eth-account 0.8, cujas extensoes nativas nao tem
+    # wheel para Python 3.13 -- e por isso que a suite completa nao roda no
+    # Windows do desenvolvedor. No ubuntu com 3.12 instala e passa, entao aqui
+    # ele vale nota: e o unico lugar que exercita os 7 testes da venue Nado.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: workspace/requirements*.txt
+
+      - name: Instalar dependencias com a venue Nado
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r workspace/requirements-nado.txt
+
+      - name: pytest (cobre os testes que ficam skipped sem o SDK)
+        run: python -m pytest test/ -q
+
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: python -m pip install ruff==0.16.6
+
+      - name: Erros que quebram em runtime (bloqueante)
+        # Subconjunto deliberadamente estreito: sintaxe, nome indefinido,
+        # redefinicao. Nao e estilo -- e codigo que levanta ao ser executado.
+        # Foi assim que apareceu `_first_float` indefinido em cli.py.
+        run: ruff check workspace/ test/ --select=E9,F63,F7,F82,F821,F811 --output-format=github
+
+      - name: Estilo e higiene (informativo)
+        # ~378 achados hoje, entre eles 59 `except` cegos e 14 `except: pass`.
+        # Vira bloqueante quando o passivo for tratado; ate la, e visibilidade.
+        continue-on-error: true
+        run: ruff check workspace/ test/ --statistics
+
+  types:
+    name: mypy (modulos novos)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: python -m pip install mypy==2.3.1
+
+      - name: mypy
+        # Escopo estreito de proposito. O codigo legado nao esta anotado, e um
+        # mypy global nasceria vermelho -- gate vermelho no dia 1 e gate que se
+        # aprende a ignorar. Ampliar modulo a modulo conforme forem anotados.
+        run: mypy workspace/file_lock.py workspace/nado/units.py --ignore-missing-imports
+
+  sca:
+    name: pip-audit (informativo)
+    runs-on: ubuntu-latest
+    # Informativo por ora: as pins atuais tem 4 CVEs conhecidas com correcao
+    # disponivel, e subi-las mexe em dependencia de producao (pytest 9 tem
+    # breaking changes). Vira bloqueante junto com o PR que atualiza as pins.
+    #
+    # O resultado vai para o summary e o job sai verde de proposito: um check
+    # vermelho que ninguem deve tratar ensina a ignorar check vermelho, que e
+    # exatamente o habito que estes portoes existem para evitar.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: python -m pip install pip-audit
+
+      - name: Auditar e reportar no summary
+        run: |
+          set +e
+          pip-audit -r workspace/requirements.txt > audit.txt 2>&1
+          status=$?
+          {
+            echo "### pip-audit (informativo)"
+            echo
+            if [ "$status" -eq 0 ]; then
+              echo "Nenhuma vulnerabilidade conhecida."
+            else
+              echo "Vulnerabilidades conhecidas — nao bloqueiam merge hoje:"
+              echo
+              echo '```'
+              cat audit.txt
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+  coverage:
+    name: cobertura (sem piso ainda)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: workspace/requirements*.txt
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r workspace/requirements.txt pytest-cov
+
+      - name: Medir
+        # Sem `--cov-fail-under` de proposito: a linha de base e ~42%, e a suite
+        # acabou de sair de 9 testes coletados. Medir primeiro, escolher o piso
+        # com dado. Piso arbitrario nasce vermelho e vira ruido.
+        run: |
+          set -o pipefail
+          python -m pytest test/ -q --cov=workspace --cov-report=term | tee cov.txt
+          {
+            echo "### Cobertura"
+            echo
+            echo '```'
+            tail -n 40 cov.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

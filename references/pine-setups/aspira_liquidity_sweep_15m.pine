@@ -1,0 +1,92 @@
+//@version=5
+indicator("Aspira Liquidity Sweep 15m", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+
+pivotWindow = input.int(2, "Pivot window", minval=1)
+contractionMaxRatio = input.float(0.80, "Max contraction ratio", minval=0.1, step=0.05)
+volumeMultiplier = input.float(2.0, "Volume multiplier", minval=0.0, step=0.1)
+breakoutBufferAtr = input.float(0.50, "Breakout buffer ATR", minval=0.0, step=0.05)
+flatThresholdAtr = input.float(0.05, "Flat slope threshold ATR", minval=0.0, step=0.01)
+slopeThresholdAtr = input.float(0.02, "Trend slope threshold ATR", minval=0.0, step=0.01)
+stopAtrMult = input.float(0.8, "Stop ATR multiplier", minval=0.0, step=0.05)
+volumeAvgLen = input.int(20, "Volume SMA length", minval=1)
+atrLen = input.int(14, "ATR length", minval=1)
+enforceTimeframe = input.bool(true, "Enforce 15m timeframe")
+
+timeframeOk = not enforceTimeframe or timeframe.period == "15"
+atr14 = ta.atr(atrLen)
+volumeSma = ta.sma(volume, volumeAvgLen)
+pivotHigh = ta.pivothigh(high, pivotWindow, pivotWindow)
+pivotLow = ta.pivotlow(low, pivotWindow, pivotWindow)
+
+var float highA = na
+var float highB = na
+var int highAIndex = na
+var int highBIndex = na
+var float lowA = na
+var float lowB = na
+var int lowAIndex = na
+var int lowBIndex = na
+
+if not na(pivotHigh)
+    highA := highB
+    highAIndex := highBIndex
+    highB := pivotHigh
+    highBIndex := bar_index - pivotWindow
+
+if not na(pivotLow)
+    lowA := lowB
+    lowAIndex := lowBIndex
+    lowB := pivotLow
+    lowBIndex := bar_index - pivotWindow
+
+hasPivots = not na(highA) and not na(highB) and not na(lowA) and not na(lowB) and highBIndex != highAIndex and lowBIndex != lowAIndex
+highSlope = hasPivots ? (highB - highA) / (highBIndex - highAIndex) : na
+lowSlope = hasPivots ? (lowB - lowA) / (lowBIndex - lowAIndex) : na
+upperNow = hasPivots ? highB + highSlope * (bar_index - highBIndex) : na
+lowerNow = hasPivots ? lowB + lowSlope * (bar_index - lowBIndex) : na
+overlapStart = hasPivots ? math.max(highAIndex, lowAIndex) : na
+upperStart = hasPivots ? highB + highSlope * (overlapStart - highBIndex) : na
+lowerStart = hasPivots ? lowB + lowSlope * (overlapStart - lowBIndex) : na
+startWidth = hasPivots ? upperStart - lowerStart : na
+currentWidth = hasPivots ? upperNow - lowerNow : na
+flatThreshold = atr14 * flatThresholdAtr
+slopeThreshold = atr14 * slopeThresholdAtr
+
+ascending = hasPivots and math.abs(highSlope) <= flatThreshold and lowSlope > slopeThreshold
+descending = hasPivots and highSlope < -slopeThreshold and math.abs(lowSlope) <= flatThreshold
+symmetric = hasPivots and highSlope < -slopeThreshold and lowSlope > slopeThreshold
+patternOk = upperNow > lowerNow and startWidth > 0 and currentWidth > 0 and currentWidth < startWidth * contractionMaxRatio and (ascending or descending or symmetric)
+volumeOk = volumeSma > 0 and volume > volumeSma * volumeMultiplier
+breakoutBuffer = atr14 * breakoutBufferAtr
+height = math.max(startWidth, atr14)
+
+longSignal = timeframeOk and bar_index >= 40 and patternOk and volumeOk and close > upperNow + breakoutBuffer
+shortSignal = timeframeOk and bar_index >= 40 and patternOk and volumeOk and close < lowerNow - breakoutBuffer
+
+longStop = math.max(lowerNow, close - atr14 * stopAtrMult)
+longTarget = close + height
+shortStop = math.min(upperNow, close + atr14 * stopAtrMult)
+shortTarget = close - height
+longStep = (longTarget - close) / 3.0
+shortStep = (close - shortTarget) / 3.0
+longTp1 = close + longStep
+longTp2 = close + longStep * 2.0
+longTp3 = longTarget
+shortTp1 = close - shortStep
+shortTp2 = close - shortStep * 2.0
+shortTp3 = shortTarget
+
+plot(upperNow, "Pattern upper", color=color.new(color.orange, 0), linewidth=1)
+plot(lowerNow, "Pattern lower", color=color.new(color.orange, 0), linewidth=1)
+plotshape(longSignal, title="Liquidity Sweep LONG", style=shape.labelup, location=location.belowbar, color=color.new(color.lime, 0), text="LIQ LONG", textcolor=color.black)
+plotshape(shortSignal, title="Liquidity Sweep SHORT", style=shape.labeldown, location=location.abovebar, color=color.new(color.red, 0), text="LIQ SHORT", textcolor=color.white)
+
+patternName = ascending ? "ascending" : descending ? "descending" : symmetric ? "symmetric" : "none"
+if longSignal
+    label.new(bar_index, low, "Liquidity Sweep LONG\n" + patternName + " | Vol " + str.tostring(volume / volumeSma, "#.00") + "x\nSL " + str.tostring(longStop, format.mintick) + " | TP3 " + str.tostring(longTp3, format.mintick), style=label.style_label_up, color=color.new(color.lime, 0), textcolor=color.black)
+if shortSignal
+    label.new(bar_index, high, "Liquidity Sweep SHORT\n" + patternName + " | Vol " + str.tostring(volume / volumeSma, "#.00") + "x\nSL " + str.tostring(shortStop, format.mintick) + " | TP3 " + str.tostring(shortTp3, format.mintick), style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white)
+
+alertcondition(longSignal, "Liquidity Sweep 15m LONG", "Liquidity Sweep 15m LONG {{ticker}} {{interval}}")
+alertcondition(shortSignal, "Liquidity Sweep 15m SHORT", "Liquidity Sweep 15m SHORT {{ticker}} {{interval}}")
+

@@ -1,0 +1,88 @@
+//@version=5
+indicator("Aspira Low Stoch Storm 4H", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+
+emaFastLen = input.int(8, "EMA fast", minval=1)
+emaMidLen = input.int(21, "EMA mid", minval=1)
+emaTrendLen = input.int(80, "EMA trend", minval=1)
+emaLongLen = input.int(200, "EMA long", minval=1)
+rsiLen = input.int(14, "RSI length", minval=1)
+stochLen = input.int(14, "Stoch length", minval=1)
+stochSmoothKLen = input.int(3, "Stoch K smoothing", minval=1)
+stochDLen = input.int(3, "Stoch D smoothing", minval=1)
+atrLen = input.int(14, "ATR length", minval=1)
+lookback = input.int(14, "Structure lookback", minval=2)
+breakoutLookback = input.int(8, "Breakout lookback", minval=2)
+nearPct = input.float(0.08, "EMA proximity", minval=0.0, step=0.01)
+maxRiskPct = input.float(0.06, "Max setup risk", minval=0.0, step=0.01)
+enforceTimeframe = input.bool(true, "Enforce 4H timeframe")
+timeframeOk = not enforceTimeframe or timeframe.period == "240"
+
+ema8 = ta.ema(close, emaFastLen)
+ema21 = ta.ema(close, emaMidLen)
+ema80 = ta.ema(close, emaTrendLen)
+ema200 = ta.ema(close, emaLongLen)
+rsi14 = ta.rsi(close, rsiLen)
+stochFastK = ta.stoch(close, high, low, stochLen)
+stochK = ta.sma(stochFastK, stochSmoothKLen)
+stochD = ta.sma(stochK, stochDLen)
+atr14 = ta.atr(atrLen)
+
+recentLow = ta.lowest(low, lookback)
+recentHigh = ta.highest(high, lookback)
+breakoutHigh = ta.highest(high[1], breakoutLookback)
+breakoutLow = ta.lowest(low[1], breakoutLookback)
+
+nearSupport = recentLow <= ema8 * (1 + nearPct) or recentLow <= ema21 * (1 + nearPct) or recentLow <= ema80 * (1 + nearPct) or recentLow <= ema200 * (1 + nearPct)
+nearResistance = recentHigh >= ema8 * (1 - nearPct) or recentHigh >= ema21 * (1 - nearPct) or recentHigh >= ema80 * (1 - nearPct) or recentHigh >= ema200 * (1 - nearPct)
+
+longStochTurn = ta.lowest(stochK, lookback) <= 40 and stochK > stochD and (stochK[1] <= stochD[1] or stochK > stochK[1] + 1.5)
+longRecovery = close > ema8 and (close[1] <= ema8[1] or close > breakoutHigh or (close[1] <= ema80[1] and close > ema80) or (close[1] <= ema200[1] and close > ema200))
+longTrendGuard = close > ema80 and rsi14 >= 45 and rsi14 <= 68
+longStructure = nearSupport or close > breakoutHigh
+
+shortStochTurn = ta.highest(stochK, lookback) >= 60 and stochK < stochD and (stochK[1] >= stochD[1] or stochK < stochK[1] - 1.5)
+shortRejection = close < ema8 and (close[1] >= ema8[1] or close < breakoutLow or (close[1] >= ema80[1] and close < ema80) or (close[1] >= ema200[1] and close < ema200))
+shortTrendGuard = close < ema80 and rsi14 >= 32 and rsi14 <= 55
+shortStructure = nearResistance or close < breakoutLow
+
+longStructureStop = recentLow - atr14 * 0.15
+longAtrStop = close - atr14
+longStopRaw = math.min(longStructureStop, longAtrStop)
+longRiskRaw = (close - longStopRaw) / close
+longStop = longRiskRaw < 0.01 ? close * 0.99 : longRiskRaw > 0.18 ? longAtrStop : longStopRaw
+longRisk = (close - longStop) / close
+longSignal = timeframeOk and bar_index >= 220 and longStochTurn and longRecovery and longTrendGuard and longStructure and longStop > 0 and longRisk <= maxRiskPct
+
+shortStructureStop = recentHigh + atr14 * 0.15
+shortAtrStop = close + atr14
+shortStopRaw = math.max(shortStructureStop, shortAtrStop)
+shortRiskRaw = (shortStopRaw - close) / close
+shortStop = shortRiskRaw < 0.01 ? close * 1.01 : shortRiskRaw > 0.18 ? shortAtrStop : shortStopRaw
+shortRisk = (shortStop - close) / close
+shortSignal = timeframeOk and bar_index >= 220 and shortStochTurn and shortRejection and shortTrendGuard and shortStructure and shortStop > 0 and shortRisk <= maxRiskPct
+
+longR = close - longStop
+shortR = shortStop - close
+longTp1 = close + longR
+longTp2 = close + longR * 1.5
+longTp3 = close + longR * 2.0
+longTp4 = close + longR * 3.0
+shortTp1 = close - shortR
+shortTp2 = close - shortR * 1.5
+shortTp3 = close - shortR * 2.0
+shortTp4 = close - shortR * 3.0
+
+plot(ema8, "EMA 8", color=color.new(color.aqua, 0), linewidth=1)
+plot(ema21, "EMA 21", color=color.new(color.yellow, 0), linewidth=1)
+plot(ema80, "EMA 80", color=color.new(color.orange, 0), linewidth=2)
+plot(ema200, "EMA 200", color=color.new(color.purple, 0), linewidth=2)
+plotshape(longSignal, title="Low Stoch Storm LONG", style=shape.labelup, location=location.belowbar, color=color.new(color.lime, 0), text="LSS LONG", textcolor=color.black)
+plotshape(shortSignal, title="Low Stoch Storm SHORT", style=shape.labeldown, location=location.abovebar, color=color.new(color.red, 0), text="LSS SHORT", textcolor=color.white)
+
+if longSignal
+    label.new(bar_index, low, "Low Stoch Storm LONG\nRSI " + str.tostring(rsi14, "#.0") + " | K/D " + str.tostring(stochK, "#.0") + "/" + str.tostring(stochD, "#.0") + "\nSL " + str.tostring(longStop, format.mintick) + " | TP4 " + str.tostring(longTp4, format.mintick), style=label.style_label_up, color=color.new(color.lime, 0), textcolor=color.black)
+if shortSignal
+    label.new(bar_index, high, "Low Stoch Storm SHORT\nRSI " + str.tostring(rsi14, "#.0") + " | K/D " + str.tostring(stochK, "#.0") + "/" + str.tostring(stochD, "#.0") + "\nSL " + str.tostring(shortStop, format.mintick) + " | TP4 " + str.tostring(shortTp4, format.mintick), style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white)
+
+alertcondition(longSignal, "Low Stoch Storm LONG", "Low Stoch Storm LONG {{ticker}} {{interval}}")
+alertcondition(shortSignal, "Low Stoch Storm SHORT", "Low Stoch Storm SHORT {{ticker}} {{interval}}")

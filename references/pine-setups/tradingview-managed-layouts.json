@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-07",
+  "contract": {
+    "rule": "Cada setup/timeframe ativo deve apontar para um layout gerenciado do TradingView que já contém o Pine oficial do setup. O renderer não deve escolher layout aleatório nem usar o layout manual Intus.",
+    "manual_layout_forbidden": {
+      "name": "Intus",
+      "chart_id": "<TRADINGVIEW_CHART_ID>"
+    },
+    "dynamic_trade_overlay": "Entrada, stop e alvos vêm do payload do trade e são desenhados temporariamente no print pela escala real do TradingView. Não fazem parte do Pine fixo.",
+    "fail_closed": true
+  },
+  "defaults": {
+    "profile_env": "SETUP_NOTIFY_TRADINGVIEW_PROFILE_DIR",
+    "profile_default": "~/.openclaw/state/trade-automatizado-openclaw/tradingview-profile",
+    "viewport": {
+      "width": 2454,
+      "height": 1280
+    },
+    "require_pine_in_layout": true,
+    "allow_runtime_pine_insert": false,
+    "close_sidebars_before_capture": true,
+    "capture_mode": "wide_viewport"
+  },
+  "layouts": {
+    "btc-intraday-short-breakdown": {
+      "status": "validation_ready",
+      "timeframe": "5m",
+      "interval": "5",
+      "layout_name": "Aspira Render Clean",
+      "tradingview_actual_layout_name": "Aspira Render Clean",
+      "layout_url": "https://www.tradingview.com/chart/<TRADINGVIEW_CHART_ID>/?symbol={symbol}&interval=5",
+      "pine_title": "",
+      "pine_file": "aspira_btc_intraday_short_breakdown_5m.pine",
+      "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_BTC_INTRADAY_SHORT_BREAKDOWN",
+      "require_pine_in_layout": false,
+      "validated_at": "2026-07-20",
+      "notes": "Layout limpo para validação histórica do laboratório BTC Intraday Short Breakdown 5m. Não usar o layout manual Intus. Produção exige Pine canônico publicado/validado antes de live."
+    },
+    "grid-strict": {
+      "status": "pending_tradingview_layout",
+      "timeframe": "1h",
+      "interval": "60",
+      "layout_name": "Aspira Render | Grid Strict | 1H",
+      "layout_url": "",
+      "pine_title": "Aspira Grid Strict 1H",
+      "pine_file": "aspira_grid_strict_1h.pine",
+      "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_GRID_STRICT"
+    },
+    "institutional-strict": {
+      "status": "pending_tradingview_layout",
+      "timeframe": "1h",
+      "interval": "60",
+      "layout_name": "Aspira Render | Institutional Strict | 1H",
+      "layout_url": "",
+      "pine_title": "Aspira Institutional Strict 1H",
+      "pine_file": "aspira_institutional_strict_1h.pine",
+      "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_INSTITUTIONAL_STRICT"
+    },
+    "bollinger-mean-reversion": {
+      "status": "pending_tradingview_layout",
+      "timeframe": "15m",
+      "interval": "15",
+      "layout_name": "Aspira Render | Bollinger Mean Reversion | 15M",
+      "layout_url": "",
+      "pine_title": "Aspira Bollinger Mean Reversion 15m",
+      "pine_file": "aspira_bollinger_mean_reversion_15m.pine",
+      "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_BOLLINGER_MEAN_REVERSION"
+    },
+    "low-stoch-storm": {
+      "status": "pending_tradingview_layout",
+      "timeframe": "4h",
+      "interval": "240",
+      "layout_name": "Aspira Render | Low Stoch Storm | 4H",
+      "layout_url": "",
+      "pine_title": "Aspira Low Stoch Storm 4H",
+      "pine_file": "aspira_low_stoch_storm_4h.pine",
+      "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_LOW_STOCH_STORM"
+    },
+    "divergence-and-volume-15m": {
+      "status": "pending_tradingview_layout",
+      "timeframe": "15m",
+      "interval": "15",
+      "layout_name": "Aspira Render | Divergence Volume | 15M",
+      "layout_url": "",
+      "pine_title": "Aspira Divergence and Volume 15m",
+      "pine_file": "aspira_divergence_and_volume_15m.pine",
+      "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_DIVERGENCE_AND_VOLUME_15M"
+    },
+    "divergence-and-volume-1h": {
+      "status": "pending_tradingview_layout",
+      "timeframe": "1h",
+      "interval": "60",
+      "layout_name": "Aspira Render | Divergence Volume | 1H",
+      "layout_url": "",
+      "pine_title": "Aspira Divergence and Volume 1h",
+      "pine_file": "aspira_divergence_and_volume_1h.pine",
+      "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_DIVERGENCE_AND_VOLUME_1H"
+    },
+    "divergence-and-volume-4h": {
+      "status": "ready",
+      "timeframe": "4h",
+      "interval": "240",
+      "layout_name": "Aspira Render | Divergence Volume | 4H",
+      "tradingview_actual_layout_name": "Aspira Render | Divergence Volume | 4H",
+      "layout_url": "https://www.tradingview.com/chart/<TRADINGVIEW_CHART_ID>/?symbol={symbol}&interval=240",
+      "pine_title": "Aspira Divergence and Volume 4h",
+      "pine_file": "aspira_divergence_and_volume_4h.pine",
+      "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_DIVERGENCE_AND_VOLUME_4H",
+      "validated_at": "2026-07-07",
+      "notes": "Layout TradingView renomeado e validado em modo estrito: o Pine já estava presente no layout, sem inserção runtime."
+    }
+  }
+}

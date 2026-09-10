@@ -1,0 +1,100 @@
+//@version=5
+indicator("Aspira Divergence and Volume 4h", overlay=true, max_labels_count=50, max_lines_count=50, max_bars_back=500)
+
+rsiLen = input.int(14, "RSI length", minval=1)
+volumeAvgLen = input.int(20, "Volume average length", minval=1)
+volumeFactor = input.float(1.0, "Volume factor", minval=0.0, step=0.05)
+divergenceLookback = input.int(28, "Divergence lookback", minval=8)
+fibonacciLookback = input.int(90, "Fibonacci lookback", minval=8)
+minGap = input.int(3, "Minimum pivot gap", minval=1)
+rsiDelta = input.float(2.0, "RSI divergence delta", minval=0.0, step=0.1)
+fibAtrTolerance = input.float(0.75, "Fib tolerance ATR", minval=0.0, step=0.05)
+atrBuffer = input.float(0.005, "ATR buffer multiplier", minval=0.0, step=0.001)
+enforceTimeframe = input.bool(true, "Enforce 4H timeframe")
+showFibLevels = input.bool(false, "Show setup Fibonacci levels")
+
+setupTimeframeOk = not enforceTimeframe or timeframe.period == "240"
+rsi = ta.rsi(close, rsiLen)
+volumeSma = ta.sma(volume, volumeAvgLen)
+volumeOk = volumeSma > 0 and volume > volumeSma * volumeFactor
+volumeRatio = volumeSma > 0 ? volume / volumeSma : na
+atr = ta.atr(14)
+
+body = math.abs(close - open)
+barRange = high - low
+bodyForWick = math.max(body, barRange * 0.05)
+upperWick = high - math.max(open, close)
+lowerWick = math.min(open, close) - low
+bullishEngulfing = close[1] < open[1] and close > open and open <= close[1] and close >= open[1]
+bearishEngulfing = close[1] > open[1] and close < open and open >= close[1] and close <= open[1]
+hammer = close >= open and body <= barRange * 0.35 and lowerWick >= bodyForWick * 2 and upperWick <= barRange * 0.30
+shootingStar = close <= open and body <= barRange * 0.35 and upperWick >= bodyForWick * 2 and lowerWick <= barRange * 0.30
+longPattern = bullishEngulfing or hammer
+shortPattern = bearishEngulfing or shootingStar
+
+float pivotLowPrice = na
+float pivotLowRsi = na
+float pivotHighPrice = na
+float pivotHighRsi = na
+if bar_index >= divergenceLookback + 2
+    for i = minGap to divergenceLookback
+        bool hasPivotWindow = i >= 2
+        bool isPivotLow = hasPivotWindow and low[i] <= low[i - 1] and low[i] <= low[i - 2] and low[i] <= low[i + 1] and low[i] <= low[i + 2]
+        bool isPivotHigh = hasPivotWindow and high[i] >= high[i - 1] and high[i] >= high[i - 2] and high[i] >= high[i + 1] and high[i] >= high[i + 2]
+        if isPivotLow and (na(pivotLowPrice) or low[i] < pivotLowPrice)
+            pivotLowPrice := low[i]
+            pivotLowRsi := rsi[i]
+        if isPivotHigh and (na(pivotHighPrice) or high[i] > pivotHighPrice)
+            pivotHighPrice := high[i]
+            pivotHighRsi := rsi[i]
+
+bullishDivergence = not na(pivotLowPrice) and not na(pivotLowRsi) and low < pivotLowPrice and rsi > pivotLowRsi + rsiDelta
+bearishDivergence = not na(pivotHighPrice) and not na(pivotHighRsi) and high > pivotHighPrice and rsi < pivotHighRsi - rsiDelta
+
+anchorHighOffsetRaw = ta.highestbars(high, fibonacciLookback)
+anchorLowOffsetRaw = ta.lowestbars(low, fibonacciLookback)
+anchorHighBarsAgo = int(math.abs(nz(anchorHighOffsetRaw, 0)))
+anchorLowBarsAgo = int(math.abs(nz(anchorLowOffsetRaw, 0)))
+anchorHigh = high[anchorHighBarsAgo]
+anchorLow = low[anchorLowBarsAgo]
+float swingLowAfterHigh = na
+float swingHighAfterLow = na
+if bar_index >= fibonacciLookback
+    for i = 0 to fibonacciLookback - 1
+        if i <= anchorHighBarsAgo
+            swingLowAfterHigh := na(swingLowAfterHigh) ? low[i] : math.min(swingLowAfterHigh, low[i])
+        if i <= anchorLowBarsAgo
+            swingHighAfterLow := na(swingHighAfterLow) ? high[i] : math.max(swingHighAfterLow, high[i])
+
+longRange = anchorHigh - swingLowAfterHigh
+shortRange = swingHighAfterLow - anchorLow
+fibLong100 = anchorHigh - longRange * 1.0
+fibLong1618 = anchorHigh - longRange * 1.618
+fibLong200 = anchorHigh - longRange * 2.0
+fibLong2618 = anchorHigh - longRange * 2.618
+fibShort100 = anchorLow + shortRange * 1.0
+fibShort1618 = anchorLow + shortRange * 1.618
+fibShort200 = anchorLow + shortRange * 2.0
+fibShort2618 = anchorLow + shortRange * 2.618
+tolerance = math.max(atr, close * 0.001) * fibAtrTolerance
+nearLongFib = longRange > 0 and math.min(math.min(math.abs(low - fibLong100), math.abs(low - fibLong1618)), math.min(math.abs(low - fibLong200), math.abs(low - fibLong2618))) <= tolerance
+nearShortFib = shortRange > 0 and math.min(math.min(math.abs(high - fibShort100), math.abs(high - fibShort1618)), math.min(math.abs(high - fibShort200), math.abs(high - fibShort2618))) <= tolerance
+
+buffer = math.max(atr * atrBuffer, close * 0.0002)
+longEntry = high + buffer
+longStop = low - buffer
+shortEntry = low - buffer
+shortStop = high + buffer
+longRisk = longEntry - longStop
+shortRisk = shortStop - shortEntry
+longSignal = setupTimeframeOk and bar_index >= fibonacciLookback and longPattern and bullishDivergence and nearLongFib and volumeOk and longRisk > 0
+shortSignal = setupTimeframeOk and bar_index >= fibonacciLookback and shortPattern and bearishDivergence and nearShortFib and volumeOk and shortRisk > 0
+
+plot(showFibLevels ? fibLong100 : na, "DV4H Fib long 1.0", color=color.new(color.orange, 68), linewidth=1)
+plot(showFibLevels ? fibLong1618 : na, "DV4H Fib long 1.618", color=color.new(color.orange, 76), linewidth=1)
+plot(showFibLevels ? fibShort100 : na, "DV4H Fib short 1.0", color=color.new(color.aqua, 68), linewidth=1)
+plot(showFibLevels ? fibShort1618 : na, "DV4H Fib short 1.618", color=color.new(color.aqua, 76), linewidth=1)
+
+alertcondition(longSignal, "Divergence and Volume 4h LONG", "Divergence and Volume 4h LONG {{ticker}} {{interval}}")
+alertcondition(shortSignal, "Divergence and Volume 4h SHORT", "Divergence and Volume 4h SHORT {{ticker}} {{interval}}")
+alertcondition(not setupTimeframeOk, "Divergence and Volume 4h wrong timeframe", "Aspira Divergence and Volume 4h must run on 4H")

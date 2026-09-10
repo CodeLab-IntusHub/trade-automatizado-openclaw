@@ -1,0 +1,111 @@
+//@version=5
+indicator("Aspira Divergence and Volume 15m", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+
+rsiLen = input.int(14, "RSI length", minval=1)
+volumeAvgLen = input.int(20, "Volume average length", minval=1)
+volumeFactor = input.float(1.0, "Volume factor", minval=0.0, step=0.05)
+divergenceLookback = input.int(32, "Divergence lookback", minval=8)
+fibonacciLookback = input.int(160, "Fibonacci lookback", minval=8)
+minGap = input.int(3, "Minimum pivot gap", minval=1)
+rsiDelta = input.float(1.5, "RSI divergence delta", minval=0.0, step=0.1)
+fibAtrTolerance = input.float(0.75, "Fib tolerance ATR", minval=0.0, step=0.05)
+atrBuffer = input.float(0.005, "ATR buffer multiplier", minval=0.0, step=0.001)
+enforceTimeframe = input.bool(true, "Enforce setup timeframe")
+
+timeframeOk = not enforceTimeframe or timeframe.period == "15"
+rsi = ta.rsi(close, rsiLen)
+volumeSma = ta.sma(volume, volumeAvgLen)
+atr = ta.atr(14)
+
+body = math.abs(close - open)
+barRange = high - low
+bodyForWick = math.max(body, barRange * 0.05)
+upperWick = high - math.max(open, close)
+lowerWick = math.min(open, close) - low
+bullishEngulfing = close[1] < open[1] and close > open and open <= close[1] and close >= open[1]
+bearishEngulfing = close[1] > open[1] and close < open and open >= close[1] and close <= open[1]
+hammer = close >= open and body <= barRange * 0.35 and lowerWick >= bodyForWick * 2 and upperWick <= barRange * 0.30
+shootingStar = close <= open and body <= barRange * 0.35 and upperWick >= bodyForWick * 2 and lowerWick <= barRange * 0.30
+longPattern = bullishEngulfing or hammer
+shortPattern = bearishEngulfing or shootingStar
+
+float pivotLowPrice = na
+float pivotLowRsi = na
+float pivotHighPrice = na
+float pivotHighRsi = na
+for i = minGap to divergenceLookback
+    bool hasPivotWindow = i >= 2
+    bool isPivotLow = hasPivotWindow and low[i] <= low[i - 1] and low[i] <= low[i - 2] and low[i] <= low[i + 1] and low[i] <= low[i + 2]
+    bool isPivotHigh = hasPivotWindow and high[i] >= high[i - 1] and high[i] >= high[i - 2] and high[i] >= high[i + 1] and high[i] >= high[i + 2]
+    if isPivotLow and (na(pivotLowPrice) or low[i] < pivotLowPrice)
+        pivotLowPrice := low[i]
+        pivotLowRsi := rsi[i]
+    if isPivotHigh and (na(pivotHighPrice) or high[i] > pivotHighPrice)
+        pivotHighPrice := high[i]
+        pivotHighRsi := rsi[i]
+
+bullishDivergence = not na(pivotLowPrice) and not na(pivotLowRsi) and low < pivotLowPrice and rsi > pivotLowRsi + rsiDelta
+bearishDivergence = not na(pivotHighPrice) and not na(pivotHighRsi) and high > pivotHighPrice and rsi < pivotHighRsi - rsiDelta
+
+anchorHighOffsetRaw = ta.highestbars(high, fibonacciLookback)
+anchorLowOffsetRaw = ta.lowestbars(low, fibonacciLookback)
+anchorHighOffset = nz(anchorHighOffsetRaw, 0)
+anchorLowOffset = nz(anchorLowOffsetRaw, 0)
+anchorHigh = high[anchorHighOffset]
+anchorLow = low[anchorLowOffset]
+float swingLowAfterHigh = na
+float swingHighAfterLow = na
+for i = 0 to fibonacciLookback - 1
+    if i <= anchorHighOffset
+        swingLowAfterHigh := na(swingLowAfterHigh) ? low[i] : math.min(swingLowAfterHigh, low[i])
+    if i <= anchorLowOffset
+        swingHighAfterLow := na(swingHighAfterLow) ? high[i] : math.max(swingHighAfterLow, high[i])
+
+longRange = anchorHigh - swingLowAfterHigh
+shortRange = swingHighAfterLow - anchorLow
+fibLong100 = anchorHigh - longRange * 1.0
+fibLong1618 = anchorHigh - longRange * 1.618
+fibLong200 = anchorHigh - longRange * 2.0
+fibLong2618 = anchorHigh - longRange * 2.618
+fibShort100 = anchorLow + shortRange * 1.0
+fibShort1618 = anchorLow + shortRange * 1.618
+fibShort200 = anchorLow + shortRange * 2.0
+fibShort2618 = anchorLow + shortRange * 2.618
+tolerance = math.max(atr, close * 0.001) * fibAtrTolerance
+nearLongFib = longRange > 0 and math.min(math.min(math.abs(low - fibLong100), math.abs(low - fibLong1618)), math.min(math.abs(low - fibLong200), math.abs(low - fibLong2618))) <= tolerance
+nearShortFib = shortRange > 0 and math.min(math.min(math.abs(high - fibShort100), math.abs(high - fibShort1618)), math.min(math.abs(high - fibShort200), math.abs(high - fibShort2618))) <= tolerance
+volumeOk = volumeSma > 0 and volume > volumeSma * volumeFactor
+
+buffer = math.max(atr * atrBuffer, close * 0.0002)
+longEntry = high + buffer
+longStop = low - buffer
+shortEntry = low - buffer
+shortStop = high + buffer
+longRisk = longEntry - longStop
+shortRisk = shortStop - shortEntry
+longSignal = timeframeOk and bar_index >= 90 and longPattern and bullishDivergence and nearLongFib and volumeOk and longRisk > 0
+shortSignal = timeframeOk and bar_index >= 90 and shortPattern and bearishDivergence and nearShortFib and volumeOk and shortRisk > 0
+
+longTp1 = longEntry + longRisk
+longTp2 = longEntry + longRisk * 1.5
+longTp3 = longEntry + longRisk * 2.0
+longTp4 = longEntry + longRisk * 2.5
+shortTp1 = shortEntry - shortRisk
+shortTp2 = shortEntry - shortRisk * 1.5
+shortTp3 = shortEntry - shortRisk * 2.0
+shortTp4 = shortEntry - shortRisk * 2.5
+
+plotshape(longSignal, title="Divergence and Volume LONG", style=shape.labelup, location=location.belowbar, color=color.new(color.lime, 0), text="DV LONG", textcolor=color.black)
+plotshape(shortSignal, title="Divergence and Volume SHORT", style=shape.labeldown, location=location.abovebar, color=color.new(color.red, 0), text="DV SHORT", textcolor=color.white)
+plot(fibLong100, "Fib long 1.0", color=color.new(color.orange, 75), linewidth=1)
+plot(fibLong1618, "Fib long 1.618", color=color.new(color.orange, 80), linewidth=1)
+plot(fibShort100, "Fib short 1.0", color=color.new(color.orange, 75), linewidth=1)
+plot(fibShort1618, "Fib short 1.618", color=color.new(color.orange, 80), linewidth=1)
+
+if longSignal
+    label.new(bar_index, low, "Divergence and Volume 15m LONG\nRSI " + str.tostring(rsi, "#.0") + " | Vol " + str.tostring(volume / volumeSma, "#.00") + "x\nSL " + str.tostring(longStop, format.mintick) + " | TP4 " + str.tostring(longTp4, format.mintick), style=label.style_label_up, color=color.new(color.lime, 0), textcolor=color.black)
+if shortSignal
+    label.new(bar_index, high, "Divergence and Volume 15m SHORT\nRSI " + str.tostring(rsi, "#.0") + " | Vol " + str.tostring(volume / volumeSma, "#.00") + "x\nSL " + str.tostring(shortStop, format.mintick) + " | TP4 " + str.tostring(shortTp4, format.mintick), style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white)
+
+alertcondition(longSignal, "Divergence and Volume 15m LONG", "Divergence and Volume 15m LONG {{ticker}} {{interval}}")
+alertcondition(shortSignal, "Divergence and Volume 15m SHORT", "Divergence and Volume 15m SHORT {{ticker}} {{interval}}")

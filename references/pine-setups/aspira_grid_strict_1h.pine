@@ -1,0 +1,35 @@
+//@version=5
+indicator("Aspira Grid Strict 1H", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+
+smaLen = input.int(50, "SMA length", minval=1)
+stdLen = input.int(50, "StdDev length", minval=1)
+stdMult = input.float(2.4, "Entry std multiplier", minval=0.1, step=0.1)
+rsiLen = input.int(14, "RSI length", minval=1)
+rsiMax = input.float(28.0, "RSI max", minval=0.0, maxval=100.0, step=0.5)
+takeProfitPct = input.float(0.02, "Final target pct", minval=0.0, step=0.001)
+stopLossPct = input.float(0.03, "Stop pct", minval=0.0, step=0.001)
+enforceTimeframe = input.bool(true, "Enforce 1H timeframe")
+
+timeframeOk = not enforceTimeframe or timeframe.period == "60"
+sma50 = ta.sma(close, smaLen)
+std50 = ta.stdev(close, stdLen)
+rsi14 = ta.rsi(close, rsiLen)
+entryBand = sma50 - stdMult * std50
+
+longSignal = timeframeOk and bar_index >= math.max(smaLen, stdLen) and close < entryBand and rsi14 < rsiMax
+stopPrice = close * (1.0 - stopLossPct)
+finalTarget = close * (1.0 + takeProfitPct)
+step = (finalTarget - close) / 3.0
+tp1 = close + step
+tp2 = close + step * 2.0
+tp3 = finalTarget
+
+plot(sma50, "SMA 50", color=color.new(color.aqua, 0), linewidth=2)
+plot(entryBand, "Strict entry band", color=color.new(color.orange, 0), linewidth=1)
+plotshape(longSignal, title="Grid Strict LONG", style=shape.labelup, location=location.belowbar, color=color.new(color.lime, 0), text="GRID-S LONG", textcolor=color.black)
+
+if longSignal
+    label.new(bar_index, low, "Grid Strict LONG\nRSI " + str.tostring(rsi14, "#.0") + "\nSL " + str.tostring(stopPrice, format.mintick) + " | TP3 " + str.tostring(tp3, format.mintick), style=label.style_label_up, color=color.new(color.lime, 0), textcolor=color.black)
+
+alertcondition(longSignal, "Grid Strict 1h LONG", "Grid Strict 1h LONG {{ticker}} {{interval}}")
+

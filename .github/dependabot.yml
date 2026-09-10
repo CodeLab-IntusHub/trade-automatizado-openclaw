@@ -1,0 +1,28 @@
+# Higiene de supply-chain: a maioria das CVEs entra por dependencia transitiva,
+# e este repo nao tinha nenhuma automacao de atualizacao.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /workspace
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Uma PR por grupo em vez de uma por pacote: menos ruido, e atualizacao
+      # de dependencia de dev nao disputa atencao com a de runtime.
+      dev-tools:
+        patterns: ["pytest*", "ruff", "mypy", "pip-audit", "setuptools"]
+      runtime:
+        patterns: ["*"]
+        exclude-patterns: ["pytest*", "ruff", "mypy", "pip-audit", "setuptools"]
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

@@ -1,0 +1,392 @@
+{
+  "name": "trade-automatizado-openclaw",
+  "version": "1.2.0",
+  "description": "Skill OpenClaw para setups delta-neutros e ordens solo em DEX/CEX configuráveis, com wizard por corretora, defaults Nado DEX/Kraken CEX, CEX genérica via CCXT, Hyperliquid DEX builtin, stop por alvo configuravel e DEX custom por adapter Python, margin sizing, guardrails, bootstrap seguro e dashboard HTML local do usuário.",
+  "author": "CodeLab-IntusHub",
+  "license": "Proprietary",
+  "homepage": "https://github.com/CodeLab-IntusHub/trade-automatizado-openclaw",
+  "min_openclaw_version": "2026.4.0",
+  "runtime": "openclaw",
+  "entry": ".",
+  "permissions": {
+    "allow": [
+      "group:fs",
+      "group:network"
+    ],
+    "elevated": [],
+    "deny": []
+  },
+  "dependencies": {
+    "bins": [
+      "python3"
+    ],
+    "env": [
+      "NADO_OWNER_PRIVATE_KEY",
+      "NADO_LINKED_SIGNER_PRIVATE_KEY",
+      "NADO_PRIVATE_KEY",
+      "PRIVATE_KEY",
+      "KRAKEN_API_KEY",
+      "KRAKEN_API_KEY_",
+      "KRAKEN_API_SECRET",
+      "NADO_SUBACCOUNT_NAME",
+      "KRAKEN_REQUIRE_SUBACCOUNT",
+      "KRAKEN_API_IS_SUBACCOUNT",
+      "DELTA_NEUTRAL_ENV_FILE",
+      "DELTA_NEUTRAL_STATE_DIR",
+      "DELTA_NEUTRAL_LOG_DIR",
+      "DELTA_NEUTRAL_VENV_DIR",
+      "EXECUTION_MODE",
+      "NADO_MARGIN_MODE",
+      "KRAKEN_MARGIN_MODE",
+      "MARGIN_USD",
+      "NADO_MARGIN_USD",
+      "KRAKEN_MARGIN_USD",
+      "NADO_ALLOW_OWNER_FALLBACK",
+      "KRAKEN_ALLOW_MAIN_ACCOUNT",
+      "DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK",
+      "SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID",
+      "SETUP_NOTIFY_ENTRY_DISCORD_ACCOUNT",
+      "DISCORD_BOT_TOKEN",
+      "SETUP_NOTIFY_ENTRY_ENABLED",
+      "SETUP_NOTIFY_ENTRY_CHANNEL",
+      "SETUP_NOTIFY_ENTRY_TARGET",
+      "SETUP_NOTIFY_ENTRY_ACCOUNT",
+      "SETUP_NOTIFY_BRAND",
+      "SETUP_NOTIFY_TIMEZONE",
+      "SETUP_NOTIFY_DISCORD_MENTION",
+      "SETUP_NOTIFY_DISCORD_NATIVE_EMBED",
+      "SETUP_NOTIFY_DISCORD_EMBED_AUTHOR",
+      "SETUP_NOTIFY_DISCORD_BOX",
+      "SETUP_NOTIFY_DISCORD_BOX_STYLE",
+      "SETUP_NOTIFY_TIMEOUT_SECONDS",
+      "SETUP_NOTIFY_FALLBACK_OPENCLAW",
+      "SETUP_NOTIFY_DISCORD_DIRECT",
+      "SETUP_NOTIFY_BLOCKING",
+      "SETUP_NOTIFY_QUEUE_MAX",
+      "SETUP_NOTIFY_DROP_OLDEST",
+      "SETUP_NOTIFY_MIN_INTERVAL_SECONDS",
+      "SETUP_NOTIFY_ENV_FILE",
+      "SETUP_LIVE_NADO_MANAGED_TP_POLICY",
+      "SETUP_LIVE_TARGET_STOP_MODE",
+      "SETUP_LIVE_MAX_OPEN_SETUPS",
+      "SETUP_LIVE_ALLOWLIST_GRID_STRICT",
+      "SETUP_LIVE_ALLOWLIST_BOLLINGER_MEAN_REVERSION",
+      "SETUP_LIVE_ALLOWLIST_INSTITUTIONAL_STRICT",
+      "SETUP_LIVE_ALLOWLIST_MODE",
+      "SETUP_LIVE_ALLOWLIST_LOW_STOCH_STORM",
+      "SETUP_LIVE_ALLOWLIST_DIVERGENCE_AND_VOLUME",
+      "SETUP_LIVE_ALLOWLIST_DIVERGENCE_AND_VOLUME_15M",
+      "SETUP_LIVE_ALLOWLIST_DIVERGENCE_AND_VOLUME_1H",
+      "SETUP_LIVE_ALLOWLIST_DIVERGENCE_AND_VOLUME_4H",
+      "AUTORIZAR_TRADE_REAL",
+      "CONFIRMAR_TRADE_REAL",
+      "TRADE_AUTOMATIZADO_CONFIRM_LIVE",
+      "DELTA_NEUTRAL_CONFIRM_LIVE",
+      "DEX_ID",
+      "TRADE_DEX_ID",
+      "DEX_ADAPTER",
+      "DEX_ADAPTER_MODULE",
+      "DEX_CONFIG_JSON",
+      "DEX_NETWORK",
+      "DEX_SANDBOX",
+      "DEX_MARKET_TYPE",
+      "DEX_OPTIONS_JSON",
+      "HYPERLIQUID_WALLET_ADDRESS",
+      "HYPERLIQUID_ACCOUNT_ADDRESS",
+      "HYPERLIQUID_PRIVATE_KEY",
+      "HYPERLIQUID_API_PRIVATE_KEY",
+      "HYPERLIQUID_AGENT_PRIVATE_KEY",
+      "HYPERLIQUID_VAULT_ADDRESS",
+      "HYPERLIQUID_NETWORK",
+      "HYPERLIQUID_SANDBOX",
+      "HYPERLIQUID_MARKET_TYPE",
+      "HYPERLIQUID_SYMBOL_QUOTE",
+      "HYPERLIQUID_OPTIONS_JSON",
+      "CEX_ID",
+      "TRADE_CEX_ID",
+      "CEX_API_KEY",
+      "CEX_API_SECRET",
+      "CEX_API_PASSWORD",
+      "CEX_MARKET_TYPE",
+      "CEX_DEFAULT_TYPE",
+      "CEX_SANDBOX",
+      "CEX_OPTIONS_JSON",
+      "BINANCE_API_KEY",
+      "BINANCE_API_SECRET",
+      "BYBIT_API_KEY",
+      "BYBIT_API_SECRET",
+      "OKX_API_KEY",
+      "OKX_API_SECRET",
+      "OKX_API_PASSWORD",
+      "KUCOIN_API_KEY",
+      "KUCOIN_API_SECRET",
+      "KUCOIN_API_PASSWORD",
+      "DEX_MARGIN_USD",
+      "CEX_MARGIN_USD",
+      "DEX_LEVERAGE",
+      "CEX_LEVERAGE",
+      "DEX_MARGIN_MODE",
+      "CEX_MARGIN_MODE",
+      "DEX_DISABLED_PERP_SYMBOLS",
+      "DEX_EXCLUDE_SYMBOLS",
+      "MEXC_API_KEY",
+      "MEXC_API_SECRET",
+      "BITGET_API_KEY",
+      "BITGET_API_SECRET",
+      "BITGET_API_PASSWORD",
+      "GATEIO_API_KEY",
+      "GATEIO_API_SECRET"
+    ],
+    "python": [
+      "ccxt==4.5.50",
+      "python-dotenv==1.0.1",
+      "pandas==2.2.3",
+      "numpy==2.2.6",
+      "pytest==8.3.5",
+      "setuptools<81"
+    ],
+    "python_optional": {
+      "nado": [
+        "nado-protocol==0.3.5"
+      ]
+    },
+    "python_optional_note": "Exigido apenas por DEX_ID=nado; instale com `pip install -r workspace/requirements-nado.txt` (requer toolchain de build nativo). As demais venues rodam por ccxt."
+  },
+  "pricing_tier": "free",
+  "tags": [
+    "crypto",
+    "defi",
+    "airdrop",
+    "delta-neutral",
+    "hedge",
+    "nado",
+    "kraken",
+    "perp",
+    "farming",
+    "dashboard"
+  ],
+  "commands": [
+    {
+      "name": "setup-check",
+      "description": "Verifica runtime, paths, dependências e envs sem inicializar exchanges"
+    },
+    {
+      "name": "doctor",
+      "description": "Roda checklist operacional OpenClaw"
+    },
+    {
+      "name": "bootstrap",
+      "description": "Cria/atualiza .venv local e instala requirements"
+    },
+    {
+      "name": "venues",
+      "description": "Mostra DEX/CEX selecionadas, adapters e envs esperadas"
+    },
+    {
+      "name": "symbols",
+      "description": "Lista símbolos comuns entre a DEX e a CEX selecionadas"
+    },
+    {
+      "name": "asset-scan",
+      "description": "Compara ativos/perps da DEX e CEX selecionadas e detecta adicionados/removidos, preço inválido e spread alto"
+    },
+    {
+      "name": "setups",
+      "description": "Lista os setups operacionais disponíveis"
+    },
+    {
+      "name": "backtest-operational",
+      "description": "Roda validação operacional dos setups monitorados"
+    },
+    {
+      "name": "backtest-divergence-volume-real",
+      "description": "Valida o setup Divergence and Volume com candles reais 4h via CCXT"
+    },
+    {
+      "name": "backtest-low-stoch-real",
+      "description": "Valida o setup Low Stoch Storm com candles reais 4h via CCXT"
+    },
+    {
+      "name": "backtest-funding-real",
+      "description": "Valida o setup Funding Arb com historico real de funding"
+    },
+    {
+      "name": "calibrate-triangle-real",
+      "description": "Calibra thresholds reais do Triangle Breakout"
+    },
+    {
+      "name": "calibrate-funding-real",
+      "description": "Calibra thresholds reais do Funding Arb"
+    },
+    {
+      "name": "setup-live-status",
+      "description": "Mostra os setups live atualmente gerenciados"
+    },
+    {
+      "name": "dashboard",
+      "description": "Gera index.html e dashboard-data.json do usuario com trades, setups e exposicao live"
+    },
+    {
+      "name": "dashboard-publisher",
+      "description": "Reconstroi o dashboard local e, se configurado, publica por comando externo"
+    },
+    {
+      "name": "setup-live",
+      "description": "Comando tecnico equivalente a rodar-setups-live; roda setups live em delta-neutro/somente-dex/somente-cex"
+    },
+    {
+      "name": "rodar-setups-live",
+      "description": "Alias em portugues para setup-live; roda setups live com simulacao ou execucao aprovada"
+    },
+    {
+      "name": "open",
+      "description": "Comando tecnico equivalente a abrir; abre ordem em delta-neutro, somente-dex ou somente-cex"
+    },
+    {
+      "name": "abrir",
+      "description": "Alias em portugues para open; abre ordem com --lado, --modo e tamanho definido"
+    },
+    {
+      "name": "open-venue-pair",
+      "description": "Comando tecnico equivalente a abrir-par-delta-neutro; abre LONG/SHORT manual entre duas CEXs ou duas DEXs"
+    },
+    {
+      "name": "abrir-par-delta-neutro",
+      "description": "Alias em portugues para abrir par delta-neutro manual: comprado em uma venue e vendido em outra"
+    },
+    {
+      "name": "fechar-par-delta-neutro",
+      "description": "Alias em portugues para fechar o par delta-neutro manual salvo em venue_pair_state.json"
+    },
+    {
+      "name": "close-venue-pair",
+      "description": "Comando tecnico equivalente a fechar-par-delta-neutro"
+    },
+    {
+      "name": "status",
+      "description": "Mostra delta, drift e PnL"
+    },
+    {
+      "name": "live-status",
+      "description": "Mostra posições live detectadas nas duas exchanges"
+    },
+    {
+      "name": "live-hedge",
+      "description": "Hedgeia exposição live detectada"
+    },
+    {
+      "name": "live-sync",
+      "description": "Monitora e replica abertura manual entre exchanges"
+    },
+    {
+      "name": "rebalance",
+      "description": "Rebalanceia drift de estado hedged; no-op seguro em estado solo"
+    },
+    {
+      "name": "unwind",
+      "description": "Fecha ambas as pernas ou a perna solo salva em state.json"
+    },
+    {
+      "name": "farm",
+      "description": "Loop: rebalance periódico + stop global"
+    },
+    {
+      "name": "opportunistic",
+      "description": "Escolhe viés via motor técnico + hedge"
+    },
+    {
+      "name": "funding",
+      "description": "Mostra funding rates"
+    },
+    {
+      "name": "cex-accounts",
+      "description": "Alias genérico para mostrar contas/saldos da CEX selecionada"
+    },
+    {
+      "name": "kraken-accounts",
+      "description": "Mostra wallets/contas da CEX selecionada; nome legado mantido para Kraken"
+    },
+    {
+      "name": "simulate",
+      "description": "Resume cenarios simulados para 1x/2x/3x"
+    },
+    {
+      "name": "scenario-matrix",
+      "description": "Mostra a matriz completa de cenarios por ativo/setup"
+    }
+  ],
+  "metadata": {
+    "wizard": {
+      "mode": "chat_first_short",
+      "entrypoints": [
+        "workspace/first_run_setup.py --json"
+      ],
+      "reference": "references/onboarding-questionario.md",
+      "detailed_reference": "references/onboarding-detalhado.md",
+      "one_question_at_a_time": true,
+      "secrets_in_chat": false,
+      "dry_run_before_live": true,
+      "never_send_signup_links_in_short_wizard": true,
+      "short_wizard_fields": [
+        "wizard_path",
+        "venue_selection",
+        "dex_id",
+        "cex_id",
+        "dex_adapter_status",
+        "cex_market_type",
+        "execution_mode",
+        "environment",
+        "account_and_secrets_status",
+        "sizing",
+        "margin_mode",
+        "target_stop_mode",
+        "discord_delivery",
+        "next_safe_step"
+      ],
+      "release": "1.2.0",
+      "nado_subaccount_name_prompt": "only_if_custom_or_diagnostics_fail",
+      "subaccount_required_by_default": false,
+      "subaccount_user_decides": true,
+      "must_not_hardcode_subaccount_requirement": true,
+      "account_isolation_policy": "subconta/vault/conta isolada sao recomendados quando a corretora/DEX oferecer esse recurso, mas opcionais por padrao; a decisao final e do usuario e nao deve ser hard-coded; se nao usar esse modelo, exija no minimo API key/credencial dedicada sem saque e valide doctor/dry-run",
+      "supersedes_reverted_release": "1.1.11",
+      "release_note": "v1.2.0 roda em Windows (lock cross-platform no lugar de fcntl) e torna o SDK da Nado uma dependencia opcional por venue: quem opera Hyperliquid/CEX instala apenas requirements.txt.",
+      "first_run_required_until_configured": true,
+      "first_run_starts_before_setup_check": true,
+      "first_question": "wizard_path",
+      "activation_policy": "bare skill name, configurar, refazer wizard, or unconfigured skill must start first_run_setup.py --json before venues/setup-check/doctor",
+      "supported_main_venues": {
+        "dex": [
+          "nado",
+          "hyperliquid"
+        ],
+        "cex": [
+          "kraken",
+          "binance",
+          "bybit",
+          "okx",
+          "kucoin",
+          "mexc",
+          "bitget",
+          "gateio"
+        ]
+      },
+      "other_integrations_notice": "Outras CEXs podem usar CEX_ID=<exchange_id CCXT>; Hyperliquid usa adapter builtin; outras DEXs exigem DEX_ADAPTER_MODULE antes de live.",
+      "discord_delivery_reference": "doc referencia/05-entrega-discord-zeus.md",
+      "discord_delivery_policy": {
+        "enabled_by_user_choice": true,
+        "secret_env": "DISCORD_BOT_TOKEN",
+        "channel_env": "SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID",
+        "default_stage": "teste",
+        "default_format": "embed_nativo",
+        "default_image_policy": "sem_imagem",
+        "validation_required": [
+          "setup-check",
+          "doctor",
+          "dry-run"
+        ],
+        "never_request_token_in_chat": true
+      }
+    }
+  }
+}

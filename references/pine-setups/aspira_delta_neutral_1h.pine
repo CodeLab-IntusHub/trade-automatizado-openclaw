@@ -1,0 +1,28 @@
+//@version=5
+indicator("Aspira Delta Neutral 1H Proxy", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+
+minMovePct = input.float(0.003, "Min candle move", minval=0.0, step=0.0001)
+basisLen = input.int(21, "Proxy basis EMA", minval=1)
+enforceTimeframe = input.bool(true, "Enforce 1H timeframe")
+
+timeframeOk = not enforceTimeframe or timeframe.period == "60"
+prevClose = close[1]
+candleMove = prevClose > 0 ? (close - prevClose) / prevClose : 0.0
+basis = ta.ema(close, basisLen)
+basisBps = close > 0 ? (close - basis) / close * 10000.0 : 0.0
+
+longProxy = timeframeOk and bar_index >= 2 and candleMove > minMovePct
+shortProxy = timeframeOk and bar_index >= 2 and candleMove < -minMovePct
+
+plot(basis, "Proxy basis EMA", color=color.new(color.aqua, 0), linewidth=2)
+plotshape(longProxy, title="Delta Neutral LONG proxy", style=shape.labelup, location=location.belowbar, color=color.new(color.lime, 0), text="DN LONG", textcolor=color.black)
+plotshape(shortProxy, title="Delta Neutral SHORT proxy", style=shape.labeldown, location=location.abovebar, color=color.new(color.red, 0), text="DN SHORT", textcolor=color.white)
+
+if longProxy
+    label.new(bar_index, low, "Delta Neutral proxy LONG\nMove " + str.tostring(candleMove * 100, "#.00") + "% | Basis " + str.tostring(basisBps, "#.0") + "bps\nRequires real venue spread before execution", style=label.style_label_up, color=color.new(color.lime, 0), textcolor=color.black)
+if shortProxy
+    label.new(bar_index, high, "Delta Neutral proxy SHORT\nMove " + str.tostring(candleMove * 100, "#.00") + "% | Basis " + str.tostring(basisBps, "#.0") + "bps\nRequires real venue spread before execution", style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white)
+
+alertcondition(longProxy, "Delta Neutral 1h LONG proxy", "Delta Neutral 1h LONG proxy {{ticker}} {{interval}}")
+alertcondition(shortProxy, "Delta Neutral 1h SHORT proxy", "Delta Neutral 1h SHORT proxy {{ticker}} {{interval}}")
+
