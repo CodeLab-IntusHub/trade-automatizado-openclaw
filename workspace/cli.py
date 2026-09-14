@@ -150,6 +150,7 @@ from workspace.core import (  # noqa: E402
     evaluate_setup_entry,
     evaluate_setup_exit,
     get_funding_arb_config,
+    validate_setup_settings,
     get_setup_execution_config,
     is_directional_setup,
     is_hedged_only_setup,
@@ -7610,6 +7611,10 @@ def cmd_setup_live_notify_monitored(args: argparse.Namespace) -> None:
 
 
 def cmd_setup_live(args: argparse.Namespace) -> None:
+    # Antes do loop: dentro dele, `_scan_setup_entries` captura `Exception`,
+    # loga warning e faz `break` -- um valor invalido no settings deixaria o
+    # bot de pe, sem abrir nada e sem falhar.
+    validate_setup_settings()
     _configure_entry_notifications_from_args(args)
     setup_keys = parse_setup_selection(args.setup)
     hybrid_profile = normalize_hybrid_profile(getattr(args, "risk_profile", None) or args.hybrid_profile)

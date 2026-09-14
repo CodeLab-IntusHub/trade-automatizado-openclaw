@@ -3,12 +3,17 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from itertools import product
+import logging
 import math
-import os
-from typing import Dict, Iterable, List, Sequence
+from typing import TYPE_CHECKING, Dict, Iterable, List, Sequence
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:  # evita import circular em runtime
+    from workspace.config import Settings
 
 
 @dataclass(frozen=True)
@@ -704,55 +709,101 @@ def get_setup_execution_config(raw_setup_key: str) -> SetupExecutionConfig:
     return SETUP_EXECUTION_DEFAULTS.get(normalized, SetupExecutionConfig())
 
 
-def _load_env_int(name: str, default: int) -> int:
-    raw = os.environ.get(name)
-    if raw is None or not raw.strip():
-        return default
-    return int(raw.strip())
+def _settings_for(settings: "Settings | None") -> "Settings":
+    """Settings recebido, ou o carregado da raiz do projeto.
+
+    Recebe por parametro para que teste e chamador possam injetar sem mexer em
+    variavel de ambiente global.
+    """
+    from workspace.config import load_settings
+
+    return load_settings() if settings is None else settings
 
 
-def _load_env_float(name: str, default: float) -> float:
-    raw = os.environ.get(name)
-    if raw is None or not raw.strip():
-        return default
-    return float(raw.strip())
+def _setup_int(settings: "Settings", setup_key: str, field: str, env: str, default: int) -> int:
+    return settings.get_int(f"setups.{setup_key}.{field}", env=env, default=default)
 
 
-def get_triangle_breakout_config(config: TriangleBreakoutConfig | None = None) -> TriangleBreakoutConfig:
+def _setup_float(settings: "Settings", setup_key: str, field: str, env: str, default: float) -> float:
+    return settings.get_float(f"setups.{setup_key}.{field}", env=env, default=default)
+
+
+def _setup_tuple(
+    settings: "Settings",
+    setup_key: str,
+    field: str,
+    default: tuple[float, ...],
+) -> tuple[float, ...]:
+    """Lista numerica de setup (niveis e pesos de alvo).
+
+    Estas nao tinham como ser ajustadas por meio nenhum -- vinham so do default
+    do codigo, o que contraria "nenhum parametro de setup hardcoded".
+    """
+    from workspace.config import ConfigError
+
+    dotted = f"setups.{setup_key}.{field}"
+    raw = settings.get_list(dotted, default=list(default))
+    try:
+        return tuple(float(item) for item in raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"valor invalido para '{dotted}': {raw!r} nao e lista de numeros") from exc
+
+
+TRIANGLE_BREAKOUT_SETUP_KEY = "triangle-breakout"
+
+
+def divergence_volume_setup_key(timeframe: str | None) -> str:
+    """Chave de settings do divergence, com e sem timeframe.
+
+    Existe para que live e backtest resolvam a MESMA chave: os caminhos de
+    backtest nao passavam timeframe e caiam na chave sem sufixo, entao
+    validavam uma config diferente da que opera.
+    """
+    normalized = normalize_timeframe(timeframe) if timeframe else None
+    return f"divergence-and-volume-{normalized}" if normalized else "divergence-and-volume"
+
+
+def get_triangle_breakout_config(
+    config: TriangleBreakoutConfig | None = None,
+    *,
+    settings: "Settings | None" = None,
+) -> TriangleBreakoutConfig:
     if config is not None:
         return config
+    cfg = _settings_for(settings)
+    key = TRIANGLE_BREAKOUT_SETUP_KEY
     defaults = TRIANGLE_BREAKOUT_DEFAULT_CONFIG
     return TriangleBreakoutConfig(
-        pivot_window=_load_env_int("TRIANGLE_PIVOT_WINDOW", defaults.pivot_window),
-        contraction_max_ratio=_load_env_float("TRIANGLE_CONTRACTION_MAX_RATIO", defaults.contraction_max_ratio),
-        volume_multiplier=_load_env_float("TRIANGLE_VOLUME_MULTIPLIER", defaults.volume_multiplier),
-        breakout_buffer_atr_mult=_load_env_float(
-            "TRIANGLE_BREAKOUT_BUFFER_ATR_MULT",
-            defaults.breakout_buffer_atr_mult,
-        ),
-        flat_threshold_atr_mult=_load_env_float(
-            "TRIANGLE_FLAT_THRESHOLD_ATR_MULT",
-            defaults.flat_threshold_atr_mult,
-        ),
-        slope_threshold_atr_mult=_load_env_float(
-            "TRIANGLE_SLOPE_THRESHOLD_ATR_MULT",
-            defaults.slope_threshold_atr_mult,
-        ),
-        stop_atr_mult=_load_env_float("TRIANGLE_STOP_ATR_MULT", defaults.stop_atr_mult),
+        pivot_window=_setup_int(cfg, key, "pivot_window", "TRIANGLE_PIVOT_WINDOW", defaults.pivot_window),
+        contraction_max_ratio=_setup_float(cfg, key, "contraction_max_ratio", "TRIANGLE_CONTRACTION_MAX_RATIO", defaults.contraction_max_ratio),
+        volume_multiplier=_setup_float(cfg, key, "volume_multiplier", "TRIANGLE_VOLUME_MULTIPLIER", defaults.volume_multiplier),
+        breakout_buffer_atr_mult=_setup_float(cfg, key, "breakout_buffer_atr_mult", "TRIANGLE_BREAKOUT_BUFFER_ATR_MULT", defaults.breakout_buffer_atr_mult),
+        flat_threshold_atr_mult=_setup_float(cfg, key, "flat_threshold_atr_mult", "TRIANGLE_FLAT_THRESHOLD_ATR_MULT", defaults.flat_threshold_atr_mult),
+        slope_threshold_atr_mult=_setup_float(cfg, key, "slope_threshold_atr_mult", "TRIANGLE_SLOPE_THRESHOLD_ATR_MULT", defaults.slope_threshold_atr_mult),
+        stop_atr_mult=_setup_float(cfg, key, "stop_atr_mult", "TRIANGLE_STOP_ATR_MULT", defaults.stop_atr_mult),
     )
 
 
-def get_funding_arb_config(config: FundingArbConfig | None = None) -> FundingArbConfig:
+FUNDING_ARB_SETUP_KEY = "funding-arb"
+
+
+def get_funding_arb_config(
+    config: FundingArbConfig | None = None,
+    *,
+    settings: "Settings | None" = None,
+) -> FundingArbConfig:
     if config is not None:
         return config
+    cfg = _settings_for(settings)
+    key = FUNDING_ARB_SETUP_KEY
     defaults = FUNDING_ARB_DEFAULT_CONFIG
-    hold_hours = _load_env_int("FUNDING_ARB_MAX_HOLD_HOURS", defaults.max_hold_hours)
+    hold_hours = _setup_int(cfg, key, "max_hold_hours", "FUNDING_ARB_MAX_HOLD_HOURS", defaults.max_hold_hours)
     max_hold_intervals = max(1, math.ceil(hold_hours / 8))
     return FundingArbConfig(
-        min_rate=_load_env_float("FUNDING_ARB_MIN_RATE", defaults.min_rate),
-        exit_rate=_load_env_float("FUNDING_ARB_EXIT_RATE", defaults.exit_rate),
+        min_rate=_setup_float(cfg, key, "min_rate", "FUNDING_ARB_MIN_RATE", defaults.min_rate),
+        exit_rate=_setup_float(cfg, key, "exit_rate", "FUNDING_ARB_EXIT_RATE", defaults.exit_rate),
         max_hold_intervals=max_hold_intervals,
-        max_spread_bps=_load_env_float("FUNDING_ARB_MAX_SPREAD_BPS", defaults.max_spread_bps),
+        max_spread_bps=_setup_float(cfg, key, "max_spread_bps", "FUNDING_ARB_MAX_SPREAD_BPS", defaults.max_spread_bps),
     )
 
 
@@ -760,27 +811,118 @@ def get_divergence_volume_config(
     config: DivergenceVolumeConfig | None = None,
     *,
     timeframe: str | None = None,
+    settings: "Settings | None" = None,
 ) -> DivergenceVolumeConfig:
+    """Config do divergence-and-volume, calibravel por timeframe.
+
+    As env vars sao unicas para os tres timeframes: um
+    `DIVERGENCE_AND_VOLUME_RSI_PERIOD` vale para 15m, 1h e 4h ao mesmo tempo,
+    entao nao ha como ajustar um sem mexer nos outros. A chave de settings
+    inclui o timeframe (`setups.divergence-and-volume-4h.rsi_period`), que e o
+    que torna a calibracao por timeframe possivel.
+    """
+    from workspace.config import ConfigError
+
     if config is not None:
         return config
-    defaults = DIVERGENCE_AND_VOLUME_CONFIGS.get(normalize_timeframe(timeframe), DIVERGENCE_AND_VOLUME_DEFAULT_CONFIG) if timeframe else DIVERGENCE_AND_VOLUME_DEFAULT_CONFIG
-    return DivergenceVolumeConfig(
-        rsi_period=_load_env_int("DIVERGENCE_AND_VOLUME_RSI_PERIOD", defaults.rsi_period),
-        volume_avg_period=_load_env_int("DIVERGENCE_AND_VOLUME_VOLUME_AVG_PERIOD", defaults.volume_avg_period),
-        volume_factor=_load_env_float("DIVERGENCE_AND_VOLUME_VOLUME_FACTOR", defaults.volume_factor),
-        fibonacci_tolerance_pct=_load_env_float("DIVERGENCE_AND_VOLUME_FIBONACCI_TOLERANCE_PCT", defaults.fibonacci_tolerance_pct),
-        divergence_lookback=_load_env_int("DIVERGENCE_AND_VOLUME_DIVERGENCE_LOOKBACK", defaults.divergence_lookback),
-        fibonacci_lookback=_load_env_int("DIVERGENCE_AND_VOLUME_FIBONACCI_LOOKBACK", defaults.fibonacci_lookback),
-        min_gap=_load_env_int("DIVERGENCE_AND_VOLUME_MIN_GAP", defaults.min_gap),
-        rsi_delta=_load_env_float("DIVERGENCE_AND_VOLUME_RSI_DELTA", defaults.rsi_delta),
-        fibonacci_tolerance_atr=_load_env_float("DIVERGENCE_AND_VOLUME_FIBONACCI_TOLERANCE_ATR", defaults.fibonacci_tolerance_atr),
-        atr_buffer=_load_env_float("DIVERGENCE_AND_VOLUME_ATR_BUFFER", defaults.atr_buffer),
-        fibonacci_levels=defaults.fibonacci_levels,
-        target_levels=defaults.target_levels,
-        target_weights=defaults.target_weights,
-        min_reward_risk=_load_env_float("DIVERGENCE_AND_VOLUME_MIN_REWARD_RISK", defaults.min_reward_risk),
-        max_hold_bars=_load_env_int("DIVERGENCE_AND_VOLUME_MAX_HOLD_BARS", defaults.max_hold_bars),
+    cfg = _settings_for(settings)
+    normalized_tf = normalize_timeframe(timeframe) if timeframe else None
+    defaults = (
+        DIVERGENCE_AND_VOLUME_CONFIGS.get(normalized_tf, DIVERGENCE_AND_VOLUME_DEFAULT_CONFIG)
+        if normalized_tf
+        else DIVERGENCE_AND_VOLUME_DEFAULT_CONFIG
     )
+    key = divergence_volume_setup_key(timeframe)
+
+    target_levels = _setup_tuple(cfg, key, "target_levels", defaults.target_levels)
+    target_weights = _setup_tuple(cfg, key, "target_weights", defaults.target_weights)
+    if not target_levels:
+        # `len([]) != len([])` e falso, entao a escada vazia passava -- e o
+        # sinal quebrava depois em `target_prices[-1]`, longe da causa.
+        raise ConfigError(
+            f"setups.{key}: target_levels esta vazio; um setup precisa de pelo menos um alvo."
+        )
+    if len(target_levels) != len(target_weights):
+        # Pesos em quantidade diferente dos alvos distribuem capital de forma
+        # que ninguem pediu; barrar aqui e barato, depois da entrada nao e.
+        raise ConfigError(
+            f"setups.{key}: target_weights tem {len(target_weights)} itens para "
+            f"{len(target_levels)} alvos em target_levels -- precisam casar."
+        )
+
+    return DivergenceVolumeConfig(
+        rsi_period=_setup_int(cfg, key, "rsi_period", "DIVERGENCE_AND_VOLUME_RSI_PERIOD", defaults.rsi_period),
+        volume_avg_period=_setup_int(cfg, key, "volume_avg_period", "DIVERGENCE_AND_VOLUME_VOLUME_AVG_PERIOD", defaults.volume_avg_period),
+        volume_factor=_setup_float(cfg, key, "volume_factor", "DIVERGENCE_AND_VOLUME_VOLUME_FACTOR", defaults.volume_factor),
+        fibonacci_tolerance_pct=_setup_float(cfg, key, "fibonacci_tolerance_pct", "DIVERGENCE_AND_VOLUME_FIBONACCI_TOLERANCE_PCT", defaults.fibonacci_tolerance_pct),
+        divergence_lookback=_setup_int(cfg, key, "divergence_lookback", "DIVERGENCE_AND_VOLUME_DIVERGENCE_LOOKBACK", defaults.divergence_lookback),
+        fibonacci_lookback=_setup_int(cfg, key, "fibonacci_lookback", "DIVERGENCE_AND_VOLUME_FIBONACCI_LOOKBACK", defaults.fibonacci_lookback),
+        min_gap=_setup_int(cfg, key, "min_gap", "DIVERGENCE_AND_VOLUME_MIN_GAP", defaults.min_gap),
+        rsi_delta=_setup_float(cfg, key, "rsi_delta", "DIVERGENCE_AND_VOLUME_RSI_DELTA", defaults.rsi_delta),
+        fibonacci_tolerance_atr=_setup_float(cfg, key, "fibonacci_tolerance_atr", "DIVERGENCE_AND_VOLUME_FIBONACCI_TOLERANCE_ATR", defaults.fibonacci_tolerance_atr),
+        atr_buffer=_setup_float(cfg, key, "atr_buffer", "DIVERGENCE_AND_VOLUME_ATR_BUFFER", defaults.atr_buffer),
+        fibonacci_levels=_setup_tuple(cfg, key, "fibonacci_levels", defaults.fibonacci_levels),
+        target_levels=target_levels,
+        target_weights=target_weights,
+        min_reward_risk=_setup_float(cfg, key, "min_reward_risk", "DIVERGENCE_AND_VOLUME_MIN_REWARD_RISK", defaults.min_reward_risk),
+        max_hold_bars=_setup_int(cfg, key, "max_hold_bars", "DIVERGENCE_AND_VOLUME_MAX_HOLD_BARS", defaults.max_hold_bars),
+    )
+
+
+def validate_setup_settings(*, settings: "Settings | None" = None) -> None:
+    """Resolve toda config de setup uma vez, para o erro aparecer no boot.
+
+    Sem isto, um valor invalido so estoura dentro do loop de scan -- que
+    captura `Exception`, loga um warning e faz `break`. O bot fica de pe,
+    nao abre nada e nao falha: a "falha barulhenta" prometida virava
+    degradacao silenciosa, com raio maior (o `break` mata os demais setups
+    daquele simbolo).
+
+    Chamar no boot, antes do loop.
+    """
+    cfg = _settings_for(settings)
+    get_triangle_breakout_config(settings=cfg)
+    get_funding_arb_config(settings=cfg)
+    for timeframe in ("15m", "1h", "4h"):
+        get_divergence_volume_config(timeframe=timeframe, settings=cfg)
+    get_divergence_volume_config(settings=cfg)
+    _log_setup_config_origins(cfg)
+
+
+def _log_setup_config_origins(cfg: "Settings") -> None:
+    """Diz qual camada venceu em cada campo sobrescrito.
+
+    Sem isto, um operador que define `setups.triangle-breakout.pivot_window` e
+    tem `TRIANGLE_PIVOT_WINDOW` no env ve o valor do env sem nenhuma pista de
+    que o settings foi ignorado -- e conclui que settings.json nao funciona.
+    """
+    watched = (
+        (TRIANGLE_BREAKOUT_SETUP_KEY, "pivot_window", "TRIANGLE_PIVOT_WINDOW"),
+        (TRIANGLE_BREAKOUT_SETUP_KEY, "contraction_max_ratio", "TRIANGLE_CONTRACTION_MAX_RATIO"),
+        (TRIANGLE_BREAKOUT_SETUP_KEY, "volume_multiplier", "TRIANGLE_VOLUME_MULTIPLIER"),
+        (TRIANGLE_BREAKOUT_SETUP_KEY, "stop_atr_mult", "TRIANGLE_STOP_ATR_MULT"),
+        (FUNDING_ARB_SETUP_KEY, "min_rate", "FUNDING_ARB_MIN_RATE"),
+        (FUNDING_ARB_SETUP_KEY, "exit_rate", "FUNDING_ARB_EXIT_RATE"),
+        (FUNDING_ARB_SETUP_KEY, "max_hold_hours", "FUNDING_ARB_MAX_HOLD_HOURS"),
+        (FUNDING_ARB_SETUP_KEY, "max_spread_bps", "FUNDING_ARB_MAX_SPREAD_BPS"),
+    )
+    encobertos = [
+        f"{key}.{field} (env {env})"
+        for key, field, env in watched
+        if cfg.origin(f"setups.{key}.{field}", env=env).layer == "env"
+        and _dig_present(cfg, f"setups.{key}.{field}")
+    ]
+    if encobertos:
+        logger.warning(
+            "settings de setup ignorados porque a env tem precedencia: %s",
+            ", ".join(encobertos),
+        )
+
+
+def _dig_present(cfg: "Settings", dotted: str) -> bool:
+    """True se a chave existe em algum arquivo de settings."""
+    sentinel = object()
+    return cfg.get_json(dotted, default=sentinel) is not sentinel
 
 
 def parse_setup_selection(raw: str | None) -> List[str]:

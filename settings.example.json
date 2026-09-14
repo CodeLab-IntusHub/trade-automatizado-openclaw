@@ -1,0 +1,40 @@
+{
+  "_comentario": "Copie para settings.json (versionado, do time) ou settings.local.json (do operador, fora do git). Precedencia: env > settings.local.json > settings.json > default do codigo. Variavel de ambiente definida VENCE o valor daqui -- o boot avisa quando isso acontece.",
+
+  "setups": {
+    "triangle-breakout": {
+      "pivot_window": 2,
+      "contraction_max_ratio": 0.80,
+      "volume_multiplier": 2.0,
+      "breakout_buffer_atr_mult": 0.50,
+      "flat_threshold_atr_mult": 0.05,
+      "slope_threshold_atr_mult": 0.02,
+      "stop_atr_mult": 0.8
+    },
+
+    "funding-arb": {
+      "min_rate": 0.00030,
+      "exit_rate": 0.00002,
+      "max_hold_hours": 72,
+      "max_spread_bps": 20.0
+    },
+
+    "divergence-and-volume-4h": {
+      "rsi_period": 14,
+      "volume_avg_period": 20,
+      "volume_factor": 1.0,
+      "divergence_lookback": 32,
+      "fibonacci_lookback": 120,
+      "min_gap": 3,
+      "rsi_delta": 1.5,
+      "fibonacci_tolerance_atr": 0.75,
+      "fibonacci_tolerance_pct": 0.0,
+      "atr_buffer": 0.005,
+      "fibonacci_levels": [1.0, 1.618, 2.0, 2.618],
+      "target_levels": [1.0, 1.5, 2.0, 2.5],
+      "target_weights": [0.25, 0.25, 0.25, 0.25],
+      "min_reward_risk": 1.0,
+      "max_hold_bars": 36
+    }
+  }
+}

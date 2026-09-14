@@ -202,6 +202,11 @@ class Settings:
 
     def get_int(self, dotted: str, *, env: str | Sequence[str] | None = None, default: Any = _MISSING) -> int:
         value = self._require(dotted, env, default)
+        # JSON nao distingue int de float, e qualquer escritor programatico
+        # (um dump de calibracao, por exemplo) emite `9.0` onde o campo e
+        # inteiro. Float com parte fracionaria continua sendo erro.
+        if isinstance(value, float) and value.is_integer():
+            return int(value)
         try:
             return int(str(value).strip())
         except (TypeError, ValueError) as exc:

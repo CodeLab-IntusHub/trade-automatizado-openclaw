@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional
 
 from eth_account import Account
 
-from workspace.nado.units import from_x18, from_x6  # reexport: conversao sem SDK
+from workspace.nado.units import from_x18, from_x6  # noqa: F401  (reexport: conversao sem SDK)
 from workspace.venues.order_validation import wrap_replace_failure
 
 from nado_protocol.client import create_nado_client, NadoClientMode
