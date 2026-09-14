@@ -14,7 +14,7 @@
 - `setup-check` resolve a venue pela mesma funcao do caminho de ordem (`selected_venues`): reler o env perdia o alias `PRIMARY_CEX`, e com `PRIMARY_CEX=binance` o relatorio dizia `kraken` em sandbox enquanto a Binance rodava em producao.
 - O campo `kraken_sandbox` do relatorio deixa de repetir o valor de outra venue: fora da familia kraken ele responde pela Kraken, em vez de imprimir a resolucao da Binance sob um nome que promete Kraken.
 - `nado` sai da lista de familias: o adapter da Nado nunca chama o resolvedor, entao `NADO_SANDBOX` e `venues.dex.nado.sandbox` seriam config inerte anunciada como valida.
-- `setup-check` deixa de reportar `cex_sandbox: "false"` ao lado de `kraken_sandbox: "true"` quando a config esta invalida -- dizia dinheiro real e sandbox ao mesmo tempo --, e os dois campos passam a seguir a CEX selecionada em vez do id cravado `kraken`.
+- `setup-check` deixa de reportar `cex_sandbox: "false"` ao lado de `kraken_sandbox: "true"` quando a config esta invalida -- dizia dinheiro real e sandbox ao mesmo tempo. Os dois campos saem do mesmo resolvedor, com contratos distintos e declarados: `cex_sandbox` segue a **CEX selecionada** (resolvida por `selected_venues()`, entao honra tambem o alias `PRIMARY_CEX`), e `kraken_sandbox` responde pela **Kraken** -- seguindo a selecao quando ela e da familia kraken, para ler `KRAKENFUTURES_SANDBOX`, e pela `kraken` fora dela, em vez de repetir o valor de outra venue sob um nome que promete Kraken.
 
 ### Adicionado
 

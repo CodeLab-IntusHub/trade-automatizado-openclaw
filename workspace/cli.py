@@ -5511,7 +5511,12 @@ def _load_cex_sandbox(cex_id: str) -> bool:
 def _load_hyperliquid_config(dex_id: str) -> dict:
     cfg = dex_config(dex_id)
     network = (_first_env("HYPERLIQUID_NETWORK", "DEX_NETWORK") or str(cfg.get("network") or "")).lower()
-    sandbox_default = network in {"testnet", "sandbox", "demo"}
+    # `None` quando nenhuma rede foi declarada: `network in {...}` e sempre um
+    # bool, e um `False` injetado na camada de ambiente derrubaria o settings
+    # do operador -- a Hyperliquid e o unico DEX que chama o resolvedor, entao
+    # isso tornava `venues.dex.*.sandbox` config morta e mandava para mainnet
+    # quem tinha declarado sandbox no arquivo.
+    sandbox_default = (network in {"testnet", "sandbox", "demo"}) if network else None
     options_json = _first_env("HYPERLIQUID_OPTIONS_JSON", "DEX_OPTIONS_JSON")
     cfg.update(
         wallet_address=(

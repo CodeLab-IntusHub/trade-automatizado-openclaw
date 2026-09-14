@@ -40,10 +40,19 @@ from workspace.venues.sandbox import (  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def _isola_settings_local(tmp_path: Path, monkeypatch) -> None:
-    """`_local_settings_path` prefere `~/.config/openclaw/<skill>/` quando esse
-    arquivo existe -- que e o local documentado para o operador. Sem este
-    override, a suite lia o settings real da maquina e media o residuo dele.
+    """Isola a suite do `settings.local.json` real da maquina.
+
+    `_local_settings_path` procura, em ordem: `DELTA_NEUTRAL_SETTINGS_DIR`,
+    `~/.config/openclaw/<skill>/` e a raiz do repo -- devolvendo o **primeiro
+    que existir**. Por isso apontar o override para um `tmp_path` vazio nao
+    basta: sem arquivo la, a busca cai no home e a suite passa a medir o
+    settings do operador. E o home precisa ser falso tambem, porque ha teste
+    que remove o override de proposito para exercitar o fallback.
     """
+    home = tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.setenv("DELTA_NEUTRAL_SETTINGS_DIR", str(tmp_path))
 
 
@@ -436,12 +445,67 @@ def test_nado_nao_anuncia_sandbox_que_nao_existe() -> None:
 
 
 def test_fixture_isola_o_settings_local_do_operador(tmp_path: Path) -> None:
-    """`_local_settings_path` prefere `~/.config/openclaw/<skill>/` quando o
-    arquivo existe. Sem o override, a suite lia o settings real da maquina."""
-    import os
+    """A fixture precisa neutralizar os tres candidatos, nao so o override.
 
+    A primeira versao so apontava `DELTA_NEUTRAL_SETTINGS_DIR` para um
+    `tmp_path` vazio -- e como `_local_settings_path` devolve o primeiro
+    caminho que **existe**, a busca caia no home e a suite media o
+    `settings.local.json` real do operador.
+    """
     from workspace.config import _local_settings_path
 
-    assert os.environ["DELTA_NEUTRAL_SETTINGS_DIR"] == str(tmp_path)
+    # home falso e vazio: o candidato do meio nao pode ser escolhido
+    assert not (tmp_path / "home" / ".config").exists()
+    assert _local_settings_path(ROOT) == ROOT / "settings.local.json"
+
+    # com arquivo no override, ele vence
     (tmp_path / "settings.local.json").write_text("{}", encoding="utf-8")
     assert _local_settings_path(ROOT).parent == tmp_path
+
+
+# --- achados do terceiro passe de code-review -------------------------------
+
+
+def test_hyperliquid_sem_rede_declarada_nao_derruba_o_settings(tmp_path: Path, monkeypatch) -> None:
+    """`network in {...}` e sempre um bool, nunca `None`.
+
+    Com `env_default` na camada de ambiente, passar esse bool incondicional
+    fazia o chamador injetar um `False` que derrubava
+    `venues.dex.hyperliquid.sandbox: true` do arquivo do operador e mandava
+    para a mainnet -- e tornava o settings config morta para o unico DEX que
+    chama o resolvedor.
+    """
+    from workspace import cli
+
+    for nome in ("HYPERLIQUID_NETWORK", "DEX_NETWORK", "HYPERLIQUID_SANDBOX", "DEX_SANDBOX"):
+        monkeypatch.delenv(nome, raising=False)
+    (tmp_path / "settings.local.json").write_text(
+        json.dumps({"venues": {"dex": {"hyperliquid": {"sandbox": True}}}}), encoding="utf-8"
+    )
+    assert cli._load_hyperliquid_config("hyperliquid")["sandbox"] is True
+
+
+def test_hyperliquid_com_testnet_declarada_continua_em_sandbox(tmp_path: Path, monkeypatch) -> None:
+    """A rede declarada segue implicando sandbox, acima de qualquer arquivo."""
+    from workspace import cli
+
+    for nome in ("HYPERLIQUID_SANDBOX", "DEX_SANDBOX"):
+        monkeypatch.delenv(nome, raising=False)
+    monkeypatch.setenv("HYPERLIQUID_NETWORK", "testnet")
+    (tmp_path / "settings.local.json").write_text(
+        json.dumps({"venues": {"dex": {"hyperliquid": {"sandbox": False}}}}), encoding="utf-8"
+    )
+    assert cli._load_hyperliquid_config("hyperliquid")["sandbox"] is True
+
+
+def test_aviso_so_sai_quando_os_valores_divergem(tmp_path: Path, caplog) -> None:
+    """Avisar com as duas chaves declarando o mesmo nao relata perda nenhuma,
+    e num aviso de seguranca treina o operador a ignora-lo."""
+    s = _settings(
+        tmp_path,
+        versioned={"venues": {"cex": {"kraken": {"sandbox": True}}}},
+        local={"venues": {"cex": {"sandbox": True}}},
+    )
+    with caplog.at_level("WARNING"):
+        assert resolve_sandbox("cex", "kraken", settings=s) is True
+    assert caplog.text == ""

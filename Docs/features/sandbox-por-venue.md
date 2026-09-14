@@ -63,6 +63,10 @@ engolindo um `venues.cex.kraken.sandbox: true` do time — a ordem continua
 valendo, mas sai um `WARNING` nomeando as duas chaves. Perder uma declaração de
 segurança em silêncio é o defeito que este módulo existe para remover.
 
+O aviso só sai quando os dois valores **divergem**. Avisar com as duas chaves
+declarando o mesmo não relata perda nenhuma e, num aviso de segurança, treina o
+operador a ignorá-lo.
+
 ### A cadeia de venue
 
 `venue_chain` resolve família uma vez e a aplica **a env e a settings ao mesmo
@@ -80,6 +84,13 @@ Hyperliquid o deriva de `HYPERLIQUID_NETWORK`/`DEX_NETWORK`, onde `testnet`
 implica sandbox. Fica abaixo das envs de sandbox explícitas, que respondem à
 pergunta diretamente, e acima de qualquer arquivo.
 
+**Quem o passa deve passar `None` quando a env não foi declarada.** Uma
+expressão como `network in {"testnet", ...}` é sempre um `bool`: injetar esse
+`False` incondicional coloca um valor na camada de ambiente que ninguém
+escreveu, e ele derruba todo o arquivo. Como a Hyperliquid é o único DEX que
+chama o resolvedor, isso tornava `venues.dex.*.sandbox` configuração morta e
+mandava para a mainnet quem havia declarado sandbox no `settings.local.json`.
+
 A posição foi errada duas vezes, e o nome foi a causa das duas. Chamando-o de
 `venue_default`, primeiro o coloquei acima apenas da chave genérica do tipo —
 misturando os eixos que o resto do módulo separa, o que um teste vizinho pegou;
@@ -87,11 +98,15 @@ depois o desci para baixo de toda config de arquivo, e aí um
 `venues.dex.sandbox: false` derrubava uma rede declarada por variável de
 ambiente, mandando para mainnet quem tinha escolhido testnet.
 
-### Nado não participa
+### Nado fora das famílias
 
-O adapter da Nado é construído só a partir de `NADO_NETWORK` e nunca chama este
-resolvedor. `nado` fica de fora da lista de famílias de propósito: anunciar
-`NADO_SANDBOX` ou `venues.dex.nado.sandbox` seria prometer configuração inerte.
+`nado` não entra na lista de famílias porque nenhuma variante dela precisa
+herdar: o adapter da Nado é construído só a partir de `NADO_NETWORK` e **nunca
+chama este resolvedor**.
+
+Isso não quer dizer que `NADO_SANDBOX` deixe de ser gerado — para o id `nado` a
+cadeia produz o nome como para qualquer venue. Quer dizer que nada o consulta.
+Quem for ligar a Nado ao resolvedor precisa passar por aqui primeiro.
 
 ## Defaults
 
@@ -114,10 +129,11 @@ A Hyperliquid deriva o default da rede selecionada: `testnet` implica sandbox.
 }
 ```
 
-Evite declarar `venues.<tipo>.sandbox` sem precisar: a chave genérica vence o
-default da venue e, dentro da mesma camada, qualquer chave mais específica de
-camada mais fraca — mandando para produção quem contava com elas. Quando isso
-acontece entre camadas, sai um `WARNING`.
+Evite declarar `venues.<tipo>.sandbox` sem precisar. Ela vence o default da
+venue e também qualquer chave mais específica que esteja numa camada mais
+fraca — mandando para produção quem contava com elas. Nesse segundo caso sai um
+`WARNING`; no primeiro, não há o que avisar, porque nada foi declarado do outro
+lado.
 
 As variáveis `CEX_SANDBOX`, `KRAKEN_SANDBOX` e `HYPERLIQUID_SANDBOX` vêm
 **comentadas** no `workspace/.env.example`. Elas continuam funcionando, mas têm
@@ -150,3 +166,4 @@ específica inalcançável sem que nada avisasse.
 | 14/09/2026 | Documento inicial: resolvedor único, precedência e defaults |
 | 14/09/2026 | Cadeia de venue aplicada também às chaves de settings; camada vira eixo externo |
 | 14/09/2026 | `env_default` passa para a camada de ambiente; aviso quando a chave genérica engole a específica; Nado fora das famílias |
+| 14/09/2026 | `env_default` exige `None` quando a env não foi declarada; aviso só em divergência real |

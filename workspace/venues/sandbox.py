@@ -46,7 +46,7 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-from workspace.config import FILE_LAYERS
+from workspace.config import FILE_LAYERS, ConfigError
 
 if TYPE_CHECKING:  # pragma: no cover - apenas para anotacao
     from workspace.config import Settings
@@ -68,9 +68,11 @@ SANDBOX_GENERIC_ENV = {"cex": "CEX_SANDBOX", "dex": "DEX_SANDBOX"}
 # **env e para settings ao mesmo tempo** -- na primeira versao a familia
 # existia so para env, e `venues.cex.kraken.sandbox` no arquivo nao alcancava
 # `krakenfutures`, que caia na chave generica e ia para producao.
-# `nado` fica de fora de proposito: o adapter da Nado e construido so a partir
-# de `NADO_NETWORK` e nunca chama este resolvedor, entao anunciar
-# `NADO_SANDBOX` / `venues.dex.nado.sandbox` seria prometer config inerte.
+# So entram familias cujas *variantes* precisam herdar. `nado` nao entra: o
+# adapter da Nado e construido so a partir de `NADO_NETWORK` e nunca chama este
+# resolvedor, entao nao ha o que herdar. Isso nao torna `NADO_SANDBOX`
+# inexistente -- para o id `nado` a cadeia gera o nome como para qualquer
+# venue; apenas nada o consulta.
 _VENUE_FAMILIES = ("kraken", "hyperliquid")
 
 # Familias que nascem apontadas para sandbox. Assimetria deliberada: a Kraken
@@ -170,13 +172,23 @@ def _best_settings_key(cfg: "Settings", keys: tuple[str, ...]) -> str | None:
     declared.sort()
     (_, winner_specificity), winner = declared[0]
     for (_, specificity), dotted in declared[1:]:
-        if specificity < winner_specificity:
-            _logger.warning(
-                "sandbox: %s (%s) prevalece sobre %s (%s), que e mais especifica. "
-                "A camada mais forte vence; confira se era isso que voce queria.",
-                winner, cfg.origin(winner).layer, dotted, cfg.origin(dotted).layer,
-            )
-            break
+        if specificity >= winner_specificity:
+            continue
+        # So avisa quando os valores de fato divergem. Avisar com os dois
+        # iguais nao relata perda nenhuma e, num aviso de seguranca, treina o
+        # operador a ignora-lo.
+        try:
+            if cfg.get_bool(winner) == cfg.get_bool(dotted):
+                continue
+        except ConfigError:
+            pass  # valor ilegivel: quem resolve levanta com a mensagem certa
+        _logger.warning(
+            "sandbox: %s (%s) prevalece sobre %s (%s), que e mais especifica e "
+            "declara o oposto. A camada mais forte vence; confira se era isso "
+            "que voce queria.",
+            winner, cfg.origin(winner).layer, dotted, cfg.origin(dotted).layer,
+        )
+        break
     return winner
 
 
