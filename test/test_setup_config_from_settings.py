@@ -53,9 +53,16 @@ def test_settings_vence_o_default_do_codigo(tmp_path: Path) -> None:
 
 
 def test_sem_settings_nada_muda(tmp_path: Path) -> None:
-    """Ausencia de arquivo mantem exatamente o comportamento anterior."""
-    padrao = get_triangle_breakout_config()
-    assert get_triangle_breakout_config(settings=_settings(tmp_path, {})) == padrao
+    """Ausencia de arquivo mantem exatamente o default do codigo.
+
+    A linha de base vem da constante, nao de `get_triangle_breakout_config()`
+    sem argumento: essa versao lia o `os.environ` real e o settings da maquina,
+    entao passava por coincidencia -- e falharia para quem tem
+    `TRIANGLE_PIVOT_WINDOW` exportado, que e o botao normal de calibracao.
+    """
+    from workspace.core.setups import TRIANGLE_BREAKOUT_DEFAULT_CONFIG
+
+    assert get_triangle_breakout_config(settings=_settings(tmp_path, {})) == TRIANGLE_BREAKOUT_DEFAULT_CONFIG
 
 
 def test_config_explicita_ainda_curto_circuita(tmp_path: Path) -> None:
@@ -127,3 +134,78 @@ def test_pesos_de_alvo_incoerentes_sao_recusados(tmp_path: Path) -> None:
     )
     with pytest.raises(ConfigError, match="(?i)target_weights|alvos"):
         get_divergence_volume_config(timeframe="4h", settings=s)
+
+
+# --- correcoes do code-review da PR #7 --------------------------------------
+
+def test_escada_de_alvos_vazia_e_recusada(tmp_path: Path) -> None:
+    """`len([]) != len([])` e falso, entao a escada vazia passava -- e o sinal
+    quebrava depois com IndexError em `target_prices[-1]`."""
+    for payload in (
+        {"target_levels": [], "target_weights": []},
+        {"target_levels": "", "target_weights": ""},
+    ):
+        s = _settings(tmp_path, {"setups": {"divergence-and-volume-4h": payload}})
+        with pytest.raises(ConfigError, match="(?i)vazi|pelo menos"):
+            get_divergence_volume_config(timeframe="4h", settings=s)
+
+
+def test_inteiro_aceita_float_exato_do_json(tmp_path: Path) -> None:
+    """JSON nao distingue int de float, e qualquer escritor programatico (um
+    dump de calibracao, por exemplo) emite 9.0 onde o campo e inteiro."""
+    s = _settings(tmp_path, {"setups": {"triangle-breakout": {"pivot_window": 9.0}}})
+    assert get_triangle_breakout_config(settings=s).pivot_window == 9
+
+
+def test_float_nao_inteiro_continua_sendo_erro(tmp_path: Path) -> None:
+    s = _settings(tmp_path, {"setups": {"triangle-breakout": {"pivot_window": 9.5}}})
+    with pytest.raises(ConfigError, match="pivot_window"):
+        get_triangle_breakout_config(settings=s)
+
+
+def test_validacao_do_bloco_de_setups_acontece_de_uma_vez(tmp_path: Path) -> None:
+    """Sem validacao antecipada, o erro so aparece dentro do loop de scan, que
+    o captura como warning e segue -- o bot fica de pe sem abrir nada."""
+    from workspace.core.setups import validate_setup_settings
+
+    s = _settings(tmp_path, {"setups": {"divergence-and-volume-4h": {"rsi_period": "vinte"}}})
+    with pytest.raises(ConfigError, match="divergence-and-volume-4h.rsi_period"):
+        validate_setup_settings(settings=s)
+
+    ok = _settings(tmp_path, {"setups": {"divergence-and-volume-4h": {"rsi_period": 21}}})
+    validate_setup_settings(settings=ok)
+
+
+def test_backtest_e_live_resolvem_a_mesma_config(tmp_path: Path) -> None:
+    """O backtest nao passava timeframe, caindo na chave sem sufixo: validava
+    uma config diferente da que opera."""
+    from workspace.core.setups import divergence_volume_setup_key
+
+    assert divergence_volume_setup_key("4h") == "divergence-and-volume-4h"
+    assert divergence_volume_setup_key(None) == "divergence-and-volume"
+
+
+def test_avisa_quando_a_env_encobre_o_settings(tmp_path: Path, caplog) -> None:
+    """`.env.example` trazia os 11 TRIANGLE_*/FUNDING_ARB_* com valor, e a env
+    vence -- entao quem copiou o exemplo veria o settings ser ignorado sem
+    nenhuma pista."""
+    from workspace.core.setups import validate_setup_settings
+
+    s = _settings(
+        tmp_path,
+        {"setups": {"triangle-breakout": {"pivot_window": 9}}},
+        env={"TRIANGLE_PIVOT_WINDOW": "2"},
+    )
+    with caplog.at_level("WARNING"):
+        validate_setup_settings(settings=s)
+    assert "triangle-breakout.pivot_window" in caplog.text
+    assert "TRIANGLE_PIVOT_WINDOW" in caplog.text
+
+
+def test_sem_conflito_nao_avisa(tmp_path: Path, caplog) -> None:
+    from workspace.core.setups import validate_setup_settings
+
+    s = _settings(tmp_path, {"setups": {"triangle-breakout": {"pivot_window": 9}}})
+    with caplog.at_level("WARNING"):
+        validate_setup_settings(settings=s)
+    assert "ignorados" not in caplog.text

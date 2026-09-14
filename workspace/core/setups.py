@@ -3,11 +3,14 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from itertools import product
+import logging
 import math
 from typing import TYPE_CHECKING, Dict, Iterable, List, Sequence
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:  # evita import circular em runtime
     from workspace.config import Settings
@@ -749,6 +752,17 @@ def _setup_tuple(
 TRIANGLE_BREAKOUT_SETUP_KEY = "triangle-breakout"
 
 
+def divergence_volume_setup_key(timeframe: str | None) -> str:
+    """Chave de settings do divergence, com e sem timeframe.
+
+    Existe para que live e backtest resolvam a MESMA chave: os caminhos de
+    backtest nao passavam timeframe e caiam na chave sem sufixo, entao
+    validavam uma config diferente da que opera.
+    """
+    normalized = normalize_timeframe(timeframe) if timeframe else None
+    return f"divergence-and-volume-{normalized}" if normalized else "divergence-and-volume"
+
+
 def get_triangle_breakout_config(
     config: TriangleBreakoutConfig | None = None,
     *,
@@ -818,10 +832,16 @@ def get_divergence_volume_config(
         if normalized_tf
         else DIVERGENCE_AND_VOLUME_DEFAULT_CONFIG
     )
-    key = f"divergence-and-volume-{normalized_tf}" if normalized_tf else "divergence-and-volume"
+    key = divergence_volume_setup_key(timeframe)
 
     target_levels = _setup_tuple(cfg, key, "target_levels", defaults.target_levels)
     target_weights = _setup_tuple(cfg, key, "target_weights", defaults.target_weights)
+    if not target_levels:
+        # `len([]) != len([])` e falso, entao a escada vazia passava -- e o
+        # sinal quebrava depois em `target_prices[-1]`, longe da causa.
+        raise ConfigError(
+            f"setups.{key}: target_levels esta vazio; um setup precisa de pelo menos um alvo."
+        )
     if len(target_levels) != len(target_weights):
         # Pesos em quantidade diferente dos alvos distribuem capital de forma
         # que ninguem pediu; barrar aqui e barato, depois da entrada nao e.
@@ -847,6 +867,62 @@ def get_divergence_volume_config(
         min_reward_risk=_setup_float(cfg, key, "min_reward_risk", "DIVERGENCE_AND_VOLUME_MIN_REWARD_RISK", defaults.min_reward_risk),
         max_hold_bars=_setup_int(cfg, key, "max_hold_bars", "DIVERGENCE_AND_VOLUME_MAX_HOLD_BARS", defaults.max_hold_bars),
     )
+
+
+def validate_setup_settings(*, settings: "Settings | None" = None) -> None:
+    """Resolve toda config de setup uma vez, para o erro aparecer no boot.
+
+    Sem isto, um valor invalido so estoura dentro do loop de scan -- que
+    captura `Exception`, loga um warning e faz `break`. O bot fica de pe,
+    nao abre nada e nao falha: a "falha barulhenta" prometida virava
+    degradacao silenciosa, com raio maior (o `break` mata os demais setups
+    daquele simbolo).
+
+    Chamar no boot, antes do loop.
+    """
+    cfg = _settings_for(settings)
+    get_triangle_breakout_config(settings=cfg)
+    get_funding_arb_config(settings=cfg)
+    for timeframe in ("15m", "1h", "4h"):
+        get_divergence_volume_config(timeframe=timeframe, settings=cfg)
+    get_divergence_volume_config(settings=cfg)
+    _log_setup_config_origins(cfg)
+
+
+def _log_setup_config_origins(cfg: "Settings") -> None:
+    """Diz qual camada venceu em cada campo sobrescrito.
+
+    Sem isto, um operador que define `setups.triangle-breakout.pivot_window` e
+    tem `TRIANGLE_PIVOT_WINDOW` no env ve o valor do env sem nenhuma pista de
+    que o settings foi ignorado -- e conclui que settings.json nao funciona.
+    """
+    watched = (
+        (TRIANGLE_BREAKOUT_SETUP_KEY, "pivot_window", "TRIANGLE_PIVOT_WINDOW"),
+        (TRIANGLE_BREAKOUT_SETUP_KEY, "contraction_max_ratio", "TRIANGLE_CONTRACTION_MAX_RATIO"),
+        (TRIANGLE_BREAKOUT_SETUP_KEY, "volume_multiplier", "TRIANGLE_VOLUME_MULTIPLIER"),
+        (TRIANGLE_BREAKOUT_SETUP_KEY, "stop_atr_mult", "TRIANGLE_STOP_ATR_MULT"),
+        (FUNDING_ARB_SETUP_KEY, "min_rate", "FUNDING_ARB_MIN_RATE"),
+        (FUNDING_ARB_SETUP_KEY, "exit_rate", "FUNDING_ARB_EXIT_RATE"),
+        (FUNDING_ARB_SETUP_KEY, "max_hold_hours", "FUNDING_ARB_MAX_HOLD_HOURS"),
+        (FUNDING_ARB_SETUP_KEY, "max_spread_bps", "FUNDING_ARB_MAX_SPREAD_BPS"),
+    )
+    encobertos = [
+        f"{key}.{field} (env {env})"
+        for key, field, env in watched
+        if cfg.origin(f"setups.{key}.{field}", env=env).layer == "env"
+        and _dig_present(cfg, f"setups.{key}.{field}")
+    ]
+    if encobertos:
+        logger.warning(
+            "settings de setup ignorados porque a env tem precedencia: %s",
+            ", ".join(encobertos),
+        )
+
+
+def _dig_present(cfg: "Settings", dotted: str) -> bool:
+    """True se a chave existe em algum arquivo de settings."""
+    sentinel = object()
+    return cfg.get_json(dotted, default=sentinel) is not sentinel
 
 
 def parse_setup_selection(raw: str | None) -> List[str]:

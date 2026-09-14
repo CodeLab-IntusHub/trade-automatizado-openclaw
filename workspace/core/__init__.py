@@ -48,6 +48,7 @@ from .setups import (
     get_divergence_volume_config,
     get_funding_arb_config,
     get_setup_execution_config,
+    validate_setup_settings,
     get_triangle_breakout_config,
     is_directional_setup,
     is_hedged_only_setup,
