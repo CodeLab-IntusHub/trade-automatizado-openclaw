@@ -7,7 +7,6 @@ import argparse
 import base64
 import hashlib
 import json
-import os
 import shlex
 import subprocess
 import sys
