@@ -122,7 +122,7 @@ jobs:
         # Escopo estreito de proposito. O codigo legado nao esta anotado, e um
         # mypy global nasceria vermelho -- gate vermelho no dia 1 e gate que se
         # aprende a ignorar. Ampliar modulo a modulo conforme forem anotados.
-        run: mypy workspace/file_lock.py workspace/nado/units.py --ignore-missing-imports
+        run: mypy workspace/config.py workspace/file_lock.py workspace/nado/units.py workspace/venues/order_validation.py --ignore-missing-imports
 
   sca:
     name: pip-audit (informativo)

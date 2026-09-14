@@ -32,3 +32,6 @@ workspace/batch-*.json
 
 # Artefatos gerados com IDs da conta do operador
 *.generated
+
+# Config local do operador (a versionada e settings.json)
+settings.local.json
