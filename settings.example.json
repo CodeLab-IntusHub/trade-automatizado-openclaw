@@ -1,6 +1,16 @@
 {
   "_comentario": "Copie para settings.json (versionado, do time) ou settings.local.json (do operador, fora do git). Precedencia: env > settings.local.json > settings.json > default do codigo. Variavel de ambiente definida VENCE o valor daqui -- o boot avisa quando isso acontece.",
 
+  "venues": {
+    "cex": {
+      "sandbox": false,
+      "kraken": { "sandbox": true }
+    },
+    "dex": {
+      "sandbox": false
+    }
+  },
+
   "setups": {
     "triangle-breakout": {
       "pivot_window": 2,

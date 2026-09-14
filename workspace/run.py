@@ -23,6 +23,8 @@ REPO_DIR = WORKSPACE_DIR.parent
 if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 from workspace.venues import venue_summary  # noqa: E402
+from workspace.config import ConfigError  # noqa: E402
+from workspace.venues.sandbox import resolve_sandbox  # noqa: E402
 REQUIREMENTS = WORKSPACE_DIR / "requirements.txt"
 SKILL_ID = "trade-automatizado-openclaw"
 LEGACY_SKILL_ID = "delta-neutral-airdrop-farmer"
@@ -467,6 +469,18 @@ def _ensure_venv_ready() -> dict[str, object]:
     return {"attempted": True, "status": boot.get("status", "unknown"), "result": boot, "dependencies": deps}
 
 
+def _safe_sandbox(kind: str, venue_id: str, fallback: bool) -> bool:
+    """Sandbox para o relatorio, sem derrubar o diagnostico.
+
+    Config invalida ja e reportada em `venues_error`; repetir a excecao aqui
+    trocaria o relatorio inteiro por um traceback.
+    """
+    try:
+        return resolve_sandbox(kind, venue_id)
+    except ConfigError:
+        return fallback
+
+
 def setup_check() -> dict[str, object]:
     env_loaded = _load_env_file()
     _safe_mkdirs()
@@ -474,7 +488,15 @@ def setup_check() -> dict[str, object]:
     current_deps = _dependency_status()
     venv_py = _venv_python()
     venv_deps = _dependency_status(venv_py) if venv_py.exists() else {name: False for name in PROBED_MODULES}
-    venues = venue_summary()
+    # `setup-check` e o comando de diagnostico: config invalida precisa
+    # aparecer como achado no relatorio, nao como traceback. Quem opera roda
+    # isto justamente quando algo esta errado.
+    try:
+        venues = venue_summary()
+        venues_error = None
+    except ConfigError as exc:
+        venues = {}
+        venues_error = str(exc)
     return {
         "status": "ok" if _dependencies_ready(venv_deps) else "needs_bootstrap",
         "runtime": {
@@ -505,13 +527,17 @@ def setup_check() -> dict[str, object]:
         "install_note": "Use dependencies_venv/venv_ready como fonte de verdade; dependencies_current_python pode ser false porque a skill roda pelo venv isolado.",
         "secrets_configured": {name: bool(os.environ.get(name)) for name in SECRET_ENV},
         "venues": venues,
+        "venues_error": venues_error,
         "safe_defaults": {
             "dex_id": _clean_env_value(os.environ.get("DEX_ID") or os.environ.get("TRADE_DEX_ID") or "nado"),
             "cex_id": _clean_env_value(os.environ.get("CEX_ID") or os.environ.get("TRADE_CEX_ID") or "kraken"),
             "dex_network": _clean_env_value(os.environ.get("DEX_NETWORK") or os.environ.get("NADO_NETWORK") or os.environ.get("NETWORK") or "testnet"),
-            "cex_sandbox": _clean_env_value(os.environ.get("CEX_SANDBOX") or venues.get("cex_sandbox") or "false"),
+            # Vem do resolvedor unico, nao da env crua: ler `CEX_SANDBOX`
+            # aqui direto ignorava a env especifica da venue e mostrava o
+            # valor sem normalizar (um `ture` aparecia como `ture`).
+            "cex_sandbox": _clean_env_value(str(venues.get("cex_sandbox") or "false")),
             "nado_network": _clean_env_value(os.environ.get("NADO_NETWORK") or os.environ.get("NETWORK") or "testnet"),
-            "kraken_sandbox": _clean_env_value(os.environ.get("KRAKEN_SANDBOX") or "true"),
+            "kraken_sandbox": "true" if _safe_sandbox("cex", "kraken", True) else "false",
             "cex_market_type": _clean_env_value(os.environ.get("CEX_MARKET_TYPE") or os.environ.get("CEX_DEFAULT_TYPE") or ""),
             "require_linked_signer": _clean_env_value(os.environ.get("NADO_REQUIRE_LINKED_SIGNER") or "true"),
             "require_kraken_subaccount": "false",

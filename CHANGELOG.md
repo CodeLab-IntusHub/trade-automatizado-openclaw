@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.4.0 — 2026-09-14
+
+### Corrigido
+
+- **`sandbox` passa a ter um resolvedor unico** (`workspace/venues/sandbox.py`). A mesma pergunta era respondida em quatro lugares com regras diferentes, e dois defeitos saiam disso: (1) o vocabulario de booleano so definia o lado verdadeiro, entao `CEX_SANDBOX=ture` caia no `else` implicito e o bot operava com **dinheiro real** achando que estava em sandbox; (2) `_load_cex_sandbox` dava prioridade a variavel generica e `_load_pair_cex_sandbox` a especifica, de modo que `CEX_SANDBOX=false` com `BINANCE_SANDBOX=true` mandava a ordem para sandbox enquanto o resumo exibido ao operador dizia `false`. Ver `Docs/features/sandbox-por-venue.md`.
+- Prefixo de variavel por venue deixa de quebrar em id com pontuacao: `binance.us` gerava `BINANCE.US_SANDBOX`, nome que nenhum shell exporta, tornando a variavel especifica inalcancavel em silencio.
+- `KRAKEN_SANDBOX` vira variavel de familia declarada, e nao um caso especial no meio do `cli.py`: continua valendo para `krakenfutures` e `kraken-spot`.
+
+### Adicionado
+
+- `sandbox` configuravel por arquivo em `venues.<tipo>.sandbox` e `venues.<tipo>.<venue>.sandbox`, com exemplo em `settings.example.json`. Antes so existia por variavel de ambiente.
+- `Settings.has_env`: responde "veio do ambiente?" sem exigir uma chave pontilhada junto, que e o que permite manter camada e especificidade como eixos separados.
+- Teste de guarda que falha se o `.env.example` voltar a trazer uma variavel de sandbox descomentada, e teste que exercita as chaves do `settings.example.json` contra o codigo que as le.
+
+### Alterado
+
+- `CEX_SANDBOX`, `KRAKEN_SANDBOX` e `HYPERLIQUID_SANDBOX` vem comentadas no `workspace/.env.example`: ativas, venciam o `settings.json` e o deixavam inoperante para quem copiasse o exemplo.
+- Os dois comandos de diagnostico deixam de estourar com config invalida: `setup-check` reporta a mensagem em `venues_error` e segue com o relatorio; `venues` termina com a mensagem em vez de traceback. Eles sao rodados justamente quando algo esta errado.
+
 ## v1.3.0 — 2026-09-14
 
 ### Adicionado
