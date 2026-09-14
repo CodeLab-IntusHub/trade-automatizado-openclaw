@@ -10,11 +10,11 @@ O contrato, do mais forte para o mais fraco:
 
 1. env, da venue para a familia para o tipo
    (`KRAKENFUTURES_SANDBOX` -> `KRAKEN_SANDBOX` -> `CEX_SANDBOX`)
-2. settings, camada por camada (`settings.local.json` antes de
+2. `env_default`: valor que o chamador derivou de **outra env** da mesma venue
+3. settings, camada por camada (`settings.local.json` antes de
    `settings.json`) e, dentro de cada uma, da venue para a familia para o tipo
    (`venues.cex.krakenfutures.sandbox` -> `venues.cex.kraken.sandbox` ->
    `venues.cex.sandbox`)
-3. default derivado pelo chamador (`venue_default`)
 4. default da venue
 
 **Camada e especificidade sao eixos separados:** ambiente vence arquivo (o
@@ -24,14 +24,17 @@ externo. A primeira versao deste modulo colapsava os dois na varredura de
 arquivo, e uma chave por venue do arquivo do time derrubava uma chave generica
 do arquivo do operador -- o oposto do que o resto do sistema promete.
 
-`venue_default` fica **abaixo de toda config declarada**, inclusive da chave
-generica do tipo. Uma tentativa anterior o colocou acima dela, para proteger
-quem escolheu testnet na Hyperliquid de um `venues.dex.sandbox: false` no
-arquivo -- mas isso reintroduzia a mistura de eixos que o item 2 existe para
-eliminar, e um proprio teste pegou a contradicao. Quem escreve a chave no
-arquivo esta declarando, nao aceitando um default; e o mesmo tratamento que
-`DEX_SANDBOX` sempre teve. O risco real era o **exemplo** distribuir esse
-`false`, e ele deixou de distribuir.
+`env_default` esta na **camada de ambiente**, e nao no fundo da pilha, porque e
+exatamente isso que ele e: a Hyperliquid o deriva de `HYPERLIQUID_NETWORK` /
+`DEX_NETWORK`, onde `testnet` implica sandbox. Duas versoes anteriores o
+trataram como "default" -- uma o pos acima so da chave generica do tipo
+(misturando os eixos, o que um teste pegou) e outra o pos abaixo de toda config
+de arquivo, o que fazia um `venues.dex.sandbox: false` derrubar uma rede
+declarada por variavel de ambiente e mandar para mainnet quem escolheu testnet.
+O nome errado foi a causa das duas: chamar de default o que e env.
+
+Ele fica **abaixo** das envs de sandbox explicitas porque essas respondem a
+pergunta diretamente, enquanto a rede so a implica.
 
 Valor fora do vocabulario levanta `ConfigError` em vez de virar falso -- ver
 `workspace.config.get_bool`.
@@ -39,6 +42,7 @@ Valor fora do vocabulario levanta `ConfigError` em vez de virar falso -- ver
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import TYPE_CHECKING
 
@@ -64,7 +68,10 @@ SANDBOX_GENERIC_ENV = {"cex": "CEX_SANDBOX", "dex": "DEX_SANDBOX"}
 # **env e para settings ao mesmo tempo** -- na primeira versao a familia
 # existia so para env, e `venues.cex.kraken.sandbox` no arquivo nao alcancava
 # `krakenfutures`, que caia na chave generica e ia para producao.
-_VENUE_FAMILIES = ("kraken", "hyperliquid", "nado")
+# `nado` fica de fora de proposito: o adapter da Nado e construido so a partir
+# de `NADO_NETWORK` e nunca chama este resolvedor, entao anunciar
+# `NADO_SANDBOX` / `venues.dex.nado.sandbox` seria prometer config inerte.
+_VENUE_FAMILIES = ("kraken", "hyperliquid")
 
 # Familias que nascem apontadas para sandbox. Assimetria deliberada: a Kraken
 # tem ambiente demo estavel e publico, o resto das CEXs nao tem equivalente
@@ -73,6 +80,8 @@ _VENUE_FAMILIES = ("kraken", "hyperliquid", "nado")
 _SANDBOX_BY_DEFAULT = frozenset({"kraken"})
 
 _LAYER_RANK = {name: rank for rank, name in enumerate(FILE_LAYERS)}
+
+_logger = logging.getLogger(__name__)
 
 
 def venue_prefix(venue_id: str) -> str:
@@ -143,16 +152,32 @@ def _best_settings_key(cfg: "Settings", keys: tuple[str, ...]) -> str | None:
 
     Ordenar so por especificidade faria o arquivo do time vencer o do
     operador; ordenar so por camada ignoraria a familia.
+
+    Quando a vencedora e **menos** especifica que outra declarada, avisa: e o
+    caso em que um `venues.cex.sandbox: false` generico no arquivo do operador
+    engole um `venues.cex.kraken.sandbox: true` explicito do time. A ordem
+    continua valendo -- o arquivo do operador manda --, mas perder uma
+    declaracao de seguranca em silencio nao.
     """
-    best: tuple[tuple[int, int], str] | None = None
+    declared: list[tuple[tuple[int, int], str]] = []
     for specificity, dotted in enumerate(keys):
         layer = _LAYER_RANK.get(cfg.origin(dotted).layer)
         if layer is None:  # veio do default: nao foi declarada em arquivo
             continue
-        rank = (layer, specificity)
-        if best is None or rank < best[0]:
-            best = (rank, dotted)
-    return None if best is None else best[1]
+        declared.append(((layer, specificity), dotted))
+    if not declared:
+        return None
+    declared.sort()
+    (_, winner_specificity), winner = declared[0]
+    for (_, specificity), dotted in declared[1:]:
+        if specificity < winner_specificity:
+            _logger.warning(
+                "sandbox: %s (%s) prevalece sobre %s (%s), que e mais especifica. "
+                "A camada mais forte vence; confira se era isso que voce queria.",
+                winner, cfg.origin(winner).layer, dotted, cfg.origin(dotted).layer,
+            )
+            break
+    return winner
 
 
 def resolve_sandbox(
@@ -160,13 +185,14 @@ def resolve_sandbox(
     venue_id: str,
     *,
     settings: "Settings | None" = None,
-    venue_default: bool | None = None,
+    env_default: bool | None = None,
 ) -> bool:
     """Veredito unico de sandbox para uma venue.
 
     `settings` entra por parametro para que teste e chamador injetem sem mexer
-    em variavel de ambiente global. `venue_default` e para quem deriva o valor
-    de outra config explicita da mesma venue -- ver o cabecalho do modulo.
+    em variavel de ambiente global. `env_default` e para quem derivou o valor
+    de **outra variavel de ambiente** da mesma venue, e por isso participa da
+    camada de ambiente -- ver o cabecalho do modulo.
     """
     from workspace.config import load_settings
 
@@ -179,11 +205,11 @@ def resolve_sandbox(
         # apontava para um caminho de arquivo que podia nem existir.
         return cfg.get_bool(declared_env, env=declared_env)
 
+    if env_default is not None:
+        return env_default
+
     chosen = _best_settings_key(cfg, sandbox_settings_keys(kind, venue_id))
     if chosen is not None:
         return cfg.get_bool(chosen)
-
-    if venue_default is not None:
-        return venue_default
 
     return default_sandbox(kind, venue_id)

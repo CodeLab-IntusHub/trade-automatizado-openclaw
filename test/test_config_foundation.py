@@ -21,6 +21,15 @@ if str(ROOT) not in sys.path:
 from workspace.config import ConfigError, Settings, load_settings  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _isola_settings_local(tmp_path: Path, monkeypatch) -> None:
+    """`_local_settings_path` prefere `~/.config/openclaw/<skill>/` quando esse
+    arquivo existe -- que e o local documentado para o operador. Sem este
+    override, a suite lia o settings real da maquina e media o residuo dele.
+    """
+    monkeypatch.setenv("DELTA_NEUTRAL_SETTINGS_DIR", str(tmp_path))
+
+
 def _settings(tmp_path: Path, *, versioned=None, local=None, env=None) -> Settings:
     # Os dois arquivos sao sempre reescritos: escrever so o que foi passado
     # deixava o arquivo da chamada anterior vazar para a seguinte, e o teste

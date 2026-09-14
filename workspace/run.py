@@ -24,7 +24,8 @@ if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 from workspace.venues import venue_summary  # noqa: E402
 from workspace.config import ConfigError  # noqa: E402
-from workspace.venues.sandbox import resolve_sandbox  # noqa: E402
+from workspace.venues.sandbox import resolve_sandbox, venue_chain  # noqa: E402
+from workspace.venues.config import selected_venues  # noqa: E402
 REQUIREMENTS = WORKSPACE_DIR / "requirements.txt"
 SKILL_ID = "trade-automatizado-openclaw"
 LEGACY_SKILL_ID = "delta-neutral-airdrop-farmer"
@@ -497,8 +498,18 @@ def setup_check() -> dict[str, object]:
     except ConfigError as exc:
         venues = {}
         venues_error = str(exc)
-    selected_dex_id = _clean_env_value(os.environ.get("DEX_ID") or os.environ.get("TRADE_DEX_ID") or "nado")
-    selected_cex_id = _clean_env_value(os.environ.get("CEX_ID") or os.environ.get("TRADE_CEX_ID") or "kraken")
+    # Pela mesma funcao que o caminho de ordem usa: reler o env aqui perdia o
+    # alias `PRIMARY_CEX`, e o relatorio passava a descrever uma venue
+    # diferente da que opera -- com `PRIMARY_CEX=binance` dizia sandbox
+    # enquanto a Binance rodava em producao.
+    selection = selected_venues()
+    selected_dex_id = selection.dex_id
+    selected_cex_id = selection.cex_id
+    # O campo se chama `kraken_sandbox`: quando a CEX selecionada e da familia
+    # kraken ele segue a selecao (para ler `KRAKENFUTURES_SANDBOX`); fora dela,
+    # responde pela Kraken mesmo, em vez de repetir o valor de outra venue sob
+    # um nome que promete Kraken.
+    kraken_report_id = selected_cex_id if "kraken" in venue_chain(selected_cex_id) else "kraken"
     return {
         "status": "ok" if _dependencies_ready(venv_deps) else "needs_bootstrap",
         "runtime": {
@@ -541,7 +552,7 @@ def setup_check() -> dict[str, object]:
             # relatorio.
             "cex_sandbox": "true" if _safe_sandbox("cex", selected_cex_id, True) else "false",
             "nado_network": _clean_env_value(os.environ.get("NADO_NETWORK") or os.environ.get("NETWORK") or "testnet"),
-            "kraken_sandbox": "true" if _safe_sandbox("cex", selected_cex_id, True) else "false",
+            "kraken_sandbox": "true" if _safe_sandbox("cex", kraken_report_id, True) else "false",
             "cex_market_type": _clean_env_value(os.environ.get("CEX_MARKET_TYPE") or os.environ.get("CEX_DEFAULT_TYPE") or ""),
             "require_linked_signer": _clean_env_value(os.environ.get("NADO_REQUIRE_LINKED_SIGNER") or "true"),
             "require_kraken_subaccount": "false",

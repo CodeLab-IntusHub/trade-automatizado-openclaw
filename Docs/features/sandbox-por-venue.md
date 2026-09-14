@@ -45,10 +45,11 @@ Do mais forte para o mais fraco:
 
 1. **env**, seguindo a cadeia da venue: `KRAKENFUTURES_SANDBOX` →
    `KRAKEN_SANDBOX` → `CEX_SANDBOX`
-2. **`settings.local.json`**, mesma cadeia: `venues.cex.krakenfutures.sandbox`
+2. **`env_default`** — valor que o chamador derivou de *outra variável de
+   ambiente* da mesma venue
+3. **`settings.local.json`**, mesma cadeia: `venues.cex.krakenfutures.sandbox`
    → `venues.cex.kraken.sandbox` → `venues.cex.sandbox`
-3. **`settings.json`**, mesma cadeia
-4. `venue_default` — derivado pelo chamador
+4. **`settings.json`**, mesma cadeia
 5. default da venue
 
 **Camada é o eixo externo; especificidade, o interno.** Ambiente vence arquivo,
@@ -56,12 +57,11 @@ Do mais forte para o mais fraco:
 específico vence o genérico. Isso preserva a precedência documentada em
 [Configuração de setups](configuracao-de-setups.md).
 
-A ordem foi errada duas vezes antes de assentar, sempre por misturar os eixos:
-primeiro a varredura de arquivo colapsou camada e especificidade, e uma chave
-por venue do arquivo do time derrubava uma chave genérica do arquivo do
-operador; depois, ao tentar proteger o `venue_default`, ele foi posto acima da
-chave genérica do tipo — reintroduzindo a mesma mistura, o que um teste vizinho
-pegou.
+Quando uma chave de camada mais forte é **menos** específica que outra
+declarada — o caso de um `venues.cex.sandbox: false` no arquivo do operador
+engolindo um `venues.cex.kraken.sandbox: true` do time — a ordem continua
+valendo, mas sai um `WARNING` nomeando as duas chaves. Perder uma declaração de
+segurança em silêncio é o defeito que este módulo existe para remover.
 
 ### A cadeia de venue
 
@@ -69,17 +69,29 @@ pegou.
 tempo**: `krakenfutures` → `('krakenfutures', 'kraken')`. Na primeira versão a
 família existia só para env, e `venues.cex.kraken.sandbox` no arquivo não
 alcançava `krakenfutures` — que caía na chave genérica e ia para produção.
-O casamento é por prefixo, então uma venue futura chamada `nadotrade` herdaria
-de `nado`; é o preço de não manter uma tabela de variantes que envelhece a cada
+O casamento é por prefixo, então uma venue futura chamada `krakenx` herdaria de
+`kraken`; é o preço de não manter uma tabela de variantes que envelhece a cada
 exchange nova.
 
-### `venue_default`
+### `env_default`
 
-Fica **abaixo de toda config declarada**. Quem escreve a chave no arquivo está
-declarando, não aceitando um default — mesmo tratamento que `DEX_SANDBOX`
-sempre teve. O risco real era o `settings.example.json` distribuir
-`venues.dex.sandbox: false` e derrubar o default de quem escolheu testnet; o
-exemplo deixou de distribuir isso, e há teste de guarda.
+Está na **camada de ambiente**, porque é exatamente isso que ele é: a
+Hyperliquid o deriva de `HYPERLIQUID_NETWORK`/`DEX_NETWORK`, onde `testnet`
+implica sandbox. Fica abaixo das envs de sandbox explícitas, que respondem à
+pergunta diretamente, e acima de qualquer arquivo.
+
+A posição foi errada duas vezes, e o nome foi a causa das duas. Chamando-o de
+`venue_default`, primeiro o coloquei acima apenas da chave genérica do tipo —
+misturando os eixos que o resto do módulo separa, o que um teste vizinho pegou;
+depois o desci para baixo de toda config de arquivo, e aí um
+`venues.dex.sandbox: false` derrubava uma rede declarada por variável de
+ambiente, mandando para mainnet quem tinha escolhido testnet.
+
+### Nado não participa
+
+O adapter da Nado é construído só a partir de `NADO_NETWORK` e nunca chama este
+resolvedor. `nado` fica de fora da lista de famílias de propósito: anunciar
+`NADO_SANDBOX` ou `venues.dex.nado.sandbox` seria prometer configuração inerte.
 
 ## Defaults
 
@@ -103,8 +115,9 @@ A Hyperliquid deriva o default da rede selecionada: `testnet` implica sandbox.
 ```
 
 Evite declarar `venues.<tipo>.sandbox` sem precisar: a chave genérica vence o
-default da venue e o `venue_default`, mandando para produção quem contava com
-eles.
+default da venue e, dentro da mesma camada, qualquer chave mais específica de
+camada mais fraca — mandando para produção quem contava com elas. Quando isso
+acontece entre camadas, sai um `WARNING`.
 
 As variáveis `CEX_SANDBOX`, `KRAKEN_SANDBOX` e `HYPERLIQUID_SANDBOX` vêm
 **comentadas** no `workspace/.env.example`. Elas continuam funcionando, mas têm
@@ -135,4 +148,5 @@ específica inalcançável sem que nada avisasse.
 | Data | Mudança |
 |------|---------|
 | 14/09/2026 | Documento inicial: resolvedor único, precedência e defaults |
-| 14/09/2026 | Cadeia de venue aplicada também às chaves de settings; camada vira eixo externo; `venue_default` abaixo da config declarada |
+| 14/09/2026 | Cadeia de venue aplicada também às chaves de settings; camada vira eixo externo |
+| 14/09/2026 | `env_default` passa para a camada de ambiente; aviso quando a chave genérica engole a específica; Nado fora das famílias |

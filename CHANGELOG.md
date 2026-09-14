@@ -9,6 +9,11 @@
 - `KRAKEN_SANDBOX` vira variavel de familia declarada, e nao um caso especial no meio do `cli.py`: continua valendo para `krakenfutures` e `kraken-spot`. A familia vale **tambem para as chaves de settings** (`venues.cex.kraken.sandbox` alcanca as variantes) e para `HYPERLIQUID_SANDBOX` nos ids `hyperliquid-dex`/`hyperliquid_dex`.
 - Na varredura dos arquivos de settings, a **camada e o eixo externo**: `settings.local.json` vence `settings.json` mesmo quando o versionado tem a chave mais especifica. Sem isso, uma chave por venue do arquivo do time derrubava a chave generica do arquivo do operador.
 - Mensagem de valor invalido nomeia a variavel de ambiente que o operador escreveu (`BINANCE_SANDBOX`), e nao uma chave de arquivo que pode nem existir.
+- O valor derivado de outra env da mesma venue (`env_default`; a Hyperliquid o tira de `HYPERLIQUID_NETWORK`) participa da **camada de ambiente**, e nao do fundo da pilha: abaixo dela, um `venues.dex.sandbox: false` no arquivo derrubava a rede declarada por variavel de ambiente e mandava para mainnet quem escolheu testnet.
+- Quando uma chave de camada mais forte e menos especifica que outra declarada -- um `venues.cex.sandbox: false` do operador engolindo um `venues.cex.kraken.sandbox: true` do time --, sai um `WARNING` nomeando as duas. A ordem continua valendo; perder a declaracao em silencio, nao.
+- `setup-check` resolve a venue pela mesma funcao do caminho de ordem (`selected_venues`): reler o env perdia o alias `PRIMARY_CEX`, e com `PRIMARY_CEX=binance` o relatorio dizia `kraken` em sandbox enquanto a Binance rodava em producao.
+- O campo `kraken_sandbox` do relatorio deixa de repetir o valor de outra venue: fora da familia kraken ele responde pela Kraken, em vez de imprimir a resolucao da Binance sob um nome que promete Kraken.
+- `nado` sai da lista de familias: o adapter da Nado nunca chama o resolvedor, entao `NADO_SANDBOX` e `venues.dex.nado.sandbox` seriam config inerte anunciada como valida.
 - `setup-check` deixa de reportar `cex_sandbox: "false"` ao lado de `kraken_sandbox: "true"` quando a config esta invalida -- dizia dinheiro real e sandbox ao mesmo tempo --, e os dois campos passam a seguir a CEX selecionada em vez do id cravado `kraken`.
 
 ### Adicionado

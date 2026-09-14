@@ -34,7 +34,17 @@ from workspace.venues.sandbox import (  # noqa: E402
     default_sandbox,
     resolve_sandbox,
     sandbox_env_names,
+    venue_chain,
 )
+
+
+@pytest.fixture(autouse=True)
+def _isola_settings_local(tmp_path: Path, monkeypatch) -> None:
+    """`_local_settings_path` prefere `~/.config/openclaw/<skill>/` quando esse
+    arquivo existe -- que e o local documentado para o operador. Sem este
+    override, a suite lia o settings real da maquina e media o residuo dele.
+    """
+    monkeypatch.setenv("DELTA_NEUTRAL_SETTINGS_DIR", str(tmp_path))
 
 
 def _settings(tmp_path: Path, *, versioned=None, local=None, env=None) -> Settings:
@@ -235,8 +245,8 @@ def test_settings_example_usa_as_chaves_que_o_codigo_le(tmp_path: Path) -> None:
     for vid in ("kraken", "krakenfutures", "kraken-futures", "kraken-spot"):
         assert resolve_sandbox("cex", vid, settings=s) is True, vid
     assert resolve_sandbox("cex", "binance", settings=s) is False
-    # E o exemplo nao pode derrubar um default derivado pelo chamador.
-    assert resolve_sandbox("dex", "hyperliquid", settings=s, venue_default=True) is True
+    # E o exemplo nao pode derrubar a rede declarada por env.
+    assert resolve_sandbox("dex", "hyperliquid", settings=s, env_default=True) is True
 
 
 def test_cmd_venues_explica_em_vez_de_dar_traceback(monkeypatch) -> None:
@@ -285,20 +295,29 @@ def test_env_de_familia_alcanca_as_variantes_de_dex() -> None:
         assert "HYPERLIQUID_SANDBOX" in sandbox_env_names("dex", vid), vid
 
 
-def test_default_derivado_so_vale_sem_config_declarada(tmp_path: Path) -> None:
-    """`venue_default` fica abaixo de toda config declarada.
+def test_env_default_esta_na_camada_de_ambiente(tmp_path: Path) -> None:
+    """Ele e derivado de `HYPERLIQUID_NETWORK`, uma env -- entao vence arquivo.
 
-    A versao anterior o punha acima da chave generica do tipo, para proteger
-    quem escolheu testnet -- e com isso quebrava o eixo "camada primeiro", o
-    que um teste vizinho pegou. O risco real era o exemplo distribuir
-    `venues.dex.sandbox: false`; ele deixou de distribuir, e ha teste para
-    isso.
+    Duas versoes anteriores o trataram como "default". Uma o pos acima so da
+    chave generica do tipo, misturando os eixos; a outra o pos abaixo de toda
+    config de arquivo, e ai `venues.dex.sandbox: false` mandava para mainnet
+    quem tinha declarado testnet por variavel de ambiente. O nome errado foi a
+    causa das duas.
     """
-    s = _settings(tmp_path)
-    assert resolve_sandbox("dex", "hyperliquid", settings=s, venue_default=True) is True
-
     s = _settings(tmp_path, versioned={"venues": {"dex": {"sandbox": False}}})
-    assert resolve_sandbox("dex", "hyperliquid", settings=s, venue_default=True) is False
+    assert resolve_sandbox("dex", "hyperliquid", settings=s, env_default=True) is True
+
+    s = _settings(
+        tmp_path,
+        versioned={"venues": {"dex": {"hyperliquid": {"sandbox": False}}}},
+    )
+    assert resolve_sandbox("dex", "hyperliquid", settings=s, env_default=True) is True
+
+
+def test_env_de_sandbox_explicita_vence_o_env_default(tmp_path: Path) -> None:
+    """A env de sandbox responde a pergunta; a rede so a implica."""
+    s = _settings(tmp_path, env={"HYPERLIQUID_SANDBOX": "false"})
+    assert resolve_sandbox("dex", "hyperliquid", settings=s, env_default=True) is False
 
 
 def test_exemplo_nao_distribui_sandbox_generico(tmp_path: Path) -> None:
@@ -357,3 +376,72 @@ def test_relatorio_segue_a_cex_selecionada(monkeypatch) -> None:
     defaults = run.setup_check()["safe_defaults"]
     assert defaults["kraken_sandbox"] == "false"
     assert defaults["cex_sandbox"] == "false"
+
+
+# --- achados do segundo passe de code-review --------------------------------
+
+
+def test_relatorio_segue_o_alias_primary_cex(monkeypatch) -> None:
+    """`selected_venues` resolve `CEX_ID -> TRADE_CEX_ID -> PRIMARY_CEX`.
+
+    Reler o env no `run.py` perdia o terceiro: com `PRIMARY_CEX=binance` o
+    relatorio dizia `kraken` e `sandbox=true` enquanto a ordem ia para a
+    Binance em producao.
+    """
+    import workspace.run as run
+
+    monkeypatch.delenv("CEX_ID", raising=False)
+    monkeypatch.delenv("TRADE_CEX_ID", raising=False)
+    monkeypatch.setenv("PRIMARY_CEX", "binance")
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+
+    report = run.setup_check()
+    assert report["safe_defaults"]["cex_id"] == report["venues"]["cex_id"] == "binance"
+    assert report["safe_defaults"]["cex_sandbox"] == report["venues"]["cex_sandbox"] == "false"
+
+
+def test_campo_kraken_sandbox_nao_repete_outra_venue(monkeypatch) -> None:
+    """Um campo chamado `kraken_sandbox` reportando a Binance faz o operador
+    concluir que a Kraken esta em producao."""
+    import workspace.run as run
+
+    monkeypatch.setenv("CEX_ID", "binance")
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+
+    defaults = run.setup_check()["safe_defaults"]
+    assert defaults["cex_sandbox"] == "false"      # binance nasce em producao
+    assert defaults["kraken_sandbox"] == "true"    # a Kraken, nao a binance
+
+
+def test_chave_generica_mais_forte_avisa_ao_engolir_a_especifica(tmp_path: Path, caplog) -> None:
+    """O arquivo do operador manda -- mas perder uma declaracao de seguranca
+    do time em silencio, nao."""
+    s = _settings(
+        tmp_path,
+        versioned={"venues": {"cex": {"kraken": {"sandbox": True}}}},
+        local={"venues": {"cex": {"sandbox": False}}},
+    )
+    with caplog.at_level("WARNING"):
+        assert resolve_sandbox("cex", "kraken", settings=s) is False
+    assert "venues.cex.kraken.sandbox" in caplog.text
+
+
+def test_nado_nao_anuncia_sandbox_que_nao_existe() -> None:
+    """O adapter da Nado e construido so de `NADO_NETWORK` e nunca chama este
+    resolvedor: anunciar `NADO_SANDBOX` seria prometer config inerte."""
+    assert venue_chain("nado") == ("nado",)
+    assert "NADO_SANDBOX" not in sandbox_env_names("dex", "nado-dex")
+
+
+def test_fixture_isola_o_settings_local_do_operador(tmp_path: Path) -> None:
+    """`_local_settings_path` prefere `~/.config/openclaw/<skill>/` quando o
+    arquivo existe. Sem o override, a suite lia o settings real da maquina."""
+    import os
+
+    from workspace.config import _local_settings_path
+
+    assert os.environ["DELTA_NEUTRAL_SETTINGS_DIR"] == str(tmp_path)
+    (tmp_path / "settings.local.json").write_text("{}", encoding="utf-8")
+    assert _local_settings_path(ROOT).parent == tmp_path

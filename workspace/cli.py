@@ -5530,7 +5530,7 @@ def _load_hyperliquid_config(dex_id: str) -> dict:
             _first_env("HYPERLIQUID_VAULT_ADDRESS")
             or str(cfg.get("vault_address") or cfg.get("vaultAddress") or "")
         ),
-        sandbox=resolve_sandbox("dex", dex_id, venue_default=sandbox_default),
+        sandbox=resolve_sandbox("dex", dex_id, env_default=sandbox_default),
         market_type=_first_env("HYPERLIQUID_MARKET_TYPE", "DEX_MARKET_TYPE") or str(cfg.get("market_type") or "swap"),
         symbol_quote=_first_env("HYPERLIQUID_SYMBOL_QUOTE") or str(cfg.get("symbol_quote") or "USDT"),
     )
