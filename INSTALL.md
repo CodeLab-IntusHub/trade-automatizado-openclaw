@@ -29,6 +29,9 @@ python3 workspace/run.py bootstrap
 # copie as envs para ~/.config/openclaw/trade-automatizado-openclaw.env ou secret manager
 ```
 
+Calibracao de setup: copie `settings.example.json` para `settings.json` (time) ou
+`settings.local.json` (operador). Detalhes em `Docs/features/configuracao-de-setups.md`.
+
 Dependencias-chave:
 - `ccxt>=4.5.50`
 - `setuptools<81`

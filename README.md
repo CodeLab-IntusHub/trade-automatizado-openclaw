@@ -70,6 +70,17 @@ trade-automatizado-openclaw/
 
 Por padrão a skill usa `DEX_ID=nado` e `CEX_ID=kraken`. O wizard lista as principais venues: DEX `nado` e `hyperliquid`; CEX `kraken`, `binance`, `bybit`, `okx`, `kucoin`, `mexc`, `bitget` e `gateio`. Para trocar a CEX, use qualquer `exchange_id` suportado pelo CCXT e configure `CEX_API_KEY`, `CEX_API_SECRET` e, quando necessário, `CEX_API_PASSWORD`.
 
+## Configuração
+
+Calibração de setup vive em `settings.json` (versionado) ou `settings.local.json`
+(do operador, fora do git). Ver `settings.example.json` e
+[Docs/features/configuracao-de-setups.md](Docs/features/configuracao-de-setups.md).
+
+Precedência: variável de ambiente → `settings.local.json` → `settings.json` →
+default do código. **A variável de ambiente vence o arquivo**; o boot avisa
+quais chaves do settings estão encobertas. Segredo nunca entra no settings — o
+arquivo declara apenas o *nome* da variável.
+
 Corretoras/venues suportadas ou validadas:
 
 | Venue | IDs/config | Uso atual |
