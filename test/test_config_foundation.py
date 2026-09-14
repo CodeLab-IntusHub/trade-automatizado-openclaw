@@ -22,10 +22,11 @@ from workspace.config import ConfigError, Settings, load_settings  # noqa: E402
 
 
 def _settings(tmp_path: Path, *, versioned=None, local=None, env=None) -> Settings:
-    if versioned is not None:
-        (tmp_path / "settings.json").write_text(json.dumps(versioned), encoding="utf-8")
-    if local is not None:
-        (tmp_path / "settings.local.json").write_text(json.dumps(local), encoding="utf-8")
+    # Os dois arquivos sao sempre reescritos: escrever so o que foi passado
+    # deixava o arquivo da chamada anterior vazar para a seguinte, e o teste
+    # media o residuo em vez do caso.
+    (tmp_path / "settings.json").write_text(json.dumps(versioned or {}), encoding="utf-8")
+    (tmp_path / "settings.local.json").write_text(json.dumps(local or {}), encoding="utf-8")
     return load_settings(root=tmp_path, env=env or {})
 
 
@@ -93,13 +94,19 @@ def test_booleano_ilegivel_falha_em_vez_de_virar_falso(tmp_path: Path, valor) ->
 def test_env_vazia_conta_como_nao_definida(tmp_path: Path) -> None:
     """`export CEX_SANDBOX=` e quase sempre acidente de script, nao escolha.
 
-    Tratar como "ausente" faz cair no default (ou no erro de obrigatoria), que
-    e mais honesto que inventar um booleano a partir de string vazia.
+    "Ausente" faz a resolucao seguir para as camadas seguintes -- arquivo local,
+    arquivo versionado e so entao o default. Importa num portao de seguranca:
+    `CEX_SANDBOX=` com valor no settings resolve pelo arquivo, nao pelo default.
     """
     s = _settings(tmp_path, env={"F": ""})
     with pytest.raises(ConfigError, match="(?i)obrigat"):
         s.get_bool("f", env="F")
     assert _settings(tmp_path, env={"F": ""}).get_bool("f", env="F", default=True) is True
+
+    # env vazia nao curto-circuita para o default: o arquivo ainda vale
+    s = _settings(tmp_path, versioned={"f": False}, env={"F": ""})
+    assert s.get_bool("f", env="F", default=True) is False
+    assert s.origin("f", env="F").layer == "settings.json"
 
 
 def test_booleano_sem_default_e_obrigatorio(tmp_path: Path) -> None:
@@ -118,7 +125,7 @@ def test_tipos_coagem_e_falham_com_a_chave_no_erro(tmp_path: Path) -> None:
     assert s.get_json("j", env="J") == {"a": 1}
 
     s = _settings(tmp_path, env={"N": "doze"})
-    with pytest.raises(ConfigError, match="N"):
+    with pytest.raises(ConfigError, match=r"'n' em N"):
         s.get_int("n", env="N")
 
 
@@ -169,3 +176,88 @@ def test_setups_sao_enderecaveis_por_chave(tmp_path: Path) -> None:
     )
     assert s.get_int("setups.divergence-and-volume-4h.rsi_period", env="RSI_PERIOD_4H") == 14
     assert s.get_float("setups.divergence-and-volume-4h.volume_factor", env="VOL_FACTOR_4H") == 1.5
+
+
+# --- correcoes do code-review da PR #6 --------------------------------------
+
+def test_chave_com_ponto_no_nome_resolve(tmp_path: Path) -> None:
+    """Setup pode ter ponto no nome (`rsi-2.5x`). Quebrar o caminho so por
+    ponto faria o valor configurado sumir -- com default, em silencio."""
+    s = _settings(tmp_path, versioned={"setups": {"rsi-2.5x": {"period": 14}}})
+    assert s.get_int("setups.rsi-2.5x.period", env="X") == 14
+    assert s.get_int("setups.rsi-2.5x.period", env="X", default=99) == 14
+
+
+def test_caminho_aninhado_normal_continua_funcionando(tmp_path: Path) -> None:
+    s = _settings(tmp_path, versioned={"a": {"b": {"c": 7}}})
+    assert s.get_int("a.b.c", env="X") == 7
+
+
+def test_null_no_settings_significa_nao_definido(tmp_path: Path) -> None:
+    """Anular a chave local para cair no valor do time devolvia a string
+    'None' como id de exchange."""
+    s = _settings(tmp_path, versioned={"cex": {"id": "kraken"}}, local={"cex": {"id": None}})
+    assert s.get_str("cex.id", default="fallback") == "kraken"
+
+    s = _settings(tmp_path, local={"cex": {"id": None}})
+    assert s.get_str("cex.id", default="fallback") == "fallback"
+
+
+def test_get_str_recusa_estrutura_em_vez_de_stringificar(tmp_path: Path) -> None:
+    s = _settings(tmp_path, versioned={"cex": {"id": {"a": 1}}})
+    with pytest.raises(ConfigError, match="(?i)cex.id"):
+        s.get_str("cex.id", default="x")
+
+
+def test_segredo_malformado_vira_ConfigError_e_nao_TypeError(tmp_path: Path) -> None:
+    """Problema de config tem de sair como ConfigError nomeando a chave; um
+    TypeError cru escapa de quem captura ConfigError."""
+    s = _settings(tmp_path, versioned={"cex": {"k": {"env": 123}}})
+    with pytest.raises(ConfigError, match="cex.k"):
+        s.secret("cex.k")
+
+    s = _settings(tmp_path, versioned={"cex": {"k": {"env": []}}})
+    with pytest.raises(ConfigError, match="cex.k"):
+        s.secret("cex.k")
+
+
+def test_arquivo_em_encoding_errado_falha_nomeando_o_arquivo(tmp_path: Path) -> None:
+    """Windows e alvo suportado, e editor salvando em UTF-16 e caminho real."""
+    (tmp_path / "settings.json").write_bytes(json.dumps({"a": 1}).encode("utf-16"))
+    with pytest.raises(ConfigError, match="settings.json"):
+        load_settings(root=tmp_path, env={})
+
+
+def test_segredo_preserva_espaco_significativo(tmp_path: Path) -> None:
+    """O modulo argumenta que cortar conteudo de segredo e o defeito a
+    corrigir -- e entao aplicava `.strip()` no segredo."""
+    s = _settings(tmp_path, versioned={"cex": {"k": {"env": ["P"]}}}, env={"P": "  senha com espaco  "})
+    assert s.secret("cex.k") == "  senha com espaco  "
+
+
+def test_erro_de_tipo_nomeia_a_env_de_origem(tmp_path: Path) -> None:
+    s = _settings(tmp_path, env={"N_PERIOD": "doze"})
+    with pytest.raises(ConfigError, match="N_PERIOD"):
+        s.get_int("n.period", env="N_PERIOD")
+
+
+def test_settings_local_vem_de_fora_da_arvore_quando_existe(tmp_path: Path, monkeypatch) -> None:
+    """A skill e reinstalada por cima do proprio diretorio.
+
+    A config do operador dentro da arvore se perde nessa hora; a env file ja
+    vive fora (`~/.config/openclaw/`), e o settings local segue a mesma
+    convencao. O arquivo dentro da arvore continua valendo como fallback.
+    """
+    repo = tmp_path / "repo"
+    externo = tmp_path / "config"
+    repo.mkdir()
+    externo.mkdir()
+    (repo / "settings.json").write_text(json.dumps({"cex": {"id": "kraken"}}), encoding="utf-8")
+    (repo / "settings.local.json").write_text(json.dumps({"cex": {"id": "na-arvore"}}), encoding="utf-8")
+    (externo / "settings.local.json").write_text(json.dumps({"cex": {"id": "fora-da-arvore"}}), encoding="utf-8")
+
+    monkeypatch.setenv("DELTA_NEUTRAL_SETTINGS_DIR", str(externo))
+    assert load_settings(root=repo, env={}).get_str("cex.id") == "fora-da-arvore"
+
+    monkeypatch.delenv("DELTA_NEUTRAL_SETTINGS_DIR")
+    assert load_settings(root=repo, env={}).get_str("cex.id") == "na-arvore"

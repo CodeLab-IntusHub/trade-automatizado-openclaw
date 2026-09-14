@@ -46,6 +46,14 @@ BOOL_FALSE_VALUES = frozenset({"0", "false", "no", "nao", "não", "off", "n"})
 _VERSIONED_FILE = "settings.json"
 _LOCAL_FILE = "settings.local.json"
 
+SKILL_ID = "trade-automatizado-openclaw"
+# Onde procurar o settings do operador, em ordem. A skill e reinstalada por
+# cima do proprio diretorio, entao config do operador guardada dentro da arvore
+# se perde nessa hora. A env file ja vive fora (`~/.config/openclaw/`, ver
+# `workspace/run.py`), e o settings local segue a mesma convencao; o arquivo
+# dentro da arvore continua valendo como fallback.
+_LOCAL_DIR_ENV = "DELTA_NEUTRAL_SETTINGS_DIR"
+
 _MISSING = object()
 
 
@@ -70,7 +78,7 @@ def _read_json_file(path: Path) -> dict[str, Any]:
         return {}
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ConfigError(f"{path.name} inválido: {exc}") from exc
     if not isinstance(payload, dict):
         raise ConfigError(f"{path.name} precisa conter um objeto JSON no topo")
@@ -80,15 +88,26 @@ def _read_json_file(path: Path) -> dict[str, Any]:
 def _dig(data: Mapping[str, Any], dotted: str) -> Any:
     """Busca por caminho pontilhado, tolerando chaves com ponto no nome.
 
-    Chaves de setup contêm hífen e podem conter ponto (`divergence-and-volume-4h`),
-    então a busca tenta o segmento literal antes de descer.
+    Uma chave de setup pode conter ponto (`rsi-2.5x`), e quebrar o caminho só
+    pelo separador faria o valor configurado sumir -- com `default`, em
+    silêncio. Por isso a busca tenta primeiro o prefixo mais longo que exista
+    literalmente neste nível, e só então desce.
     """
-    current: Any = data
-    for part in dotted.split("."):
-        if not isinstance(current, Mapping) or part not in current:
-            return _MISSING
-        current = current[part]
-    return current
+    if not isinstance(data, Mapping):
+        return _MISSING
+    if dotted in data:
+        return data[dotted]
+
+    parts = dotted.split(".")
+    # Do prefixo mais longo para o mais curto: a chave literal vence a
+    # interpretação como caminho, que é o que torna `rsi-2.5x` endereçável.
+    for size in range(len(parts) - 1, 0, -1):
+        head = ".".join(parts[:size])
+        if head in data:
+            found = _dig(data[head], ".".join(parts[size:]))
+            if found is not _MISSING:
+                return found
+    return _MISSING
 
 
 def _as_env_names(env: str | Sequence[str] | None) -> tuple[str, ...]:
@@ -129,7 +148,10 @@ class Settings:
 
         for layer, data in ((_LOCAL_FILE, self._local), (_VERSIONED_FILE, self._versioned)):
             found = _dig(data, dotted)
-            if found is not _MISSING:
+            # `null` declara "sem valor aqui", nao o valor `None`: e como o
+            # operador anula uma chave local para cair na do time. Stringificar
+            # isso devolvia a literal "None" como id de exchange.
+            if found is not _MISSING and found is not None:
                 return found, ConfigOrigin(layer, dotted)
 
         return _MISSING, ConfigOrigin("default", dotted)
@@ -153,7 +175,14 @@ class Settings:
 
     def get_str(self, dotted: str, *, env: str | Sequence[str] | None = None, default: Any = _MISSING) -> str:
         value = self._require(dotted, env, default)
-        return value if isinstance(value, str) else str(value)
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (Mapping, list, tuple)):
+            raise ConfigError(
+                f"valor inválido para '{dotted}': esperava texto, veio {type(value).__name__}. "
+                "Use get_json/get_list para estrutura."
+            )
+        return str(value)
 
     def get_bool(self, dotted: str, *, env: str | Sequence[str] | None = None, default: Any = _MISSING) -> bool:
         value = self._require(dotted, env, default)
@@ -220,7 +249,17 @@ class Settings:
         names: Iterable[str]
         if isinstance(declared, Mapping) and "env" in declared:
             raw_names = declared["env"]
-            names = (raw_names,) if isinstance(raw_names, str) else tuple(raw_names)
+            if isinstance(raw_names, str):
+                names = (raw_names,)
+            elif isinstance(raw_names, (list, tuple)) and raw_names:
+                names = tuple(str(item) for item in raw_names)
+            else:
+                # Sem isto um `{"env": 123}` estourava `TypeError` cru, que
+                # escapa de quem captura ConfigError.
+                raise ConfigError(
+                    f"segredo '{dotted}': 'env' precisa ser o nome de uma variável ou uma "
+                    f"lista não vazia de nomes; veio {raw_names!r}"
+                )
         else:
             raise ConfigError(
                 f"segredo '{dotted}' em {origin.layer} precisa declarar apenas o NOME da "
@@ -230,7 +269,12 @@ class Settings:
         for name in names:
             value = self._env.get(name)
             if value and value.strip():
-                return value.strip()
+                # Sem `.strip()` no retorno: passphrase pode ter espaço
+                # significativo, e cortá-lo reproduz -- em outra forma -- o
+                # mesmo defeito de mutilar segredo que este módulo existe para
+                # acabar. O `.strip()` acima serve só para decidir se está
+                # definida.
+                return value
         raise ConfigError(
             f"segredo '{dotted}' não encontrado no ambiente. Defina uma destas: {', '.join(names)}"
         )
@@ -248,7 +292,27 @@ def load_settings(
     """
     base = Path(root) if root is not None else Path(__file__).resolve().parents[1]
     return Settings(
+        # O versionado e sempre o do repositorio: ele pertence ao time.
         versioned=_read_json_file(base / _VERSIONED_FILE),
-        local=_read_json_file(base / _LOCAL_FILE),
+        local=_read_json_file(_local_settings_path(base)),
         env=dict(os.environ if env is None else env),
     )
+
+
+def _local_settings_path(base: Path) -> Path:
+    """Primeiro caminho existente para o settings do operador.
+
+    Se nenhum existir, devolve o do repositorio -- arquivo ausente nao e erro,
+    entao o valor de retorno so precisa ser um caminho plausivel.
+    """
+    candidates = []
+    override = os.environ.get(_LOCAL_DIR_ENV)
+    if override:
+        candidates.append(Path(override).expanduser())
+    candidates.append(Path.home() / ".config" / "openclaw" / SKILL_ID)
+    candidates.append(base)
+    for directory in candidates:
+        candidate = directory / _LOCAL_FILE
+        if candidate.exists():
+            return candidate
+    return base / _LOCAL_FILE
