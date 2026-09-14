@@ -1,13 +1,10 @@
 {
   "_comentario": "Copie para settings.json (versionado, do time) ou settings.local.json (do operador, fora do git). Precedencia: env > settings.local.json > settings.json > default do codigo. Variavel de ambiente definida VENCE o valor daqui -- o boot avisa quando isso acontece.",
 
+  "_comentario_venues": "sandbox aceita a chave da venue (venues.cex.krakenfutures) ou da familia (venues.cex.kraken). NAO declare venues.<tipo>.sandbox: false aqui sem precisar: a chave generica vence o default da venue e manda para producao quem contava com ele.",
   "venues": {
     "cex": {
-      "sandbox": false,
       "kraken": { "sandbox": true }
-    },
-    "dex": {
-      "sandbox": false
     }
   },
 

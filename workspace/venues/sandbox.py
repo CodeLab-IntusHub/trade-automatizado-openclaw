@@ -1,24 +1,37 @@
 """Resolucao unica de `sandbox` por venue.
 
 `sandbox` decide se a ordem vai para dinheiro de brinquedo ou para dinheiro
-real. Antes desta modulo a mesma pergunta era respondida em quatro lugares com
+real. Antes deste modulo a mesma pergunta era respondida em quatro lugares com
 regras diferentes -- precedencia invertida entre dois deles, vocabulario que so
 definia o lado verdadeiro (entao `ture` resolvia para producao em silencio) e
 duas copias que devolviam string crua sem normalizar nada.
 
 O contrato, do mais forte para o mais fraco:
 
-1. env especifica da venue (`BINANCE_SANDBOX`)
-2. env generica do tipo (`CEX_SANDBOX` / `DEX_SANDBOX`)
-3. settings por venue (`venues.cex.binance.sandbox`)
-4. settings do tipo (`venues.cex.sandbox`)
-5. default
+1. env, da venue para a familia para o tipo
+   (`KRAKENFUTURES_SANDBOX` -> `KRAKEN_SANDBOX` -> `CEX_SANDBOX`)
+2. settings, camada por camada (`settings.local.json` antes de
+   `settings.json`) e, dentro de cada uma, da venue para a familia para o tipo
+   (`venues.cex.krakenfutures.sandbox` -> `venues.cex.kraken.sandbox` ->
+   `venues.cex.sandbox`)
+3. default derivado pelo chamador (`venue_default`)
+4. default da venue
 
-Camada e especificidade sao eixos separados e nesta ordem: **ambiente vence
-arquivo** (o contrato do `workspace.config`) e, dentro de cada camada, **o mais
-especifico vence o generico**. Colapsar os dois eixos faria uma chave de
-arquivo por venue derrubar uma env generica, o que contradiz a precedencia
-documentada do resto do sistema.
+**Camada e especificidade sao eixos separados:** ambiente vence arquivo (o
+contrato do `workspace.config`), `settings.local.json` vence `settings.json`, e
+dentro de cada camada o mais especifico vence o generico. Camada e o eixo
+externo. A primeira versao deste modulo colapsava os dois na varredura de
+arquivo, e uma chave por venue do arquivo do time derrubava uma chave generica
+do arquivo do operador -- o oposto do que o resto do sistema promete.
+
+`venue_default` fica **abaixo de toda config declarada**, inclusive da chave
+generica do tipo. Uma tentativa anterior o colocou acima dela, para proteger
+quem escolheu testnet na Hyperliquid de um `venues.dex.sandbox: false` no
+arquivo -- mas isso reintroduzia a mistura de eixos que o item 2 existe para
+eliminar, e um proprio teste pegou a contradicao. Quem escreve a chave no
+arquivo esta declarando, nao aceitando um default; e o mesmo tratamento que
+`DEX_SANDBOX` sempre teve. O risco real era o **exemplo** distribuir esse
+`false`, e ele deixou de distribuir.
 
 Valor fora do vocabulario levanta `ConfigError` em vez de virar falso -- ver
 `workspace.config.get_bool`.
@@ -29,6 +42,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from workspace.config import FILE_LAYERS
+
 if TYPE_CHECKING:  # pragma: no cover - apenas para anotacao
     from workspace.config import Settings
 
@@ -38,22 +53,26 @@ __all__ = [
     "resolve_sandbox",
     "sandbox_env_names",
     "sandbox_settings_keys",
+    "venue_chain",
+    "venue_prefix",
 ]
 
 SANDBOX_GENERIC_ENV = {"cex": "CEX_SANDBOX", "dex": "DEX_SANDBOX"}
 
-# Unica venue que nasce apontada para sandbox. A assimetria e deliberada: a
-# Kraken tem ambiente demo estavel e publico, o resto das CEXs nao tem
-# equivalente confiavel, entao um default `true` generico prometeria uma
-# protecao que a corretora nao entrega.
-_SANDBOX_BY_DEFAULT_PREFIXES = ("kraken",)
+# Familias de venue: ids que compartilham um nivel intermediario, mais
+# especifico que o generico do tipo e menos que o da propria venue. Vale para
+# **env e para settings ao mesmo tempo** -- na primeira versao a familia
+# existia so para env, e `venues.cex.kraken.sandbox` no arquivo nao alcancava
+# `krakenfutures`, que caia na chave generica e ia para producao.
+_VENUE_FAMILIES = ("kraken", "hyperliquid", "nado")
 
-# Envs de familia: um grupo de ids que compartilha uma env intermediaria, mais
-# especifica que a generica do tipo e menos que a da propria venue. Existe
-# porque `KRAKEN_SANDBOX` ja e usada assim -- ela vale para `kraken`,
-# `krakenfutures` e `kraken-spot`. Sem representar isso aqui, migrar o helper
-# faria `KRAKEN_SANDBOX` parar de valer para as variantes, em silencio.
-_FAMILY_ENV_PREFIXES = ("KRAKEN",)
+# Familias que nascem apontadas para sandbox. Assimetria deliberada: a Kraken
+# tem ambiente demo estavel e publico, o resto das CEXs nao tem equivalente
+# confiavel, entao um default `true` generico prometeria uma protecao que a
+# corretora nao entrega.
+_SANDBOX_BY_DEFAULT = frozenset({"kraken"})
+
+_LAYER_RANK = {name: rank for rank, name in enumerate(FILE_LAYERS)}
 
 
 def venue_prefix(venue_id: str) -> str:
@@ -75,33 +94,65 @@ def _kind(kind: str) -> str:
     return key
 
 
-def sandbox_env_names(kind: str, venue_id: str) -> tuple[str, ...]:
-    """Envs consultadas, da mais especifica para a mais generica.
+def venue_chain(venue_id: str) -> tuple[str, ...]:
+    """Ids a consultar, do mais especifico para o mais generico.
 
-    Normalmente duas: a da venue e a do tipo. Para uma venue de familia
-    conhecida entra uma terceira no meio (ver `_FAMILY_ENV_PREFIXES`).
+    `krakenfutures` -> `('krakenfutures', 'kraken')`, porque `KRAKEN_SANDBOX` e
+    `venues.cex.kraken.sandbox` valem para a familia inteira.
+
+    O casamento e por prefixo do nome de env, entao uma venue futura chamada
+    `nadotrade` herdaria de `nado`. E o preco de nao manter uma tabela de
+    variantes que envelhece a cada exchange nova; vale porque os ids reais sao
+    do tipo `kraken-spot`, `hyperliquid_dex`.
     """
-    prefix = venue_prefix(venue_id)
-    names = [f"{prefix}_SANDBOX"]
-    for family in _FAMILY_ENV_PREFIXES:
-        if prefix.startswith(family):
-            names.append(f"{family}_SANDBOX")
+    slug = (venue_id or "").strip().lower()
+    if not slug:
+        return ()
+    prefix = venue_prefix(slug)
+    chain = [slug]
+    chain.extend(
+        family
+        for family in _VENUE_FAMILIES
+        if family != slug and prefix.startswith(venue_prefix(family))
+    )
+    return tuple(dict.fromkeys(chain))
+
+
+def sandbox_env_names(kind: str, venue_id: str) -> tuple[str, ...]:
+    """Envs consultadas, da mais especifica para a mais generica."""
+    names = [f"{venue_prefix(v)}_SANDBOX" for v in venue_chain(venue_id)]
     names.append(SANDBOX_GENERIC_ENV[_kind(kind)])
-    # dedup preservando ordem: `kraken` gera o mesmo nome duas vezes
     return tuple(dict.fromkeys(names))
 
 
-def sandbox_settings_keys(kind: str, venue_id: str) -> tuple[str, str]:
-    """`(por_venue, do_tipo)`, na ordem de precedencia."""
+def sandbox_settings_keys(kind: str, venue_id: str) -> tuple[str, ...]:
+    """Chaves de settings, da mais especifica para a mais generica."""
     key = _kind(kind)
-    slug = (venue_id or "").strip().lower()
-    generic = f"venues.{key}.sandbox"
-    return (f"venues.{key}.{slug}.sandbox" if slug else generic), generic
+    keys = [f"venues.{key}.{v}.sandbox" for v in venue_chain(venue_id)]
+    keys.append(f"venues.{key}.sandbox")
+    return tuple(dict.fromkeys(keys))
 
 
 def default_sandbox(kind: str, venue_id: str) -> bool:
     _kind(kind)
-    return (venue_id or "").strip().lower().startswith(_SANDBOX_BY_DEFAULT_PREFIXES)
+    return any(v in _SANDBOX_BY_DEFAULT for v in venue_chain(venue_id))
+
+
+def _best_settings_key(cfg: "Settings", keys: tuple[str, ...]) -> str | None:
+    """Chave declarada mais forte, com camada como eixo externo.
+
+    Ordenar so por especificidade faria o arquivo do time vencer o do
+    operador; ordenar so por camada ignoraria a familia.
+    """
+    best: tuple[tuple[int, int], str] | None = None
+    for specificity, dotted in enumerate(keys):
+        layer = _LAYER_RANK.get(cfg.origin(dotted).layer)
+        if layer is None:  # veio do default: nao foi declarada em arquivo
+            continue
+        rank = (layer, specificity)
+        if best is None or rank < best[0]:
+            best = (rank, dotted)
+    return None if best is None else best[1]
 
 
 def resolve_sandbox(
@@ -109,30 +160,30 @@ def resolve_sandbox(
     venue_id: str,
     *,
     settings: "Settings | None" = None,
-    default: bool | None = None,
+    venue_default: bool | None = None,
 ) -> bool:
     """Veredito unico de sandbox para uma venue.
 
     `settings` entra por parametro para que teste e chamador injetem sem mexer
-    em variavel de ambiente global. `default` sobrescreve o default da venue
-    para quem ja o deriva de outra config -- a Hyperliquid o tira da rede
-    selecionada (`testnet` implica sandbox), e perder isso mandaria quem esta
-    em testnet para producao.
+    em variavel de ambiente global. `venue_default` e para quem deriva o valor
+    de outra config explicita da mesma venue -- ver o cabecalho do modulo.
     """
     from workspace.config import load_settings
 
     cfg = load_settings() if settings is None else settings
-    env_names = sandbox_env_names(kind, venue_id)
-    by_venue, by_kind = sandbox_settings_keys(kind, venue_id)
 
-    declared = cfg.has_env(*env_names)
-    if declared is not None:
-        # Uma env so: passar as duas deixaria o `get_bool` reordenar por conta
-        # propria e o erro apontaria a chave errada.
-        return cfg.get_bool(by_kind, env=declared)
+    declared_env = cfg.has_env(*sandbox_env_names(kind, venue_id))
+    if declared_env is not None:
+        # A env vai como chave: `get_bool` nomeia o que recebe, e o operador
+        # precisa ler o nome que ele mesmo definiu. Passar a chave pontilhada
+        # apontava para um caminho de arquivo que podia nem existir.
+        return cfg.get_bool(declared_env, env=declared_env)
 
-    for dotted in (by_venue, by_kind):
-        if cfg.origin(dotted).layer != "default":
-            return cfg.get_bool(dotted)
+    chosen = _best_settings_key(cfg, sandbox_settings_keys(kind, venue_id))
+    if chosen is not None:
+        return cfg.get_bool(chosen)
 
-    return default_sandbox(kind, venue_id) if default is None else default
+    if venue_default is not None:
+        return venue_default
+
+    return default_sandbox(kind, venue_id)

@@ -33,6 +33,7 @@ __all__ = [
     "BOOL_TRUE_VALUES",
     "ConfigError",
     "ConfigOrigin",
+    "FILE_LAYERS",
     "Settings",
     "load_settings",
 ]
@@ -45,6 +46,11 @@ BOOL_FALSE_VALUES = frozenset({"0", "false", "no", "nao", "não", "off", "n"})
 
 _VERSIONED_FILE = "settings.json"
 _LOCAL_FILE = "settings.local.json"
+
+# Camadas de arquivo, da mais forte para a mais fraca. Publica porque quem
+# resolve uma chave em mais de um caminho precisa comparar camadas sem
+# recodificar esta ordem -- duas copias dela divergiriam.
+FILE_LAYERS = (_LOCAL_FILE, _VERSIONED_FILE)
 
 SKILL_ID = "trade-automatizado-openclaw"
 # Onde procurar o settings do operador, em ordem. A skill e reinstalada por

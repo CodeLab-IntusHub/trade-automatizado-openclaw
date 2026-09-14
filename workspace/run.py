@@ -497,6 +497,8 @@ def setup_check() -> dict[str, object]:
     except ConfigError as exc:
         venues = {}
         venues_error = str(exc)
+    selected_dex_id = _clean_env_value(os.environ.get("DEX_ID") or os.environ.get("TRADE_DEX_ID") or "nado")
+    selected_cex_id = _clean_env_value(os.environ.get("CEX_ID") or os.environ.get("TRADE_CEX_ID") or "kraken")
     return {
         "status": "ok" if _dependencies_ready(venv_deps) else "needs_bootstrap",
         "runtime": {
@@ -529,15 +531,17 @@ def setup_check() -> dict[str, object]:
         "venues": venues,
         "venues_error": venues_error,
         "safe_defaults": {
-            "dex_id": _clean_env_value(os.environ.get("DEX_ID") or os.environ.get("TRADE_DEX_ID") or "nado"),
-            "cex_id": _clean_env_value(os.environ.get("CEX_ID") or os.environ.get("TRADE_CEX_ID") or "kraken"),
+            "dex_id": selected_dex_id,
+            "cex_id": selected_cex_id,
             "dex_network": _clean_env_value(os.environ.get("DEX_NETWORK") or os.environ.get("NADO_NETWORK") or os.environ.get("NETWORK") or "testnet"),
-            # Vem do resolvedor unico, nao da env crua: ler `CEX_SANDBOX`
-            # aqui direto ignorava a env especifica da venue e mostrava o
-            # valor sem normalizar (um `ture` aparecia como `ture`).
-            "cex_sandbox": _clean_env_value(str(venues.get("cex_sandbox") or "false")),
+            # Pelo resolvedor, nao pela env crua nem pelo resumo: ler
+            # `CEX_SANDBOX` direto ignorava a env especifica da venue, e cair
+            # no resumo devolvia `"false"` quando ele falhava -- um chute na
+            # direcao do dinheiro, contradizendo `kraken_sandbox` no mesmo
+            # relatorio.
+            "cex_sandbox": "true" if _safe_sandbox("cex", selected_cex_id, True) else "false",
             "nado_network": _clean_env_value(os.environ.get("NADO_NETWORK") or os.environ.get("NETWORK") or "testnet"),
-            "kraken_sandbox": "true" if _safe_sandbox("cex", "kraken", True) else "false",
+            "kraken_sandbox": "true" if _safe_sandbox("cex", selected_cex_id, True) else "false",
             "cex_market_type": _clean_env_value(os.environ.get("CEX_MARKET_TYPE") or os.environ.get("CEX_DEFAULT_TYPE") or ""),
             "require_linked_signer": _clean_env_value(os.environ.get("NADO_REQUIRE_LINKED_SIGNER") or "true"),
             "require_kraken_subaccount": "false",

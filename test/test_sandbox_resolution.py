@@ -138,15 +138,12 @@ def test_dex_usa_a_familia_dex(tmp_path: Path) -> None:
 def test_prefixo_com_pontuacao_gera_nome_de_env_valido() -> None:
     """`binance.us` virava `BINANCE.US_SANDBOX` num dos helpers -- nome que
     nenhum shell consegue exportar, entao a env especifica era inalcancavel."""
-    especifica, generica = sandbox_env_names("cex", "binance.us")
-    assert especifica == "BINANCE_US_SANDBOX"
-    assert generica == "CEX_SANDBOX"
-    assert especifica.replace("_", "").isalnum()
+    assert sandbox_env_names("cex", "binance.us") == ("BINANCE_US_SANDBOX", "CEX_SANDBOX")
+    assert all(nome.replace("_", "").isalnum() for nome in sandbox_env_names("cex", "binance.us"))
 
 
-def test_venue_vazia_nao_gera_env_degenerada() -> None:
-    especifica, _ = sandbox_env_names("cex", "")
-    assert especifica == "VENUE_SANDBOX"
+def test_venue_vazia_cai_direto_na_generica() -> None:
+    assert sandbox_env_names("cex", "") == ("CEX_SANDBOX",)
 
 
 # --- os chamadores concordam ------------------------------------------------
@@ -232,9 +229,14 @@ def test_settings_example_usa_as_chaves_que_o_codigo_le(tmp_path: Path) -> None:
     """Exemplo que nao resolve e pior que exemplo nenhum: ele ensina errado."""
     exemplo = json.loads((ROOT / "settings.example.json").read_text(encoding="utf-8"))
     s = _settings(tmp_path, versioned=exemplo)
-    assert resolve_sandbox("cex", "kraken", settings=s) is True
+    # A familia inteira, nao so o id exato: `venues.cex.kraken` precisa
+    # alcancar as variantes, senao o exemplo manda `krakenfutures` para
+    # producao.
+    for vid in ("kraken", "krakenfutures", "kraken-futures", "kraken-spot"):
+        assert resolve_sandbox("cex", vid, settings=s) is True, vid
     assert resolve_sandbox("cex", "binance", settings=s) is False
-    assert resolve_sandbox("dex", "hyperliquid", settings=s) is False
+    # E o exemplo nao pode derrubar um default derivado pelo chamador.
+    assert resolve_sandbox("dex", "hyperliquid", settings=s, venue_default=True) is True
 
 
 def test_cmd_venues_explica_em_vez_de_dar_traceback(monkeypatch) -> None:
@@ -248,3 +250,110 @@ def test_cmd_venues_explica_em_vez_de_dar_traceback(monkeypatch) -> None:
     with pytest.raises(SystemExit) as exc:
         cli.cmd_venues(argparse.Namespace())
     assert "ture" in str(exc.value)
+
+
+# --- achados do code-review da PR #10 ---------------------------------------
+
+
+def test_familia_vale_tambem_para_as_chaves_de_settings(tmp_path: Path) -> None:
+    """A familia existia so para env: `venues.cex.kraken.sandbox` nao alcancava
+    `krakenfutures`, que caia na chave generica e ia para producao."""
+    s = _settings(
+        tmp_path,
+        versioned={"venues": {"cex": {"sandbox": False, "kraken": {"sandbox": True}}}},
+    )
+    for vid in ("kraken", "krakenfutures", "kraken-futures", "kraken-spot"):
+        assert resolve_sandbox("cex", vid, settings=s) is True, vid
+    assert resolve_sandbox("cex", "binance", settings=s) is False
+
+
+def test_chave_da_propria_venue_vence_a_da_familia(tmp_path: Path) -> None:
+    s = _settings(
+        tmp_path,
+        versioned={
+            "venues": {"cex": {"kraken": {"sandbox": True}, "krakenfutures": {"sandbox": False}}}
+        },
+    )
+    assert resolve_sandbox("cex", "krakenfutures", settings=s) is False
+    assert resolve_sandbox("cex", "kraken", settings=s) is True
+
+
+def test_env_de_familia_alcanca_as_variantes_de_dex() -> None:
+    """`HYPERLIQUID_SANDBOX` deixava de ser lida para `hyperliquid-dex` e
+    `hyperliquid_dex`, que sao selecoes aceitas."""
+    for vid in ("hyperliquid", "hyperliquid-dex", "hyperliquid_dex"):
+        assert "HYPERLIQUID_SANDBOX" in sandbox_env_names("dex", vid), vid
+
+
+def test_default_derivado_so_vale_sem_config_declarada(tmp_path: Path) -> None:
+    """`venue_default` fica abaixo de toda config declarada.
+
+    A versao anterior o punha acima da chave generica do tipo, para proteger
+    quem escolheu testnet -- e com isso quebrava o eixo "camada primeiro", o
+    que um teste vizinho pegou. O risco real era o exemplo distribuir
+    `venues.dex.sandbox: false`; ele deixou de distribuir, e ha teste para
+    isso.
+    """
+    s = _settings(tmp_path)
+    assert resolve_sandbox("dex", "hyperliquid", settings=s, venue_default=True) is True
+
+    s = _settings(tmp_path, versioned={"venues": {"dex": {"sandbox": False}}})
+    assert resolve_sandbox("dex", "hyperliquid", settings=s, venue_default=True) is False
+
+
+def test_exemplo_nao_distribui_sandbox_generico(tmp_path: Path) -> None:
+    """Um `venues.<tipo>.sandbox: false` no exemplo derruba o default derivado
+    de quem copiar -- a mesma classe da env descomentada no `.env.example`."""
+    exemplo = json.loads((ROOT / "settings.example.json").read_text(encoding="utf-8"))
+    for tipo, bloco in (exemplo.get("venues") or {}).items():
+        assert "sandbox" not in bloco, f"venues.{tipo}.sandbox no exemplo derruba default derivado"
+
+
+def test_camada_local_vence_chave_mais_especifica_do_versionado(tmp_path: Path) -> None:
+    """Camada e o eixo externo. Ordenar so por especificidade fazia o arquivo
+    do time derrubar o do operador -- o oposto do que o sistema promete."""
+    s = _settings(
+        tmp_path,
+        versioned={"venues": {"cex": {"binance": {"sandbox": False}}}},
+        local={"venues": {"cex": {"sandbox": True}}},
+    )
+    assert resolve_sandbox("cex", "binance", settings=s) is True
+
+
+def test_erro_nomeia_a_env_que_o_operador_escreveu(tmp_path: Path) -> None:
+    """Apontar para uma chave de arquivo que pode nem existir nao e
+    acionavel -- e o PR inteiro existe para tornar o typo acionavel."""
+    s = _settings(tmp_path, env={"BINANCE_SANDBOX": "ture"})
+    with pytest.raises(ConfigError) as exc:
+        resolve_sandbox("cex", "binance", settings=s)
+    assert "BINANCE_SANDBOX" in str(exc.value)
+
+
+def test_relatorio_nao_se_contradiz_com_config_invalida(monkeypatch) -> None:
+    """Com config invalida o relatorio dizia `cex_sandbox: false` ao lado de
+    `kraken_sandbox: true`: dinheiro real e sandbox ao mesmo tempo."""
+    import workspace.run as run
+
+    monkeypatch.setenv("CEX_ID", "kraken")
+    monkeypatch.setenv("CEX_SANDBOX", "ture")
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+
+    defaults = run.setup_check()["safe_defaults"]
+    assert defaults["cex_sandbox"] == defaults["kraken_sandbox"] == "true"
+
+
+def test_relatorio_segue_a_cex_selecionada(monkeypatch) -> None:
+    """`kraken_sandbox` cravava o id `kraken` e nunca lia
+    `KRAKENFUTURES_SANDBOX`: o painel voltava a contradizer a ordem."""
+    import workspace.run as run
+
+    monkeypatch.setenv("CEX_ID", "krakenfutures")
+    monkeypatch.setenv("KRAKENFUTURES_SANDBOX", "false")
+    monkeypatch.setenv("KRAKEN_SANDBOX", "true")
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+
+    defaults = run.setup_check()["safe_defaults"]
+    assert defaults["kraken_sandbox"] == "false"
+    assert defaults["cex_sandbox"] == "false"

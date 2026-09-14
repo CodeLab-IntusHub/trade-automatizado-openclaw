@@ -6,7 +6,10 @@
 
 - **`sandbox` passa a ter um resolvedor unico** (`workspace/venues/sandbox.py`). A mesma pergunta era respondida em quatro lugares com regras diferentes, e dois defeitos saiam disso: (1) o vocabulario de booleano so definia o lado verdadeiro, entao `CEX_SANDBOX=ture` caia no `else` implicito e o bot operava com **dinheiro real** achando que estava em sandbox; (2) `_load_cex_sandbox` dava prioridade a variavel generica e `_load_pair_cex_sandbox` a especifica, de modo que `CEX_SANDBOX=false` com `BINANCE_SANDBOX=true` mandava a ordem para sandbox enquanto o resumo exibido ao operador dizia `false`. Ver `Docs/features/sandbox-por-venue.md`.
 - Prefixo de variavel por venue deixa de quebrar em id com pontuacao: `binance.us` gerava `BINANCE.US_SANDBOX`, nome que nenhum shell exporta, tornando a variavel especifica inalcancavel em silencio.
-- `KRAKEN_SANDBOX` vira variavel de familia declarada, e nao um caso especial no meio do `cli.py`: continua valendo para `krakenfutures` e `kraken-spot`.
+- `KRAKEN_SANDBOX` vira variavel de familia declarada, e nao um caso especial no meio do `cli.py`: continua valendo para `krakenfutures` e `kraken-spot`. A familia vale **tambem para as chaves de settings** (`venues.cex.kraken.sandbox` alcanca as variantes) e para `HYPERLIQUID_SANDBOX` nos ids `hyperliquid-dex`/`hyperliquid_dex`.
+- Na varredura dos arquivos de settings, a **camada e o eixo externo**: `settings.local.json` vence `settings.json` mesmo quando o versionado tem a chave mais especifica. Sem isso, uma chave por venue do arquivo do time derrubava a chave generica do arquivo do operador.
+- Mensagem de valor invalido nomeia a variavel de ambiente que o operador escreveu (`BINANCE_SANDBOX`), e nao uma chave de arquivo que pode nem existir.
+- `setup-check` deixa de reportar `cex_sandbox: "false"` ao lado de `kraken_sandbox: "true"` quando a config esta invalida -- dizia dinheiro real e sandbox ao mesmo tempo --, e os dois campos passam a seguir a CEX selecionada em vez do id cravado `kraken`.
 
 ### Adicionado
 

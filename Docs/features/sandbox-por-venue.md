@@ -43,19 +43,43 @@ recusa valor fora da lista em vez de tratá-lo como falso.
 
 Do mais forte para o mais fraco:
 
-1. env específica da venue — `BINANCE_SANDBOX`, `HYPERLIQUID_SANDBOX`
-2. env de família, quando existe — `KRAKEN_SANDBOX` vale para `kraken`,
-   `krakenfutures` e `kraken-spot`
-3. env genérica do tipo — `CEX_SANDBOX`, `DEX_SANDBOX`
-4. settings por venue — `venues.cex.binance.sandbox`
-5. settings do tipo — `venues.cex.sandbox`
-6. default
+1. **env**, seguindo a cadeia da venue: `KRAKENFUTURES_SANDBOX` →
+   `KRAKEN_SANDBOX` → `CEX_SANDBOX`
+2. **`settings.local.json`**, mesma cadeia: `venues.cex.krakenfutures.sandbox`
+   → `venues.cex.kraken.sandbox` → `venues.cex.sandbox`
+3. **`settings.json`**, mesma cadeia
+4. `venue_default` — derivado pelo chamador
+5. default da venue
 
-**Camada e especificidade são eixos separados, nesta ordem:** ambiente vence
-arquivo (o contrato do resto do sistema) e, dentro de cada camada, o mais
-específico vence o genérico. Colapsar os dois faria uma chave de arquivo por
-venue derrubar uma variável de ambiente genérica, contradizendo a precedência
-documentada em [Configuração de setups](configuracao-de-setups.md).
+**Camada é o eixo externo; especificidade, o interno.** Ambiente vence arquivo,
+`settings.local.json` vence `settings.json`, e dentro de cada camada o mais
+específico vence o genérico. Isso preserva a precedência documentada em
+[Configuração de setups](configuracao-de-setups.md).
+
+A ordem foi errada duas vezes antes de assentar, sempre por misturar os eixos:
+primeiro a varredura de arquivo colapsou camada e especificidade, e uma chave
+por venue do arquivo do time derrubava uma chave genérica do arquivo do
+operador; depois, ao tentar proteger o `venue_default`, ele foi posto acima da
+chave genérica do tipo — reintroduzindo a mesma mistura, o que um teste vizinho
+pegou.
+
+### A cadeia de venue
+
+`venue_chain` resolve família uma vez e a aplica **a env e a settings ao mesmo
+tempo**: `krakenfutures` → `('krakenfutures', 'kraken')`. Na primeira versão a
+família existia só para env, e `venues.cex.kraken.sandbox` no arquivo não
+alcançava `krakenfutures` — que caía na chave genérica e ia para produção.
+O casamento é por prefixo, então uma venue futura chamada `nadotrade` herdaria
+de `nado`; é o preço de não manter uma tabela de variantes que envelhece a cada
+exchange nova.
+
+### `venue_default`
+
+Fica **abaixo de toda config declarada**. Quem escreve a chave no arquivo está
+declarando, não aceitando um default — mesmo tratamento que `DEX_SANDBOX`
+sempre teve. O risco real era o `settings.example.json` distribuir
+`venues.dex.sandbox: false` e derrubar o default de quem escolheu testnet; o
+exemplo deixou de distribuir isso, e há teste de guarda.
 
 ## Defaults
 
@@ -70,14 +94,17 @@ A Hyperliquid deriva o default da rede selecionada: `testnet` implica sandbox.
 ## Configuração
 
 ```jsonc
-// settings.json
+// settings.json — a chave da família vale para todas as variantes
 {
   "venues": {
-    "cex": { "sandbox": false, "kraken": { "sandbox": true } },
-    "dex": { "sandbox": false }
+    "cex": { "kraken": { "sandbox": true } }
   }
 }
 ```
+
+Evite declarar `venues.<tipo>.sandbox` sem precisar: a chave genérica vence o
+default da venue e o `venue_default`, mandando para produção quem contava com
+eles.
 
 As variáveis `CEX_SANDBOX`, `KRAKEN_SANDBOX` e `HYPERLIQUID_SANDBOX` vêm
 **comentadas** no `workspace/.env.example`. Elas continuam funcionando, mas têm
@@ -108,3 +135,4 @@ específica inalcançável sem que nada avisasse.
 | Data | Mudança |
 |------|---------|
 | 14/09/2026 | Documento inicial: resolvedor único, precedência e defaults |
+| 14/09/2026 | Cadeia de venue aplicada também às chaves de settings; camada vira eixo externo; `venue_default` abaixo da config declarada |
