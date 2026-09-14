@@ -1,11 +1,34 @@
 # Changelog
 
+## v1.3.0 — 2026-09-14
+
+### Adicionado
+
+- **Fonte unica de configuracao** (`workspace/config.py`): precedencia `env -> settings.local.json -> settings.json -> default`, vocabulario de booleano com os dois lados explicitos (valor desconhecido levanta erro em vez de virar `false`), segredo declarado apenas pelo *nome* da variavel de ambiente, e origem rastreavel por chave. Ver `Docs/features/configuracao-de-setups.md`.
+- **Parametros de setup configuraveis por arquivo**: cada setup expoe as suas vars em `setups.<chave>.<parametro>`. Destrava calibracao por timeframe no `divergence-and-volume` (as variaveis de ambiente sao unicas para 15m/1h/4h) e torna `fibonacci_levels`, `target_levels` e `target_weights` ajustaveis — antes so mudavam editando codigo, apesar de decidirem onde o capital sai da posicao. Exemplo em `settings.example.json`.
+- **Validacao da config de setup no boot** (`validate_setup_settings`): valor invalido derruba o comando antes do primeiro ciclo. Dentro do loop de scan a excecao seria capturada como `WARNING`, deixando o bot de pe sem abrir nada.
+- **Pipeline de CI que executa a suite** (`.github/workflows/tests.yml`): pytest em ubuntu x windows x Python 3.12/3.13, ruff, mypy, pip-audit e cobertura, mais `dependabot.yml`. A CI anterior passava sem rodar teste nenhum.
+
+### Corrigido
+
+- **Resposta da corretora ao anexar SL/TP passa a ser validada** nos tres adapters (`workspace/venues/order_validation.py`). Antes, qualquer objeto nao-`None` contava como "protecao anexada" — inclusive uma rejeicao estruturada —, porque os chamadores so testam `if order is None`. Ver `Docs/features/protecao-de-ordens.md`.
+- `replace_stop_loss` cancela o stop vivo antes de criar o novo nos tres adapters; a falha agora diz explicitamente que a posicao ficou sem stop, e a referencia da ordem morta e limpa do estado.
+- `place_market_order_with_tp_sl` (Kraken) deixa de engolir a falha de protecao: devolve `protected`, `protection_error` e os ids de SL/TP.
+- Escada de alvos passa a ser invariante de `DivergenceVolumeConfig`: escada vazia, contagem divergente de pesos e soma nao positiva sao recusadas na construcao. Antes o mesmo estado invalido era fatal vindo do settings e silenciosamente reparado vindo do construtor.
+- Dois nomes indefinidos expostos pelo gate de lint: `_first_float` sem import em `cli.py` (o `NameError` era engolido por um `except Exception` e virava "saldo indisponivel") e `BacktestResult` num fake de teste que nunca era exercitado.
+- Bit de execucao restaurado em `render_trade_chart.js` e `tradingview_session.js`.
+
+### Alterado
+
+- `workspace/.env.example` comenta as variaveis de calibracao de setup: elas continuam funcionando e **tem precedencia** sobre o `settings.json`, entao mante-las ativas no exemplo tornava o settings inoperante para quem copiasse o arquivo. O boot avisa quando uma chave de settings esta encoberta pela env.
+- `settings.local.json` e procurado fora da arvore primeiro (`DELTA_NEUTRAL_SETTINGS_DIR`, depois `~/.config/openclaw/<skill>/`), porque a skill e reinstalada por cima do proprio diretorio.
+
 ## v1.2.0 — 2026-09-09
 
 ### Corrigido
 
 - Substitui `import fcntl` por um lock de arquivo cross-platform (`workspace/file_lock.py`): o CLI nao importava no Windows, o que derrubava a coleta de 3 dos 4 arquivos de teste. Consolida a estrategia PID + `O_EXCL` que ja existia no `dashboard_publisher`, agora com espera por timeout.
-- Corrige a sonda de liveness do lock: no Windows `os.kill(pid, 0)` executa `TerminateProcess` e mataria o processo dono do lock; passa a usar `OpenProcess`/`GetExitCodeProcess`.
+- Corrige a sonda de liveness do lock: no Windows `os.kill(pid, 0)` **nao levanta** para um PID que ja morreu (o sinal 0 e `CTRL_C_EVENT`, que cai no ramo de evento de console), entao qualquer processo morto era reportado como vivo e o lock orfao nunca seria recuperado. Passa a usar `OpenProcess`/`GetExitCodeProcess`. *(Corrigido em 14/09/2026: a versao original desta nota afirmava que `os.kill(pid, 0)` executaria `TerminateProcess` — verificado por execucao que nao e o caso.)*
 - `setup-check` deixa de disparar `pip install` de rede a cada execucao em maquinas sem o SDK da Nado, e deixa de gastar um startup de interpretador por modulo sondado (24s -> 0,28s nesta maquina).
 
 ### Alterado
