@@ -130,6 +130,24 @@ class DivergenceVolumeConfig:
     min_reward_risk: float = 1.0
     max_hold_bars: int = 36
 
+    def __post_init__(self) -> None:
+        """Escada de alvos coerente e invariante do tipo, nao da fabrica.
+
+        Estes campos decidem onde o capital sai da posicao. Validar so no
+        caminho do settings deixava duas respostas para o mesmo estado
+        invalido: fatal vindo do arquivo, e silenciosamente reparado para pesos
+        iguais vindo do construtor -- inclusive por um `config=` explicito.
+        """
+        if not self.target_levels:
+            raise ValueError("target_levels vazio: um setup precisa de pelo menos um alvo")
+        if len(self.target_levels) != len(self.target_weights):
+            raise ValueError(
+                f"target_weights tem {len(self.target_weights)} itens para "
+                f"{len(self.target_levels)} alvos em target_levels -- precisam casar"
+            )
+        if sum(float(weight) for weight in self.target_weights) <= 0:
+            raise ValueError("target_weights precisa ter soma positiva para distribuir a saida")
+
     def to_dict(self) -> dict:
         return asdict(self)
 
@@ -2211,7 +2229,11 @@ def divergence_volume_fibonacci_zone(df: pd.DataFrame, config: DivergenceVolumeC
 
 def _divergence_volume_target_weights(config: DivergenceVolumeConfig, target_count: int) -> list[float]:
     weights = [float(weight) for weight in config.target_weights]
-    if len(weights) != target_count or sum(weights) <= 0:
+    if len(weights) != target_count:
+        # Coerencia entre alvos e pesos agora e garantida por
+        # `DivergenceVolumeConfig.__post_init__`; aqui `target_count` pode ser
+        # menor que a escada configurada quando o sinal gera menos alvos que o
+        # planejado, e a distribuicao uniforme e a resposta certa para isso.
         return [1 / target_count] * target_count
     total = sum(weights)
     return [weight / total for weight in weights]
