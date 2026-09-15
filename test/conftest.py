@@ -13,9 +13,29 @@ modulos que testam config, e sim de todo caminho que constroi venue.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _restaura_environ():
+    """Devolve `os.environ` ao estado anterior depois de cada teste.
+
+    `monkeypatch` so desfaz o que ele mesmo mudou. Codigo de producao chamado
+    de dentro do teste tambem escreve no ambiente -- `_load_env_file()` repoe
+    as chaves de `NON_SECRET_CONFIG_ENV` lidas dos arquivos do operador -- e
+    isso vazava para os testes seguintes. Foi observado: um teste que exercita
+    justamente essa reinjecao deixou `CEX_ID=binance` para tras e derrubou dois
+    testes de `test_v2.py`.
+    """
+    antes = dict(os.environ)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(antes)
 
 
 @pytest.fixture(autouse=True)
@@ -41,3 +61,27 @@ def isola_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     local = tmp_path / "settings.local.json"
     if not local.exists():
         local.write_text("{}", encoding="utf-8")
+
+    # O versionado tambem: `load_settings()` sem `root` o le da raiz do repo, e
+    # isolar so metade do par deixava a suite refem do dia em que um
+    # `settings.json` de time fosse commitado.
+    import workspace.config as config
+
+    monkeypatch.setattr(config, "REPO_ROOT", tmp_path)
+
+    # `setup_check` chama `_load_env_file()`, que **reinjeta** em `os.environ`
+    # as chaves de `NON_SECRET_CONFIG_ENV` (`CEX_SANDBOX`, `KRAKEN_SANDBOX`,
+    # `CEX_ID`...) lidas dos arquivos do operador. Os caminhos sao constantes
+    # de modulo, ligadas ao home **real** no import -- antes de o patch de HOME
+    # existir. Sem redireciona-las, um `monkeypatch.delenv` no teste era
+    # desfeito no meio da chamada, e o vazamento ainda sobrevivia para os
+    # testes seguintes.
+    import workspace.run as run
+
+    vazio = tmp_path / "sem-env"
+    # `ENV_FILE` entra junto: quando `DELTA_NEUTRAL_ENV_FILE` esta definida
+    # (modo `--runtime-env`), `_env_file_candidates()` devolve so ela, e todo o
+    # resto do redirecionamento nao vale nada.
+    monkeypatch.delenv("DELTA_NEUTRAL_ENV_FILE", raising=False)
+    for constante in ("ENV_FILE", "USER_CONFIG_FILE", "STATE_CONFIG_FILE", "DEFAULT_ENV_FILE", "LEGACY_ENV_FILE"):
+        monkeypatch.setattr(run, constante, vazio / f"{constante.lower()}.env", raising=False)

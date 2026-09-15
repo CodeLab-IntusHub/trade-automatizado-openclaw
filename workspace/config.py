@@ -52,6 +52,11 @@ _LOCAL_FILE = "settings.local.json"
 # recodificar esta ordem -- duas copias dela divergiriam.
 FILE_LAYERS = (_LOCAL_FILE, _VERSIONED_FILE)
 
+# Raiz de onde sai o `settings.json` do time quando ninguem passa `root`.
+# Constante nomeada para que o teste possa redireciona-la: derivada de
+# `__file__` inline, a suite lia o arquivo da maquina de quem roda.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 SKILL_ID = "trade-automatizado-openclaw"
 # Onde procurar o settings do operador, em ordem. A skill e reinstalada por
 # cima do proprio diretorio, entao config do operador guardada dentro da arvore
@@ -315,7 +320,7 @@ def load_settings(
     Arquivo ausente não é erro — a configuração por ambiente continua
     funcionando sozinha, que é o que torna esta migração reversível.
     """
-    base = Path(root) if root is not None else Path(__file__).resolve().parents[1]
+    base = Path(root) if root is not None else REPO_ROOT
     return Settings(
         # O versionado e sempre o do repositorio: ele pertence ao time.
         versioned=_read_json_file(base / _VERSIONED_FILE),

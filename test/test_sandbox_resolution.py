@@ -205,13 +205,6 @@ def test_env_example_nao_traz_sandbox_descomentada() -> None:
     """
     linhas = (ROOT / "workspace" / ".env.example").read_text(encoding="utf-8").splitlines()
     ativas = [ln for ln in linhas if "_SANDBOX=" in ln and not ln.lstrip().startswith("#")]
-    # `HYPERLIQUID_SANDBOX` segue ativa porque a Hyperliquid ainda nao consome
-    # o resolvedor: comentar aqui nao a deixaria sem configuracao (o helper
-    # antigo cai em `DEX_SANDBOX` e depois na rede), mas mexeria numa venue
-    # fora do escopo desta fatia. O furo que isso mantem -- `=false` no
-    # exemplo vence a rede, entao quem copia o exemplo e escolhe testnet vai
-    # para mainnet -- e pre-existente a `main` e fechado na fatia seguinte.
-    ativas = [ln for ln in ativas if not ln.startswith("HYPERLIQUID_SANDBOX")]
     assert ativas == [], f"env de sandbox descomentada mata o settings: {ativas}"
 
 
@@ -371,22 +364,20 @@ def test_aviso_so_sai_quando_os_valores_divergem(tmp_path: Path, caplog) -> None
 
 
 def test_relatorio_nao_anuncia_sandbox_enquanto_a_ordem_vai_para_producao(tmp_path, monkeypatch) -> None:
-    """`cex_sandbox` passou a sair do resolvedor e `kraken_sandbox` ficou na
-    env crua: com o arquivo declarando `kraken.sandbox: false`, o relatorio
-    dizia `"true"` enquanto a ordem ia para producao. O recorte da fatia
-    reverteu a correcao e manteve a metade que a exige."""
+    """O relatorio saia da env crua enquanto a ordem ja saia do resolvedor:
+    com o arquivo declarando `kraken.sandbox: false`, ele dizia `"true"`."""
     import workspace.run as run
 
     (tmp_path / "settings.local.json").write_text(
         json.dumps({"venues": {"cex": {"kraken": {"sandbox": False}}}}), encoding="utf-8"
     )
-    for nome in ("KRAKEN_SANDBOX", "CEX_SANDBOX"):
+    for nome in ("KRAKEN_SANDBOX", "CEX_SANDBOX", "CEX_ID", "TRADE_CEX_ID", "PRIMARY_CEX"):
         monkeypatch.delenv(nome, raising=False)
     monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
     monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
 
     assert resolve_sandbox("cex", "kraken") is False
-    assert run.setup_check()["safe_defaults"]["kraken_sandbox"] == "false"
+    assert run.setup_check()["safe_defaults"]["cex_sandbox"] == "false"
 
 
 def test_doctor_acusa_config_de_venue_invalida(tmp_path, monkeypatch) -> None:
@@ -446,4 +437,211 @@ def test_chave_de_settings_aceita_as_duas_grafias(tmp_path: Path) -> None:
     declarar com uma grafia e selecionar a outra caia calado na generica."""
     s = _settings(tmp_path, versioned={"venues": {"cex": {"kraken-futures": {"sandbox": False}}}})
     assert resolve_sandbox("cex", "kraken_futures", settings=s) is False
+    assert resolve_sandbox("cex", "kraken-futures", settings=s) is False
+
+
+# --- achados do segundo passe de review da fatia 1 --------------------------
+
+
+def test_aviso_de_env_vale_para_id_com_grafia_normalizada(tmp_path: Path, caplog) -> None:
+    """A especificidade vinha do **indice da lista**, e a correcao vizinha (as
+    duas grafias) fez `keys` ficar maior que `env_names`. O laco quebrava cedo
+    e o aviso sumia justamente nos ids normalizados -- `kraken_futures`,
+    `hyperliquid_dex`, `binance.us`."""
+    s = _settings(
+        tmp_path,
+        versioned={"venues": {"cex": {"kraken": {"sandbox": True}}}},
+        env={"CEX_SANDBOX": "false"},
+    )
+    with caplog.at_level("WARNING"):
+        assert resolve_sandbox("cex", "kraken_futures", settings=s) is False
+    assert "venues.cex.kraken.sandbox" in caplog.text
+
+
+def test_as_duas_grafias_resolvem_nos_dois_sentidos(tmp_path: Path) -> None:
+    """A normalizacao ia numa direcao so (sempre para hifen), entao selecionar
+    `kraken-futures` nao alcancava uma chave escrita com underscore e a
+    declaracao da venue era descartada pela generica."""
+    s = _settings(tmp_path, versioned={"venues": {"cex": {"kraken_futures": {"sandbox": False}, "sandbox": True}}})
+    assert resolve_sandbox("cex", "kraken-futures", settings=s) is False
+
+    s = _settings(tmp_path, versioned={"venues": {"cex": {"kraken-futures": {"sandbox": False}, "sandbox": True}}})
+    assert resolve_sandbox("cex", "kraken_futures", settings=s) is False
+
+
+def test_grafias_da_mesma_venue_nao_disputam_especificidade(tmp_path: Path, caplog) -> None:
+    """Elas sao o mesmo nivel escrito de dois jeitos. Com o indice da lista
+    como proxy, o aviso afirmava que uma era mais especifica que a outra."""
+    s = _settings(
+        tmp_path,
+        versioned={"venues": {"cex": {"kraken_futures": {"sandbox": False}}}},
+        local={"venues": {"cex": {"kraken-futures": {"sandbox": True}}}},
+    )
+    with caplog.at_level("WARNING"):
+        assert resolve_sandbox("cex", "kraken-futures", settings=s) is True
+    assert caplog.text == ""
+
+
+def test_doctor_reprova_com_config_de_venue_invalida(tmp_path, monkeypatch) -> None:
+    """`venues_config` entrou como 5o check, mas o veredito saia de
+    `checks[:4]` -- um corte posicional. O `doctor` devolvia `ok` com config
+    que derruba todo comando de trade."""
+    import workspace.run as run
+
+    assert "venues_config" in run.BLOCKING_CHECKS
+    (tmp_path / "settings.local.json").write_text(
+        json.dumps({"venues": {"cex": {"sandbox": "ture"}}}), encoding="utf-8"
+    )
+    monkeypatch.delenv("CEX_SANDBOX", raising=False)
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+    monkeypatch.setattr(run, "_writable_dir", lambda _p: True)
+    # `venv_ready` sai de `dependencies_venv`, que so usa a sonda quando o
+    # python do venv existe -- caso contrario devolve tudo `False` e o teste
+    # passaria a medir a maquina em vez do check de config.
+    monkeypatch.setattr(run, "_venv_python", lambda: Path(sys.executable))
+
+    assert run.doctor()["status"] == "attention"
+
+    # E, com a config valida e todo o resto igual, volta a `ok` -- senao o
+    # teste acima passaria por qualquer outro check reprovado.
+    (tmp_path / "settings.local.json").write_text(
+        json.dumps({"venues": {"cex": {"sandbox": True}}}), encoding="utf-8"
+    )
+    assert run.doctor()["status"] == "ok"
+
+
+def test_relatorio_segue_a_variante_selecionada(tmp_path, monkeypatch) -> None:
+    """O campo `kraken_sandbox` foi removido: ele falava de uma venue que podia
+    nao ser a selecionada, e ficava ao lado de `cex_sandbox` sem nada indicar
+    isso. `cex_id` + `cex_sandbox` dizem a mesma coisa sem ambiguidade."""
+    import workspace.run as run
+
+    (tmp_path / "settings.local.json").write_text(
+        json.dumps({"venues": {"cex": {"kraken-futures": {"sandbox": False}}}}), encoding="utf-8"
+    )
+    monkeypatch.setenv("CEX_ID", "kraken-futures")
+    for nome in ("CEX_SANDBOX", "KRAKEN_SANDBOX", "KRAKENFUTURES_SANDBOX"):
+        monkeypatch.delenv(nome, raising=False)
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+
+    defaults = run.setup_check()["safe_defaults"]
+    assert "kraken_sandbox" not in defaults
+    assert defaults["cex_id"] == "kraken-futures"
+    assert defaults["cex_sandbox"] == "false" == ("false" if resolve_sandbox("cex", "kraken-futures") is False else "true")
+
+
+def test_relatorio_honra_o_alias_primary_cex(tmp_path, monkeypatch) -> None:
+    """`selected_venues` resolve `CEX_ID -> TRADE_CEX_ID -> PRIMARY_CEX`.
+    Reler o env perdia o terceiro, e o relatorio descrevia outra venue."""
+    import workspace.run as run
+
+    for nome in ("CEX_ID", "TRADE_CEX_ID", "CEX_SANDBOX"):
+        monkeypatch.delenv(nome, raising=False)
+    monkeypatch.setenv("PRIMARY_CEX", "binance")
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+
+    report = run.setup_check()
+    assert report["safe_defaults"]["cex_id"] == report["venues"]["cex_id"] == "binance"
+    assert report["safe_defaults"]["cex_sandbox"] == report["venues"]["cex_sandbox"] == "false"
+
+
+def test_relatorio_diz_nao_sei_com_config_ilegivel(tmp_path, monkeypatch) -> None:
+    """`None` em vez de `"false"`: chutar aqui seria palpite na direcao do
+    dinheiro sobre uma config que ninguem conseguiu ler."""
+    import workspace.run as run
+
+    (tmp_path / "settings.local.json").write_text(
+        json.dumps({"venues": {"cex": {"sandbox": "ture"}}}), encoding="utf-8"
+    )
+    monkeypatch.delenv("CEX_SANDBOX", raising=False)
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+
+    assert run.setup_check()["safe_defaults"]["cex_sandbox"] is None
+
+
+def test_setup_check_nao_le_os_arquivos_de_env_do_operador(tmp_path, monkeypatch) -> None:
+    """`setup_check` chama `_load_env_file()`, que **repoe** em `os.environ` as
+    chaves de `NON_SECRET_CONFIG_ENV` lidas dos arquivos do operador. Os
+    caminhos sao constantes de modulo, ligadas ao home **real** no import --
+    antes de o patch de HOME existir --, entao um `monkeypatch.delenv` no teste
+    era desfeito no meio da chamada, em qualquer maquina que tivesse o arquivo.
+
+    Injetar e o trabalho da funcao; o que o teste fixa e que a suite aponte
+    esses caminhos para longe da maquina de quem roda.
+    """
+    import workspace.run as run
+
+    home_real = Path.home()
+    for constante in ("USER_CONFIG_FILE", "STATE_CONFIG_FILE", "DEFAULT_ENV_FILE", "LEGACY_ENV_FILE"):
+        caminho = getattr(run, constante)
+        assert not caminho.exists(), f"{constante} aponta para arquivo vivo: {caminho}"
+        assert home_real not in caminho.parents, f"{constante} ainda no home real: {caminho}"
+
+    monkeypatch.delenv("CEX_SANDBOX", raising=False)
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+
+    run.setup_check()
+    import os
+
+    assert os.environ.get("CEX_SANDBOX") is None
+
+
+_CANARIO_SUJOU = False
+
+
+def test_environ_a_suja_de_proposito() -> None:
+    """Primeira metade do canario do `conftest`.
+
+    `monkeypatch` so desfaz o que ele mesmo mudou; codigo de producao chamado
+    de dentro do teste tambem escreve no ambiente. Foi observado: um teste
+    deixou `CEX_ID=binance` para tras e derrubou dois testes de `test_v2.py`.
+    """
+    global _CANARIO_SUJOU
+    import os
+
+    os.environ["_CANARIO_VAZAMENTO"] = "sujo"
+    _CANARIO_SUJOU = True
+
+
+def test_environ_volta_limpo_no_teste_seguinte() -> None:
+    """Segunda metade: falha se a restauracao do `conftest` sair.
+
+    O `skip` existe para o par nao passar vazio quando a ordem muda (`-k`,
+    `pytest-randomly`, xdist): sem ele, rodar so esta metade seria um teste
+    verde que nao guarda nada.
+    """
+    import os
+
+    if not _CANARIO_SUJOU:
+        pytest.skip("a metade que suja o ambiente nao rodou antes desta")
+    assert os.environ.get("_CANARIO_VAZAMENTO") is None
+
+
+def test_settings_versionado_tambem_e_isolado(tmp_path: Path) -> None:
+    """`load_settings()` sem `root` lia `settings.json` da raiz do repo.
+    Isolar so o `settings.local.json` deixava a suite refem do dia em que um
+    settings de time fosse commitado."""
+    import workspace.config as config
+
+    assert config.REPO_ROOT == tmp_path
+    (tmp_path / "settings.json").write_text(
+        json.dumps({"venues": {"cex": {"sandbox": True}}}), encoding="utf-8"
+    )
+    assert resolve_sandbox("cex", "binance") is True
+
+
+def test_grafia_escrita_vence_o_alias_no_empate(tmp_path: Path) -> None:
+    """Com as duas grafias no mesmo nivel de especificidade, o `sort`
+    desempatava pela string -- e `-` vem antes de `_`, entao o alias ganhava
+    da grafia que o operador de fato selecionou."""
+    s = _settings(
+        tmp_path,
+        local={"venues": {"cex": {"kraken_futures": {"sandbox": True}, "kraken-futures": {"sandbox": False}}}},
+    )
+    assert resolve_sandbox("cex", "kraken_futures", settings=s) is True
     assert resolve_sandbox("cex", "kraken-futures", settings=s) is False
