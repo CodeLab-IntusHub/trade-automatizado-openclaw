@@ -23,6 +23,7 @@ REPO_DIR = WORKSPACE_DIR.parent
 if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 from workspace.venues import venue_summary  # noqa: E402
+from workspace.venues.sandbox import resolve_sandbox  # noqa: E402
 from workspace.config import ConfigError  # noqa: E402
 REQUIREMENTS = WORKSPACE_DIR / "requirements.txt"
 SKILL_ID = "trade-automatizado-openclaw"
@@ -468,6 +469,18 @@ def _ensure_venv_ready() -> dict[str, object]:
     return {"attempted": True, "status": boot.get("status", "unknown"), "result": boot, "dependencies": deps}
 
 
+def _safe_sandbox(kind: str, venue_id: str, fallback: bool) -> bool:
+    """Sandbox para o relatorio, sem derrubar o diagnostico.
+
+    Config invalida ja aparece em `venues_error` e no check `venues_config`;
+    repetir a excecao aqui trocaria o relatorio inteiro por um traceback.
+    """
+    try:
+        return resolve_sandbox(kind, venue_id)
+    except ConfigError:
+        return fallback
+
+
 def setup_check() -> dict[str, object]:
     env_loaded = _load_env_file()
     _safe_mkdirs()
@@ -525,7 +538,13 @@ def setup_check() -> dict[str, object]:
             # de sandbox do relatorio vem na fatia que os redesenha.
             "cex_sandbox": _clean_env_value(str(venues["cex_sandbox"])) if venues else None,
             "nado_network": _clean_env_value(os.environ.get("NADO_NETWORK") or os.environ.get("NETWORK") or "testnet"),
-            "kraken_sandbox": _clean_env_value(os.environ.get("KRAKEN_SANDBOX") or "true"),
+            # Do mesmo resolvedor que a ordem usa. Ler `KRAKEN_SANDBOX` cru
+            # aqui enquanto `cex_sandbox` ja vinha do resolvedor fazia o campo
+            # anunciar `"true"` enquanto a ordem ia para producao -- e o
+            # arquivo, que esta fatia torna fonte viva, era justamente o que
+            # ele nao enxergava. Qual venue este campo deve seguir e uma
+            # pergunta separada, que fica para a fatia do relatorio.
+            "kraken_sandbox": "true" if _safe_sandbox("cex", "kraken", True) else "false",
             "cex_market_type": _clean_env_value(os.environ.get("CEX_MARKET_TYPE") or os.environ.get("CEX_DEFAULT_TYPE") or ""),
             "require_linked_signer": _clean_env_value(os.environ.get("NADO_REQUIRE_LINKED_SIGNER") or "true"),
             "require_kraken_subaccount": "false",
@@ -565,6 +584,12 @@ def doctor() -> dict[str, object]:
     add("state_dir_writable", _writable_dir(STATE_DIR), str(STATE_DIR))
     add("log_dir_writable", _writable_dir(LOG_DIR), str(LOG_DIR))
     add("venv_ready", all(report["dependencies_venv"].values()), "rode `python workspace/run.py bootstrap` se falso")
+    # Config de venue invalida derruba `venues`, `rodar-setups` e o
+    # `build_engine`. Sem este check ela so aparecia como um campo solto do
+    # relatorio, e o `doctor` -- que existe para dizer se da para operar --
+    # podia nao acusar nada.
+    venues_error = report.get("venues_error")
+    add("venues_config", venues_error is None, str(venues_error) if venues_error else "ok")
     venues = report.get("venues", {}) if isinstance(report.get("venues"), dict) else {}
     dex_id = str(venues.get("dex_id") or "nado")
     cex_id = str(venues.get("cex_id") or "kraken")

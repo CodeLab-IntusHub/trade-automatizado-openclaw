@@ -88,8 +88,15 @@ precedência ainda assentava produziu três posições erradas seguidas, duas de
 mandando ordem para a mainnet.
 
 Até lá, `_load_hyperliquid_config` segue no helper antigo e
-`HYPERLIQUID_SANDBOX` continua **ativa** no `.env.example`: comentá-la agora a
-deixaria sem configuração nenhuma.
+`HYPERLIQUID_SANDBOX` continua **ativa** no `.env.example` — não porque
+comentá-la a deixaria sem configuração (o helper antigo cai em `DEX_SANDBOX` e
+depois na rede), mas porque mexer nela é mexer numa venue fora do escopo desta
+fatia.
+
+Fica registrado o furo que isso mantém, pré-existente à `main`: com
+`HYPERLIQUID_SANDBOX=false` no exemplo, quem copia o arquivo e declara
+`HYPERLIQUID_NETWORK=testnet` recebe `sandbox=False` — e o adapter então grava
+`network="mainnet"`. É o primeiro item da fatia seguinte.
 
 ### Nado fora das famílias
 
@@ -146,6 +153,17 @@ está errado:
   relatório; o campo `cex_sandbox` vira `null`, porque chutar `"false"` ali
   seria um palpite na direção do dinheiro.
 - `venues` termina com a mensagem de erro, não com traceback.
+
+## Limitações conhecidas
+
+- **`resolve_sandbox` recarrega os arquivos a cada pergunta.** Ele está no
+  caminho de construção de ordem, então o mesmo run pode ler os arquivos várias
+  vezes — e, se o settings mudar no meio, duas pernas podem enxergar valores
+  diferentes. Quem já tem um `Settings` carregado deve passá-lo pelo parâmetro
+  `settings=`; um cache por processo resolveria o resto.
+- **A grafia canônica das chaves por venue é com hífen** (`venues.cex.kraken-futures`).
+  A variante com underscore também resolve, mas a chave escrita vence — declare
+  as duas se o seu `CEX_ID` variar de grafia entre ambientes.
 
 ## Nome de variável
 

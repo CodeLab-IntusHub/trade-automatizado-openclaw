@@ -60,12 +60,16 @@ SANDBOX_GENERIC_ENV = {"cex": "CEX_SANDBOX", "dex": "DEX_SANDBOX"}
 # **env e para settings ao mesmo tempo** -- na primeira versao a familia
 # existia so para env, e `venues.cex.kraken.sandbox` no arquivo nao alcancava
 # `krakenfutures`, que caia na chave generica e ia para producao.
-# So entram familias cujas *variantes* precisam herdar hoje. `nado` nao entra
-# porque o adapter da Nado e construido so a partir de `NADO_NETWORK` e nunca
-# chama este resolvedor; `hyperliquid` entra na fatia que migra o caller dela.
-# Isso nao torna `NADO_SANDBOX` inexistente -- para o id `nado` a cadeia gera o
-# nome como para qualquer venue; apenas nada o consulta.
-_VENUE_FAMILIES = ("kraken",)
+# So entram familias cujas *variantes* precisam herdar. `hyperliquid` ja entra
+# embora nenhum caller `dex` use o resolvedor nesta fatia: sem ela,
+# `HYPERLIQUID_SANDBOX` fica inalcancavel para os ids `hyperliquid-dex` e
+# `hyperliquid_dex`, que sao selecoes aceitas -- um bug inerte hoje e vivo no
+# minuto em que a fatia seguinte ligar o caller, sem teste para pega-lo.
+# `nado` nao entra porque o adapter dela e construido so a partir de
+# `NADO_NETWORK` e nunca chama este resolvedor. Isso nao torna `NADO_SANDBOX`
+# inexistente -- para o id `nado` a cadeia gera o nome como para qualquer
+# venue; apenas nada o consulta.
+_VENUE_FAMILIES = ("kraken", "hyperliquid")
 
 # Familias que nascem apontadas para sandbox. Assimetria deliberada: a Kraken
 # tem ambiente demo estavel e publico, o resto das CEXs nao tem equivalente
@@ -128,10 +132,27 @@ def sandbox_env_names(kind: str, venue_id: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(names))
 
 
+def _settings_slugs(venue_id: str) -> tuple[str, ...]:
+    """Grafias aceitas de um id para chave de settings.
+
+    O nome de env colapsa pontuacao (`kraken-futures` e `kraken_futures` dao o
+    mesmo `KRAKEN_FUTURES_SANDBOX`), mas a chave de arquivo usava o slug cru --
+    entao declarar com uma grafia e selecionar a outra caia calado na chave
+    generica. As duas passam a valer, com a grafia escrita vencendo.
+    """
+    slugs = []
+    for venue in venue_chain(venue_id):
+        slugs.append(venue)
+        canonico = venue_prefix(venue).lower().replace("_", "-")
+        if canonico != venue:
+            slugs.append(canonico)
+    return tuple(dict.fromkeys(slugs))
+
+
 def sandbox_settings_keys(kind: str, venue_id: str) -> tuple[str, ...]:
     """Chaves de settings, da mais especifica para a mais generica."""
     key = _kind(kind)
-    keys = [f"venues.{key}.{v}.sandbox" for v in venue_chain(venue_id)]
+    keys = [f"venues.{key}.{v}.sandbox" for v in _settings_slugs(venue_id)]
     keys.append(f"venues.{key}.sandbox")
     return tuple(dict.fromkeys(keys))
 
@@ -184,6 +205,44 @@ def _best_settings_key(cfg: "Settings", keys: tuple[str, ...]) -> str | None:
     return winner
 
 
+def _avisa_se_engoliu_declaracao(
+    cfg: "Settings",
+    declared_env: str,
+    env_names: tuple[str, ...],
+    keys: tuple[str, ...],
+    valor: bool,
+) -> None:
+    """Avisa quando uma env vence uma chave de arquivo **mais especifica**.
+
+    `_best_settings_key` cobre a inversao entre arquivos; esta cobre a
+    fronteira ambiente/arquivo, que e o caso de migracao mais provavel: ate
+    esta fatia `CEX_SANDBOX` vinha descomentada no `.env.example`, entao todo
+    operador atual tem essa env generica no `.env`. Ele segue a documentacao
+    nova, declara `venues.cex.<venue>.sandbox` no arquivo -- e a declaracao
+    seria descartada em silencio.
+    """
+    especificidade_env = env_names.index(declared_env)
+    if especificidade_env == 0:
+        return  # a env ja e a mais especifica que existe
+    for especificidade, dotted in enumerate(keys):
+        if especificidade >= especificidade_env:
+            break
+        if cfg.origin(dotted).layer == "default":
+            continue
+        try:
+            if cfg.get_bool(dotted) == valor:
+                continue
+        except ConfigError:
+            pass
+        _logger.warning(
+            "sandbox: a variavel de ambiente %s prevalece sobre %s (%s), que e "
+            "mais especifica e declara o oposto. Ambiente sempre vence arquivo; "
+            "para o arquivo valer, remova a variavel do seu .env.",
+            declared_env, dotted, cfg.origin(dotted).layer,
+        )
+        break
+
+
 def resolve_sandbox(
     kind: str,
     venue_id: str,
@@ -198,15 +257,19 @@ def resolve_sandbox(
     from workspace.config import load_settings
 
     cfg = load_settings() if settings is None else settings
+    keys = sandbox_settings_keys(kind, venue_id)
 
-    declared_env = cfg.has_env(*sandbox_env_names(kind, venue_id))
+    env_names = sandbox_env_names(kind, venue_id)
+    declared_env = cfg.has_env(*env_names)
     if declared_env is not None:
         # A env vai como chave: `get_bool` nomeia o que recebe, e o operador
         # precisa ler o nome que ele mesmo definiu. Passar a chave pontilhada
         # apontava para um caminho de arquivo que podia nem existir.
-        return cfg.get_bool(declared_env, env=declared_env)
+        valor = cfg.get_bool(declared_env, env=declared_env)
+        _avisa_se_engoliu_declaracao(cfg, declared_env, env_names, keys, valor)
+        return valor
 
-    chosen = _best_settings_key(cfg, sandbox_settings_keys(kind, venue_id))
+    chosen = _best_settings_key(cfg, keys)
     if chosen is not None:
         return cfg.get_bool(chosen)
 

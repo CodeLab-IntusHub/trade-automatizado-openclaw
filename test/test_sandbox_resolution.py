@@ -38,24 +38,6 @@ from workspace.venues.sandbox import (  # noqa: E402
 )
 
 
-@pytest.fixture(autouse=True)
-def _isola_settings_local(tmp_path: Path, monkeypatch) -> None:
-    """Isola a suite do `settings.local.json` real da maquina.
-
-    `_local_settings_path` procura, em ordem: `DELTA_NEUTRAL_SETTINGS_DIR`,
-    `~/.config/openclaw/<skill>/` e a raiz do repo -- devolvendo o **primeiro
-    que existir**. Por isso apontar o override para um `tmp_path` vazio nao
-    basta: sem arquivo la, a busca cai no home e a suite passa a medir o
-    settings do operador. E o home precisa ser falso tambem, porque ha teste
-    que remove o override de proposito para exercitar o fallback.
-    """
-    home = tmp_path / "home"
-    home.mkdir(exist_ok=True)
-    monkeypatch.setenv("HOME", str(home))
-    monkeypatch.setenv("USERPROFILE", str(home))
-    monkeypatch.setenv("DELTA_NEUTRAL_SETTINGS_DIR", str(tmp_path))
-
-
 def _settings(tmp_path: Path, *, versioned=None, local=None, env=None) -> Settings:
     (tmp_path / "settings.json").write_text(json.dumps(versioned or {}), encoding="utf-8")
     (tmp_path / "settings.local.json").write_text(json.dumps(local or {}), encoding="utf-8")
@@ -223,9 +205,12 @@ def test_env_example_nao_traz_sandbox_descomentada() -> None:
     """
     linhas = (ROOT / "workspace" / ".env.example").read_text(encoding="utf-8").splitlines()
     ativas = [ln for ln in linhas if "_SANDBOX=" in ln and not ln.lstrip().startswith("#")]
-    # `HYPERLIQUID_SANDBOX` segue ativa: a Hyperliquid ainda nao consome o
-    # resolvedor, entao comenta-la aqui a deixaria sem configuracao nenhuma.
-    # Ela sai na fatia que migra o caller.
+    # `HYPERLIQUID_SANDBOX` segue ativa porque a Hyperliquid ainda nao consome
+    # o resolvedor: comentar aqui nao a deixaria sem configuracao (o helper
+    # antigo cai em `DEX_SANDBOX` e depois na rede), mas mexeria numa venue
+    # fora do escopo desta fatia. O furo que isso mantem -- `=false` no
+    # exemplo vence a rede, entao quem copia o exemplo e escolhe testnet vai
+    # para mainnet -- e pre-existente a `main` e fechado na fatia seguinte.
     ativas = [ln for ln in ativas if not ln.startswith("HYPERLIQUID_SANDBOX")]
     assert ativas == [], f"env de sandbox descomentada mata o settings: {ativas}"
 
@@ -329,23 +314,41 @@ def test_nado_nao_anuncia_sandbox_que_nao_existe() -> None:
     assert "NADO_SANDBOX" not in sandbox_env_names("dex", "nado-dex")
 
 
-def test_fixture_isola_o_settings_local_do_operador(tmp_path: Path) -> None:
-    """A fixture precisa neutralizar os tres candidatos, nao so o override.
+def test_isolamento_da_suite_e_verificavel(tmp_path: Path) -> None:
+    """Canario do `conftest`: precisa poder falhar pelo motivo que declara.
 
-    A primeira versao so apontava `DELTA_NEUTRAL_SETTINGS_DIR` para um
-    `tmp_path` vazio -- e como `_local_settings_path` devolve o primeiro
-    caminho que **existe**, a busca caia no home e a suite media o
-    `settings.local.json` real do operador.
+    A primeira versao afirmava `_local_settings_path(ROOT) == ROOT/...`, o que
+    e verdade tanto com o arquivo real presente na raiz (escolhido) quanto
+    ausente (fallback devolve o mesmo caminho) -- passava vazio. Aqui o
+    arquivo do home e **criado**, entao o assert quebra se o override deixar
+    de vencer.
     """
-    from workspace.config import _local_settings_path
+    from workspace.config import SKILL_ID, _local_settings_path
 
-    # home falso e vazio: o candidato do meio nao pode ser escolhido
-    assert not (tmp_path / "home" / ".config").exists()
-    assert _local_settings_path(ROOT) == ROOT / "settings.local.json"
+    do_operador = tmp_path / "home" / ".config" / "openclaw" / SKILL_ID
+    do_operador.mkdir(parents=True, exist_ok=True)
+    (do_operador / "settings.local.json").write_text(
+        json.dumps({"venues": {"cex": {"sandbox": False}}}), encoding="utf-8"
+    )
 
-    # com arquivo no override, ele vence
-    (tmp_path / "settings.local.json").write_text("{}", encoding="utf-8")
-    assert _local_settings_path(ROOT).parent == tmp_path
+    escolhido = _local_settings_path(ROOT)
+    assert escolhido.parent == tmp_path, f"vazou para {escolhido}"
+    assert escolhido.parent != do_operador
+
+
+def test_venue_summary_nao_le_o_settings_da_maquina(tmp_path: Path, monkeypatch) -> None:
+    """`venue_summary` virou I/O de settings, e ele e chamado por
+    `setup_check`, `doctor` e `build_engine` -- ou seja, por modulos de teste
+    que nao sabem nada de config. Sem isolamento global, cinco testes de
+    `test_smoke.py` e `test_v2.py` quebravam num settings real da maquina."""
+    from workspace.venues import config as venues_config
+
+    (tmp_path / "settings.local.json").write_text(
+        json.dumps({"venues": {"cex": {"sandbox": True}}}), encoding="utf-8"
+    )
+    monkeypatch.setenv("CEX_ID", "binance")
+    monkeypatch.delenv("CEX_SANDBOX", raising=False)
+    assert venues_config.venue_summary()["cex_sandbox"] == "true"
 
 
 # --- achados do terceiro passe de code-review -------------------------------
@@ -362,3 +365,85 @@ def test_aviso_so_sai_quando_os_valores_divergem(tmp_path: Path, caplog) -> None
     with caplog.at_level("WARNING"):
         assert resolve_sandbox("cex", "kraken", settings=s) is True
     assert caplog.text == ""
+
+
+# --- achados do code-review da fatia 1 --------------------------------------
+
+
+def test_relatorio_nao_anuncia_sandbox_enquanto_a_ordem_vai_para_producao(tmp_path, monkeypatch) -> None:
+    """`cex_sandbox` passou a sair do resolvedor e `kraken_sandbox` ficou na
+    env crua: com o arquivo declarando `kraken.sandbox: false`, o relatorio
+    dizia `"true"` enquanto a ordem ia para producao. O recorte da fatia
+    reverteu a correcao e manteve a metade que a exige."""
+    import workspace.run as run
+
+    (tmp_path / "settings.local.json").write_text(
+        json.dumps({"venues": {"cex": {"kraken": {"sandbox": False}}}}), encoding="utf-8"
+    )
+    for nome in ("KRAKEN_SANDBOX", "CEX_SANDBOX"):
+        monkeypatch.delenv(nome, raising=False)
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+
+    assert resolve_sandbox("cex", "kraken") is False
+    assert run.setup_check()["safe_defaults"]["kraken_sandbox"] == "false"
+
+
+def test_doctor_acusa_config_de_venue_invalida(tmp_path, monkeypatch) -> None:
+    """Config invalida derruba `venues`, `rodar-setups` e o `build_engine`.
+    Sem um check, ela so aparecia como campo solto e o `doctor` -- que existe
+    para dizer se da para operar -- podia nao acusar nada."""
+    import workspace.run as run
+
+    (tmp_path / "settings.local.json").write_text(
+        json.dumps({"venues": {"cex": {"sandbox": "ture"}}}), encoding="utf-8"
+    )
+    monkeypatch.delenv("CEX_SANDBOX", raising=False)
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+
+    checks = {c["name"]: c for c in run.doctor()["checks"]}
+    assert checks["venues_config"]["ok"] is False
+    assert "ture" in checks["venues_config"]["detail"]
+
+
+def test_env_generica_avisa_ao_engolir_chave_especifica_de_arquivo(tmp_path: Path, caplog) -> None:
+    """O caso de migracao mais provavel: `CEX_SANDBOX` vinha descomentada no
+    `.env.example`, entao todo operador atual a tem no `.env`. Ele segue a doc
+    nova, declara no settings -- e a declaracao era descartada em silencio."""
+    s = _settings(
+        tmp_path,
+        versioned={"venues": {"cex": {"kraken": {"sandbox": True}}}},
+        env={"CEX_SANDBOX": "false"},
+    )
+    with caplog.at_level("WARNING"):
+        assert resolve_sandbox("cex", "kraken", settings=s) is False
+    assert "CEX_SANDBOX" in caplog.text
+    assert "venues.cex.kraken.sandbox" in caplog.text
+
+
+def test_env_generica_nao_avisa_quando_concordam(tmp_path: Path, caplog) -> None:
+    s = _settings(
+        tmp_path,
+        versioned={"venues": {"cex": {"kraken": {"sandbox": True}}}},
+        env={"CEX_SANDBOX": "true"},
+    )
+    with caplog.at_level("WARNING"):
+        assert resolve_sandbox("cex", "kraken", settings=s) is True
+    assert caplog.text == ""
+
+
+def test_env_de_familia_alcanca_as_variantes_de_dex() -> None:
+    """Inerte nesta fatia (nenhum caller `dex` usa o resolvedor) e vivo assim
+    que a proxima ligar o caller -- por isso o teste entra junto com a familia,
+    e nao depois."""
+    for vid in ("hyperliquid", "hyperliquid-dex", "hyperliquid_dex"):
+        assert "HYPERLIQUID_SANDBOX" in sandbox_env_names("dex", vid), vid
+
+
+def test_chave_de_settings_aceita_as_duas_grafias(tmp_path: Path) -> None:
+    """O nome de env colapsa pontuacao, a chave de arquivo usava o slug cru:
+    declarar com uma grafia e selecionar a outra caia calado na generica."""
+    s = _settings(tmp_path, versioned={"venues": {"cex": {"kraken-futures": {"sandbox": False}}}})
+    assert resolve_sandbox("cex", "kraken_futures", settings=s) is False
+    assert resolve_sandbox("cex", "kraken-futures", settings=s) is False

@@ -17,6 +17,17 @@
 - Aviso quando uma chave de camada mais forte e menos especifica que outra declarada **e os valores divergem** -- um `venues.cex.sandbox: false` do operador engolindo um `venues.cex.kraken.sandbox: true` do time. A ordem continua valendo; perder a declaracao em silencio, nao.
 - Teste de guarda que falha se o `.env.example` voltar a trazer uma variavel de sandbox descomentada, e teste que exercita as chaves do `settings.example.json` contra o codigo que as le.
 
+### Mudanca de comportamento (atencao ao atualizar)
+
+- **A precedencia entre as variaveis de sandbox foi invertida.** Antes
+  `_load_cex_sandbox` era `CEX_SANDBOX > <PREFIX>_SANDBOX > default`; agora a
+  especifica vence a generica, alinhando com os outros tres leitores. A direcao
+  benigna e a que motivou a mudanca (`CEX_SANDBOX=false` + `BINANCE_SANDBOX=true`
+  passa a ir para sandbox), mas **a direcao oposta tambem mudou**: quem usa
+  `CEX_SANDBOX=true` como chave-mestra de seguranca e tem um `<VENUE>_SANDBOX=false`
+  esquecido no `.env` passa de sandbox para **producao** so por atualizar.
+  Confira as variaveis `*_SANDBOX` do seu `.env` antes de subir esta versao.
+
 ### Alterado
 
 - `CEX_SANDBOX` e `KRAKEN_SANDBOX` vem comentadas no `workspace/.env.example`: ativas, venciam o `settings.json` e o deixavam inoperante para quem copiasse o exemplo.
