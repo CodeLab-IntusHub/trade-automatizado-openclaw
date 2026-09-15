@@ -35,7 +35,7 @@ recusa valor fora da lista em vez de tratá-lo como falso.
 |---|---|---|
 | Resolvedor | `workspace/venues/sandbox.py` | `resolve_sandbox(kind, venue_id)` |
 | Vocabulário | `workspace/config.py` | `get_bool`, `has_env` |
-| CLI | `workspace/cli.py` | `_load_cex_sandbox`, `_load_pair_cex_sandbox`, Kraken |
+| CLI | `workspace/cli.py` | `_load_cex_sandbox`, `_load_pair_cex_sandbox`, Kraken, `_hyperliquid_sandbox` |
 | Resumo | `workspace/venues/config.py` | `venue_summary()["cex_sandbox"]` |
 | Diagnóstico | `workspace/run.py` | guarda de `ConfigError` no `setup_check()` |
 
@@ -45,10 +45,12 @@ Do mais forte para o mais fraco:
 
 1. **env**, seguindo a cadeia da venue: `KRAKENFUTURES_SANDBOX` →
    `KRAKEN_SANDBOX` → `CEX_SANDBOX`
-2. **`settings.local.json`**, mesma cadeia: `venues.cex.krakenfutures.sandbox`
+2. **`env_default`** — valor que o chamador derivou de *outra variável de
+   ambiente* da mesma venue
+3. **`settings.local.json`**, mesma cadeia: `venues.cex.krakenfutures.sandbox`
    → `venues.cex.kraken.sandbox` → `venues.cex.sandbox`
-3. **`settings.json`**, mesma cadeia
-4. default da venue
+4. **`settings.json`**, mesma cadeia
+5. default da venue
 
 **Camada é o eixo externo; especificidade, o interno.** Ambiente vence arquivo,
 `settings.local.json` vence `settings.json`, e dentro de cada camada o mais
@@ -75,28 +77,35 @@ O casamento é por prefixo, então uma venue futura chamada `krakenx` herdaria d
 `kraken`; é o preço de não manter uma tabela de variantes que envelhece a cada
 exchange nova.
 
-### A Hyperliquid ainda não consome este módulo
+### `env_default`: a rede da Hyperliquid
 
-Ela deriva sandbox da **rede selecionada** (`HYPERLIQUID_NETWORK`: `testnet`
-implica sandbox), o que exige um degrau próprio na camada de ambiente — abaixo
-de um `HYPERLIQUID_SANDBOX` explícito, que responde à pergunta diretamente, e
-acima de qualquer arquivo.
+Está na **camada de ambiente**, porque é exatamente isso que ele é: a
+Hyperliquid deriva sandbox de `HYPERLIQUID_NETWORK`/`DEX_NETWORK`, onde
+`testnet` implica sandbox. Fica abaixo das envs de sandbox explícitas, que
+respondem à pergunta diretamente, e acima de qualquer arquivo.
 
-Esse degrau vem na fatia seguinte, junto com o caller. Foi exatamente a mistura
-dele com o núcleo que obrigou a fatiar: tentar posicioná-lo enquanto o modelo de
-precedência ainda assentava produziu três posições erradas seguidas, duas delas
-mandando ordem para a mainnet.
+A posição foi errada duas vezes antes de assentar, e o nome foi a causa das
+duas: chamado de `venue_default`, primeiro ficou acima apenas da chave genérica
+do tipo (misturando os eixos que o resto do módulo separa) e depois abaixo de
+toda configuração de arquivo — e aí um `venues.dex.sandbox: false` derrubava uma
+rede declarada por variável de ambiente.
 
-Até lá, `_load_hyperliquid_config` segue no helper antigo e
-`HYPERLIQUID_SANDBOX` continua **ativa** no `.env.example` — não porque
-comentá-la a deixaria sem configuração (o helper antigo cai em `DEX_SANDBOX` e
-depois na rede), mas porque mexer nela é mexer numa venue fora do escopo desta
-fatia.
+**Quem passa `env_default` deve passar `None` quando a env não foi declarada.**
+Uma expressão como `network in {"testnet", ...}` é sempre um `bool`: injetar
+esse `False` incondicional coloca na camada de ambiente um valor que ninguém
+escreveu, e ele derruba todo o arquivo. Como a Hyperliquid é o único DEX que
+chama o resolvedor, isso tornava `venues.dex.*.sandbox` configuração morta.
 
-Fica registrado o furo que isso mantém, pré-existente à `main`: com
-`HYPERLIQUID_SANDBOX=false` no exemplo, quem copia o arquivo e declara
-`HYPERLIQUID_NETWORK=testnet` recebe `sandbox=False` — e o adapter então grava
-`network="mainnet"`. É o primeiro item da fatia seguinte.
+### A rede declarada não sobrevive ao construtor
+
+`HyperliquidDexTrader.__init__` faz `self.network = "testnet" if self.sandbox
+else "mainnet"` — quem manda é o `sandbox`, e a rede declarada é descartada.
+
+Enquanto `HYPERLIQUID_SANDBOX=false` vinha **ativo** no `.env.example` ao lado
+de `HYPERLIQUID_NETWORK`, trocar só a rede para `testnet` deixava o operador na
+mainnet sem nada dizer. A variável saiu do exemplo, e a contradição passou a
+emitir um `WARNING` que nomeia as duas pontas e diz onde a ordem vai cair. A
+precedência não mudou: a env explícita continua vencendo.
 
 ### Nado fora das famílias
 
@@ -116,8 +125,8 @@ público (`demo.futures.kraken.com`), e as demais não têm equivalente confiáv
 — um default `true` genérico prometeria uma proteção que a corretora não
 entrega.
 
-A Hyperliquid deriva o default da rede selecionada (`testnet` implica sandbox),
-ainda por fora deste módulo — ver a seção acima.
+A Hyperliquid deriva o default da rede selecionada: `testnet` implica sandbox,
+por `env_default` — ver a seção acima.
 
 ## Configuração
 
@@ -136,8 +145,8 @@ fraca — mandando para produção quem contava com elas. Nesse segundo caso sai
 `WARNING`; no primeiro, não há o que avisar, porque nada foi declarado do outro
 lado.
 
-As variáveis `CEX_SANDBOX` e `KRAKEN_SANDBOX` vêm **comentadas** no
-`workspace/.env.example`. Elas continuam funcionando, mas têm
+As variáveis `CEX_SANDBOX`, `KRAKEN_SANDBOX` e `HYPERLIQUID_SANDBOX` vêm
+**comentadas** no `workspace/.env.example`. Elas continuam funcionando, mas têm
 precedência sobre o arquivo: deixá-las ativas no exemplo tornava o settings
 inoperante para quem copiasse — foi o que aconteceu com as `TRIANGLE_*` na
 fatia anterior desta fase. Um teste de guarda impede a regressão.
@@ -177,3 +186,4 @@ específica inalcançável sem que nada avisasse.
 | Data | Mudança |
 |------|---------|
 | 14/09/2026 | Documento inicial: resolvedor único, cadeia de venue, precedência com camada como eixo externo, defaults e avisos |
+| 15/09/2026 | Hyperliquid migrada: `env_default` na camada de ambiente e aviso quando a rede declarada contradiz o sandbox |

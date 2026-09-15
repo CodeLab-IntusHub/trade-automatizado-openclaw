@@ -10,11 +10,12 @@ O contrato, do mais forte para o mais fraco:
 
 1. env, da venue para a familia para o tipo
    (`KRAKENFUTURES_SANDBOX` -> `KRAKEN_SANDBOX` -> `CEX_SANDBOX`)
-2. settings, camada por camada (`settings.local.json` antes de
+2. `env_default`: valor que o chamador derivou de **outra env** da mesma venue
+3. settings, camada por camada (`settings.local.json` antes de
    `settings.json`) e, dentro de cada uma, da venue para a familia para o tipo
    (`venues.cex.krakenfutures.sandbox` -> `venues.cex.kraken.sandbox` ->
    `venues.cex.sandbox`)
-3. default da venue
+4. default da venue
 
 **Camada e especificidade sao eixos separados:** ambiente vence arquivo (o
 contrato do `workspace.config`), `settings.local.json` vence `settings.json`, e
@@ -23,10 +24,21 @@ externo. A primeira versao deste modulo colapsava os dois na varredura de
 arquivo, e uma chave por venue do arquivo do time derrubava uma chave generica
 do arquivo do operador -- o oposto do que o resto do sistema promete.
 
-A Hyperliquid ainda nao consome este modulo: ela deriva sandbox da rede
-selecionada (`HYPERLIQUID_NETWORK`), o que exige um degrau proprio na camada de
-ambiente. Isso vem na fatia seguinte, junto com o caller -- misturar as duas
-coisas foi o que obrigou a fatiar.
+`env_default` esta na **camada de ambiente**, e nao no fundo da pilha, porque e
+exatamente isso que ele e: a Hyperliquid o deriva de `HYPERLIQUID_NETWORK` /
+`DEX_NETWORK`, onde `testnet` implica sandbox. Fica **abaixo** das envs de
+sandbox explicitas, que respondem a pergunta diretamente, e acima de qualquer
+arquivo.
+
+Duas versoes anteriores o trataram como "default" -- uma o pos acima so da
+chave generica do tipo, misturando os eixos; outra o pos abaixo de toda config
+de arquivo, e ai um `venues.dex.sandbox: false` derrubava uma rede declarada
+por variavel de ambiente. O nome errado foi a causa das duas.
+
+**Quem o passa deve passar `None` quando a env nao foi declarada.** Uma
+expressao como `network in {"testnet", ...}` e sempre um `bool`: injetar esse
+`False` incondicional coloca na camada de ambiente um valor que ninguem
+escreveu, e ele derruba todo o arquivo.
 
 Valor fora do vocabulario levanta `ConfigError` em vez de virar falso -- ver
 `workspace.config.get_bool`.
@@ -248,11 +260,14 @@ def resolve_sandbox(
     venue_id: str,
     *,
     settings: "Settings | None" = None,
+    env_default: bool | None = None,
 ) -> bool:
     """Veredito unico de sandbox para uma venue.
 
     `settings` entra por parametro para que teste e chamador injetem sem mexer
-    em variavel de ambiente global.
+    em variavel de ambiente global. `env_default` e para quem derivou o valor
+    de **outra variavel de ambiente** da mesma venue, e por isso participa da
+    camada de ambiente; passe `None` quando essa env nao foi declarada.
     """
     from workspace.config import load_settings
 
@@ -268,6 +283,9 @@ def resolve_sandbox(
         valor = cfg.get_bool(declared_env, env=declared_env)
         _avisa_se_engoliu_declaracao(cfg, declared_env, env_names, keys, valor)
         return valor
+
+    if env_default is not None:
+        return env_default
 
     chosen = _best_settings_key(cfg, keys)
     if chosen is not None:

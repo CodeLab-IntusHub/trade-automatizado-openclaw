@@ -205,13 +205,6 @@ def test_env_example_nao_traz_sandbox_descomentada() -> None:
     """
     linhas = (ROOT / "workspace" / ".env.example").read_text(encoding="utf-8").splitlines()
     ativas = [ln for ln in linhas if "_SANDBOX=" in ln and not ln.lstrip().startswith("#")]
-    # `HYPERLIQUID_SANDBOX` segue ativa porque a Hyperliquid ainda nao consome
-    # o resolvedor: comentar aqui nao a deixaria sem configuracao (o helper
-    # antigo cai em `DEX_SANDBOX` e depois na rede), mas mexeria numa venue
-    # fora do escopo desta fatia. O furo que isso mantem -- `=false` no
-    # exemplo vence a rede, entao quem copia o exemplo e escolhe testnet vai
-    # para mainnet -- e pre-existente a `main` e fechado na fatia seguinte.
-    ativas = [ln for ln in ativas if not ln.startswith("HYPERLIQUID_SANDBOX")]
     assert ativas == [], f"env de sandbox descomentada mata o settings: {ativas}"
 
 

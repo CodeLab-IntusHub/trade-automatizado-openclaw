@@ -5508,10 +5508,39 @@ def _load_cex_sandbox(cex_id: str) -> bool:
     return resolve_sandbox("cex", cex_id)
 
 
+HYPERLIQUID_TESTNET_NETWORKS = frozenset({"testnet", "sandbox", "demo"})
+
+
+def _hyperliquid_sandbox(dex_id: str, network: str, rede_implica_sandbox: bool | None) -> bool:
+    """Sandbox da Hyperliquid, avisando quando a rede declarada e descartada.
+
+    `HyperliquidDexTrader.__init__` faz `self.network = "testnet" if
+    self.sandbox else "mainnet"`: a rede declarada nao sobrevive ao construtor,
+    quem manda e o sandbox. Enquanto `HYPERLIQUID_SANDBOX=false` vinha ativo no
+    `.env.example` ao lado de `HYPERLIQUID_NETWORK`, trocar so a rede para
+    `testnet` deixava o operador na mainnet sem nada dizer.
+
+    A precedencia nao muda -- a env explicita responde a pergunta e continua
+    vencendo --, mas a contradicao para de ser silenciosa.
+    """
+    sandbox = resolve_sandbox("dex", dex_id, env_default=rede_implica_sandbox)
+    if rede_implica_sandbox is not None and rede_implica_sandbox != sandbox:
+        logger.warning(
+            "hyperliquid: rede declarada %r implica sandbox=%s, mas a configuracao resolveu "
+            "sandbox=%s. O adapter deriva a rede do sandbox, entao voce vai operar em %s. "
+            "Alinhe HYPERLIQUID_NETWORK e HYPERLIQUID_SANDBOX (ou remova a segunda).",
+            network, rede_implica_sandbox, sandbox, "testnet" if sandbox else "mainnet",
+        )
+    return sandbox
+
+
 def _load_hyperliquid_config(dex_id: str) -> dict:
     cfg = dex_config(dex_id)
     network = (_first_env("HYPERLIQUID_NETWORK", "DEX_NETWORK") or str(cfg.get("network") or "")).lower()
-    sandbox_default = network in {"testnet", "sandbox", "demo"}
+    # `None` quando nenhuma rede foi declarada: `network in {...}` e sempre um
+    # bool, e esse `False` incondicional entraria na camada de ambiente como se
+    # alguem o tivesse escrito, derrubando o settings do operador.
+    rede_implica_sandbox = (network in HYPERLIQUID_TESTNET_NETWORKS) if network else None
     options_json = _first_env("HYPERLIQUID_OPTIONS_JSON", "DEX_OPTIONS_JSON")
     cfg.update(
         wallet_address=(
@@ -5530,9 +5559,7 @@ def _load_hyperliquid_config(dex_id: str) -> dict:
             _first_env("HYPERLIQUID_VAULT_ADDRESS")
             or str(cfg.get("vault_address") or cfg.get("vaultAddress") or "")
         ),
-        # Ainda pelo helper antigo: a Hyperliquid deriva sandbox da rede, e
-        # esse degrau na camada de ambiente vem na fatia seguinte.
-        sandbox=_load_bool_env("HYPERLIQUID_SANDBOX", _load_bool_env("DEX_SANDBOX", sandbox_default)),
+        sandbox=_hyperliquid_sandbox(dex_id, network, rede_implica_sandbox),
         market_type=_first_env("HYPERLIQUID_MARKET_TYPE", "DEX_MARKET_TYPE") or str(cfg.get("market_type") or "swap"),
         symbol_quote=_first_env("HYPERLIQUID_SYMBOL_QUOTE") or str(cfg.get("symbol_quote") or "USDT"),
     )
