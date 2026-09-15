@@ -8,6 +8,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from workspace.venues.sandbox import resolve_sandbox
+
 
 @dataclass(frozen=True)
 class VenueSelection:
@@ -189,7 +191,10 @@ def venue_summary() -> dict[str, Any]:
         ),
         "cex_adapter": "builtin:kraken" if selection.cex_id in {"kraken", "krakenfutures", "kraken-futures", "kraken_futures", "kraken-spot"} else "ccxt",
         "cex_market_type": _normalize_cex_market_type(_first_env("CEX_MARKET_TYPE", "CEX_DEFAULT_TYPE", f"{_prefix(selection.cex_id)}_MARKET_TYPE"), selection.cex_id),
-        "cex_sandbox": _first_env("CEX_SANDBOX", f"{_prefix(selection.cex_id)}_SANDBOX") or ("true" if selection.cex_id.startswith("kraken") else "false"),
+        # String, porque o resumo alimenta JSON de painel -- mas derivada do
+        # mesmo resolvedor da ordem. Antes ela tinha precedencia propria e
+        # podia mostrar `false` enquanto a ordem ia para sandbox.
+        "cex_sandbox": "true" if resolve_sandbox("cex", selection.cex_id) else "false",
         "cex_required_env": cex_names,
         "cex_credentials_configured": bool(cex_creds["api_key"] and cex_creds["api_secret"]),
         "dex_required_env": dex_names,

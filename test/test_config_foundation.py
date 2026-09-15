@@ -21,6 +21,24 @@ if str(ROOT) not in sys.path:
 from workspace.config import ConfigError, Settings, load_settings  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _isola_settings_local(tmp_path: Path, monkeypatch) -> None:
+    """Isola a suite do `settings.local.json` real da maquina.
+
+    `_local_settings_path` procura, em ordem: `DELTA_NEUTRAL_SETTINGS_DIR`,
+    `~/.config/openclaw/<skill>/` e a raiz do repo -- devolvendo o **primeiro
+    que existir**. Por isso apontar o override para um `tmp_path` vazio nao
+    basta: sem arquivo la, a busca cai no home e a suite passa a medir o
+    settings do operador. E o home precisa ser falso tambem, porque ha teste
+    que remove o override de proposito para exercitar o fallback.
+    """
+    home = tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("DELTA_NEUTRAL_SETTINGS_DIR", str(tmp_path))
+
+
 def _settings(tmp_path: Path, *, versioned=None, local=None, env=None) -> Settings:
     # Os dois arquivos sao sempre reescritos: escrever so o que foi passado
     # deixava o arquivo da chamada anterior vazar para a seguinte, e o teste

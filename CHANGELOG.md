@@ -1,5 +1,28 @@
 # Changelog
 
+## Nao publicado
+
+### Corrigido
+
+- **`sandbox` das CEXs passa a ter um resolvedor unico** (`workspace/venues/sandbox.py`). A mesma pergunta -- dinheiro de brinquedo ou dinheiro real -- era respondida em quatro lugares com regras diferentes, e dois defeitos saiam disso: (1) o vocabulario de booleano so definia o lado verdadeiro, entao `CEX_SANDBOX=ture` caia no `else` implicito e o bot operava com dinheiro real achando que estava em sandbox; (2) `_load_cex_sandbox` dava prioridade a variavel generica e `_load_pair_cex_sandbox` a especifica, de modo que `CEX_SANDBOX=false` com `BINANCE_SANDBOX=true` mandava a ordem para sandbox enquanto o resumo exibido ao operador dizia `false`. Ver `Docs/features/sandbox-por-venue.md`.
+- Prefixo de variavel por venue deixa de quebrar em id com pontuacao: `binance.us` gerava `BINANCE.US_SANDBOX`, nome que nenhum shell exporta, tornando a variavel especifica inalcancavel em silencio.
+- `KRAKEN_SANDBOX` vira variavel de familia declarada, e nao um caso especial no meio do `cli.py`. A familia vale **tambem para as chaves de settings**: `venues.cex.kraken.sandbox` alcanca `krakenfutures` e `kraken-spot`, que de outro modo caiam na chave generica e iam para producao.
+- Na varredura dos arquivos de settings, a **camada e o eixo externo**: `settings.local.json` vence `settings.json` mesmo quando o versionado tem a chave mais especifica. Sem isso, uma chave por venue do arquivo do time derrubava a chave generica do arquivo do operador.
+- Mensagem de valor invalido nomeia a variavel de ambiente que o operador escreveu (`BINANCE_SANDBOX`), e nao uma chave de arquivo que pode nem existir.
+
+### Adicionado
+
+- `sandbox` configuravel por arquivo em `venues.<tipo>.sandbox` e `venues.<tipo>.<venue>.sandbox`, com exemplo em `settings.example.json`. Antes so existia por variavel de ambiente.
+- `Settings.has_env` e `config.FILE_LAYERS`: permitem tratar camada e especificidade como eixos separados sem recodificar a ordem das camadas em dois lugares.
+- Aviso quando uma chave de camada mais forte e menos especifica que outra declarada **e os valores divergem** -- um `venues.cex.sandbox: false` do operador engolindo um `venues.cex.kraken.sandbox: true` do time. A ordem continua valendo; perder a declaracao em silencio, nao.
+- Teste de guarda que falha se o `.env.example` voltar a trazer uma variavel de sandbox descomentada, e teste que exercita as chaves do `settings.example.json` contra o codigo que as le.
+
+### Alterado
+
+- `CEX_SANDBOX` e `KRAKEN_SANDBOX` vem comentadas no `workspace/.env.example`: ativas, venciam o `settings.json` e o deixavam inoperante para quem copiasse o exemplo.
+- Os dois comandos de diagnostico deixam de estourar com config invalida: `setup-check` reporta a mensagem em `venues_error` e devolve `cex_sandbox: null` em vez de chutar `"false"`; `venues` termina com a mensagem em vez de traceback. Eles sao rodados justamente quando algo esta errado.
+- As fixtures de `test_sandbox_resolution` e `test_config_foundation` isolam o home: `_local_settings_path` devolve o primeiro caminho que existe, entao sem isso a suite lia o `settings.local.json` real do operador em vez da fixture.
+
 ## v1.3.0 — 2026-09-14
 
 ### Adicionado
