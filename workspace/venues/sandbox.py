@@ -63,6 +63,7 @@ __all__ = [
     "sandbox_settings_keys",
     "venue_chain",
     "venue_prefix",
+    "venue_spellings",
 ]
 
 SANDBOX_GENERIC_ENV = {"cex": "CEX_SANDBOX", "dex": "DEX_SANDBOX"}
@@ -106,6 +107,17 @@ def venue_prefix(venue_id: str) -> str:
     return cleaned or "VENUE"
 
 
+def _sem_repetidos(itens: list[tuple[int, str]]) -> tuple[tuple[int, str], ...]:
+    """Remove nomes repetidos preservando o primeiro (mais especifico)."""
+    vistos: set[str] = set()
+    saida: list[tuple[int, str]] = []
+    for rank, nome in itens:
+        if nome not in vistos:
+            vistos.add(nome)
+            saida.append((rank, nome))
+    return tuple(saida)
+
+
 def _kind(kind: str) -> str:
     key = (kind or "").strip().lower()
     if key not in SANDBOX_GENERIC_ENV:
@@ -137,36 +149,64 @@ def venue_chain(venue_id: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(chain))
 
 
+def _ranked_env_names(kind: str, venue_id: str) -> tuple[tuple[int, str], ...]:
+    """`(especificidade, nome)`, com a especificidade vinda da cadeia.
+
+    Compartilha a escala com `_ranked_settings_keys`, que e o que permite
+    comparar env com chave de arquivo. A versao anterior comparava o indice de
+    uma lista com o indice da outra; quando as grafias alternativas entraram,
+    as listas passaram a ter tamanhos diferentes e o aviso sumiu em silencio
+    para todo id normalizado (`kraken_futures`, `hyperliquid_dex`,
+    `binance.us`).
+    """
+    cadeia = venue_chain(venue_id)
+    ranked = [(rank, f"{venue_prefix(v)}_SANDBOX") for rank, v in enumerate(cadeia)]
+    ranked.append((len(cadeia), SANDBOX_GENERIC_ENV[_kind(kind)]))
+    return _sem_repetidos(ranked)
+
+
 def sandbox_env_names(kind: str, venue_id: str) -> tuple[str, ...]:
     """Envs consultadas, da mais especifica para a mais generica."""
-    names = [f"{venue_prefix(v)}_SANDBOX" for v in venue_chain(venue_id)]
-    names.append(SANDBOX_GENERIC_ENV[_kind(kind)])
-    return tuple(dict.fromkeys(names))
+    return tuple(n for _, n in _ranked_env_names(kind, venue_id))
 
 
-def _settings_slugs(venue_id: str) -> tuple[str, ...]:
-    """Grafias aceitas de um id para chave de settings.
+def venue_spellings(venue_id: str) -> tuple[str, ...]:
+    """Grafias equivalentes de um id, para chave de settings.
 
     O nome de env colapsa pontuacao (`kraken-futures` e `kraken_futures` dao o
-    mesmo `KRAKEN_FUTURES_SANDBOX`), mas a chave de arquivo usava o slug cru --
-    entao declarar com uma grafia e selecionar a outra caia calado na chave
-    generica. As duas passam a valer, com a grafia escrita vencendo.
+    mesmo `KRAKEN_FUTURES_SANDBOX`), mas a chave de arquivo usa o slug escrito.
+    Sem cobrir as duas formas, declarar com uma grafia e selecionar a outra cai
+    calado na chave generica.
+
+    A primeira versao normalizava **numa direcao so** (sempre para hifen), o
+    que resolvia `kraken_futures` -> `kraken-futures` e deixava o caminho
+    inverso quebrado. Aqui as duas formas saem sempre, com a escrita primeiro.
     """
-    slugs = []
-    for venue in venue_chain(venue_id):
-        slugs.append(venue)
-        canonico = venue_prefix(venue).lower().replace("_", "-")
-        if canonico != venue:
-            slugs.append(canonico)
-    return tuple(dict.fromkeys(slugs))
+    canonico = venue_prefix(venue_id).lower()
+    formas = [venue_id, canonico.replace("_", "-"), canonico]
+    return tuple(dict.fromkeys(f for f in formas if f))
+
+
+def _ranked_settings_keys(kind: str, venue_id: str) -> tuple[tuple[int, str], ...]:
+    """`(especificidade, chave)`, com a especificidade vinda da **cadeia**.
+
+    Grafias diferentes da mesma venue compartilham a especificidade: elas sao o
+    mesmo nivel escrito de dois jeitos, e nao dois niveis. Usar o indice da
+    lista como proxy -- o que a versao anterior fazia -- dava a elas ranks
+    diferentes e produzia aviso dizendo que uma era "mais especifica" que a
+    outra.
+    """
+    key = _kind(kind)
+    ranked: list[tuple[int, str]] = []
+    for rank, venue in enumerate(venue_chain(venue_id)):
+        ranked.extend((rank, f"venues.{key}.{grafia}.sandbox") for grafia in venue_spellings(venue))
+    ranked.append((len(venue_chain(venue_id)), f"venues.{key}.sandbox"))
+    return _sem_repetidos(ranked)
 
 
 def sandbox_settings_keys(kind: str, venue_id: str) -> tuple[str, ...]:
     """Chaves de settings, da mais especifica para a mais generica."""
-    key = _kind(kind)
-    keys = [f"venues.{key}.{v}.sandbox" for v in _settings_slugs(venue_id)]
-    keys.append(f"venues.{key}.sandbox")
-    return tuple(dict.fromkeys(keys))
+    return tuple(k for _, k in _ranked_settings_keys(kind, venue_id))
 
 
 def default_sandbox(kind: str, venue_id: str) -> bool:
@@ -174,7 +214,7 @@ def default_sandbox(kind: str, venue_id: str) -> bool:
     return any(v in _SANDBOX_BY_DEFAULT for v in venue_chain(venue_id))
 
 
-def _best_settings_key(cfg: "Settings", keys: tuple[str, ...]) -> str | None:
+def _best_settings_key(cfg: "Settings", keys: tuple[tuple[int, str], ...]) -> str | None:
     """Chave declarada mais forte, com camada como eixo externo.
 
     Ordenar so por especificidade faria o arquivo do time vencer o do
@@ -187,7 +227,7 @@ def _best_settings_key(cfg: "Settings", keys: tuple[str, ...]) -> str | None:
     declaracao de seguranca em silencio nao.
     """
     declared: list[tuple[tuple[int, int], str]] = []
-    for specificity, dotted in enumerate(keys):
+    for specificity, dotted in keys:
         layer = _LAYER_RANK.get(cfg.origin(dotted).layer)
         if layer is None:  # veio do default: nao foi declarada em arquivo
             continue
@@ -220,8 +260,8 @@ def _best_settings_key(cfg: "Settings", keys: tuple[str, ...]) -> str | None:
 def _avisa_se_engoliu_declaracao(
     cfg: "Settings",
     declared_env: str,
-    env_names: tuple[str, ...],
-    keys: tuple[str, ...],
+    env_names: tuple[tuple[int, str], ...],
+    keys: tuple[tuple[int, str], ...],
     valor: bool,
 ) -> None:
     """Avisa quando uma env vence uma chave de arquivo **mais especifica**.
@@ -233,10 +273,10 @@ def _avisa_se_engoliu_declaracao(
     nova, declara `venues.cex.<venue>.sandbox` no arquivo -- e a declaracao
     seria descartada em silencio.
     """
-    especificidade_env = env_names.index(declared_env)
+    especificidade_env = next(r for r, n in env_names if n == declared_env)
     if especificidade_env == 0:
         return  # a env ja e a mais especifica que existe
-    for especificidade, dotted in enumerate(keys):
+    for especificidade, dotted in keys:
         if especificidade >= especificidade_env:
             break
         if cfg.origin(dotted).layer == "default":
@@ -272,10 +312,10 @@ def resolve_sandbox(
     from workspace.config import load_settings
 
     cfg = load_settings() if settings is None else settings
-    keys = sandbox_settings_keys(kind, venue_id)
+    keys = _ranked_settings_keys(kind, venue_id)
 
-    env_names = sandbox_env_names(kind, venue_id)
-    declared_env = cfg.has_env(*env_names)
+    env_names = _ranked_env_names(kind, venue_id)
+    declared_env = cfg.has_env(*(n for _, n in env_names))
     if declared_env is not None:
         # A env vai como chave: `get_bool` nomeia o que recebe, e o operador
         # precisa ler o nome que ele mesmo definiu. Passar a chave pontilhada

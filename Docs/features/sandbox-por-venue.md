@@ -170,9 +170,11 @@ está errado:
   vezes — e, se o settings mudar no meio, duas pernas podem enxergar valores
   diferentes. Quem já tem um `Settings` carregado deve passá-lo pelo parâmetro
   `settings=`; um cache por processo resolveria o resto.
-- **A grafia canônica das chaves por venue é com hífen** (`venues.cex.kraken-futures`).
-  A variante com underscore também resolve, mas a chave escrita vence — declare
-  as duas se o seu `CEX_ID` variar de grafia entre ambientes.
+- **As chaves por venue aceitam hífen e underscore** (`venues.cex.kraken-futures`
+  e `venues.cex.kraken_futures` alcançam a mesma venue, em qualquer sentido). A
+  grafia escrita no `CEX_ID` é consultada primeiro; as duas formas compartilham
+  o mesmo nível de especificidade, então declarar as duas com valores opostos é
+  ambíguo — não faça.
 
 ## Nome de variável
 
@@ -187,3 +189,4 @@ específica inalcançável sem que nada avisasse.
 |------|---------|
 | 14/09/2026 | Documento inicial: resolvedor único, cadeia de venue, precedência com camada como eixo externo, defaults e avisos |
 | 15/09/2026 | Hyperliquid migrada: `env_default` na camada de ambiente e aviso quando a rede declarada contradiz o sandbox |
+| 15/09/2026 | Especificidade vem da cadeia da venue (e não do índice da lista); as duas grafias resolvem nos dois sentidos |

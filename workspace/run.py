@@ -469,6 +469,20 @@ def _ensure_venv_ready() -> dict[str, object]:
     return {"attempted": True, "status": boot.get("status", "unknown"), "result": boot, "dependencies": deps}
 
 
+def _kraken_report_id(venues: dict) -> str:
+    """Venue que o campo `kraken_sandbox` deve reportar.
+
+    O nome do campo promete Kraken, entao fora da familia ele responde pela
+    `kraken` mesmo, em vez de repetir o valor de outra venue. Dentro dela,
+    segue a selecao -- senao `kraken-futures` cai no default e anuncia sandbox
+    enquanto a ordem vai para producao.
+    """
+    from workspace.venues.sandbox import venue_chain
+
+    selecionada = str(venues.get("cex_id") or "") or "kraken"
+    return selecionada if "kraken" in venue_chain(selecionada) else "kraken"
+
+
 def _safe_sandbox(kind: str, venue_id: str, fallback: bool) -> bool:
     """Sandbox para o relatorio, sem derrubar o diagnostico.
 
@@ -538,13 +552,12 @@ def setup_check() -> dict[str, object]:
             # de sandbox do relatorio vem na fatia que os redesenha.
             "cex_sandbox": _clean_env_value(str(venues["cex_sandbox"])) if venues else None,
             "nado_network": _clean_env_value(os.environ.get("NADO_NETWORK") or os.environ.get("NETWORK") or "testnet"),
-            # Do mesmo resolvedor que a ordem usa. Ler `KRAKEN_SANDBOX` cru
-            # aqui enquanto `cex_sandbox` ja vinha do resolvedor fazia o campo
-            # anunciar `"true"` enquanto a ordem ia para producao -- e o
-            # arquivo, que esta fatia torna fonte viva, era justamente o que
-            # ele nao enxergava. Qual venue este campo deve seguir e uma
-            # pergunta separada, que fica para a fatia do relatorio.
-            "kraken_sandbox": "true" if _safe_sandbox("cex", "kraken", True) else "false",
+            # Segue a venue selecionada quando ela e da familia kraken, para
+            # enxergar `venues.cex.kraken-futures.sandbox` e
+            # `KRAKENFUTURES_SANDBOX`. Cravar o id `kraken` fazia o campo
+            # fabricar um `"true"` a partir do default enquanto a ordem ia para
+            # producao -- e contradizer `cex_sandbox` no mesmo payload.
+            "kraken_sandbox": "true" if _safe_sandbox("cex", _kraken_report_id(venues), True) else "false",
             "cex_market_type": _clean_env_value(os.environ.get("CEX_MARKET_TYPE") or os.environ.get("CEX_DEFAULT_TYPE") or ""),
             "require_linked_signer": _clean_env_value(os.environ.get("NADO_REQUIRE_LINKED_SIGNER") or "true"),
             "require_kraken_subaccount": "false",
@@ -566,6 +579,14 @@ def setup_check() -> dict[str, object]:
             "nado_min_order_notional_usd": _clean_env_value(os.environ.get("NADO_MIN_ORDER_NOTIONAL_USD") or "10"),
         },
     }
+
+
+# Checks que decidem o veredito do `doctor`. Credencial de venue fica de fora
+# de proposito: ela falta em quem ainda esta configurando, e nao impede o
+# diagnostico de rodar.
+BLOCKING_CHECKS = frozenset(
+    {"requirements_file", "state_dir_writable", "log_dir_writable", "venv_ready", "venues_config"}
+)
 
 
 def doctor() -> dict[str, object]:
@@ -627,7 +648,15 @@ def doctor() -> dict[str, object]:
             bool(venues.get("dex_adapter_configured")),
             f"DEX {dex_id} custom exige DEX_ADAPTER_MODULE=pacote.modulo:Classe",
         )
-    report["status"] = "ok" if all(item["ok"] for item in report["checks"][:4]) else "attention"
+    # Por nome, nao por posicao: o corte `[:4]` era um indice, entao inserir um
+    # check acima silenciosamente derrubava outro do criterio -- foi o que
+    # aconteceu com `venues_config`, que ficou fora e deixava o `doctor`
+    # devolver `ok` com config que derruba todo comando de trade.
+    report["status"] = (
+        "ok"
+        if all(item["ok"] for item in report["checks"] if item["name"] in BLOCKING_CHECKS)
+        else "attention"
+    )
     return report
 
 
