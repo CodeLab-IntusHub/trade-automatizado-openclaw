@@ -24,6 +24,7 @@ if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 from workspace.venues import venue_summary  # noqa: E402
 from workspace.venues.sandbox import resolve_sandbox  # noqa: E402
+from workspace.venues.config import selected_venues  # noqa: E402
 from workspace.config import ConfigError  # noqa: E402
 REQUIREMENTS = WORKSPACE_DIR / "requirements.txt"
 SKILL_ID = "trade-automatizado-openclaw"
@@ -469,30 +470,18 @@ def _ensure_venv_ready() -> dict[str, object]:
     return {"attempted": True, "status": boot.get("status", "unknown"), "result": boot, "dependencies": deps}
 
 
-def _kraken_report_id(venues: dict) -> str:
-    """Venue que o campo `kraken_sandbox` deve reportar.
-
-    O nome do campo promete Kraken, entao fora da familia ele responde pela
-    `kraken` mesmo, em vez de repetir o valor de outra venue. Dentro dela,
-    segue a selecao -- senao `kraken-futures` cai no default e anuncia sandbox
-    enquanto a ordem vai para producao.
-    """
-    from workspace.venues.sandbox import venue_chain
-
-    selecionada = str(venues.get("cex_id") or "") or "kraken"
-    return selecionada if "kraken" in venue_chain(selecionada) else "kraken"
-
-
-def _safe_sandbox(kind: str, venue_id: str, fallback: bool) -> bool:
-    """Sandbox para o relatorio, sem derrubar o diagnostico.
+def _sandbox_do_relatorio(kind: str, venue_id: str) -> str | None:
+    """Sandbox para o relatorio: `"true"`, `"false"` ou `None` se ilegivel.
 
     Config invalida ja aparece em `venues_error` e no check `venues_config`;
-    repetir a excecao aqui trocaria o relatorio inteiro por um traceback.
+    repetir a excecao aqui trocaria o relatorio inteiro por um traceback. Mas
+    tambem nao se chuta um lado: `None` diz "nao sei", e `"false"` diria
+    "dinheiro real" sobre uma config que ninguem conseguiu ler.
     """
     try:
-        return resolve_sandbox(kind, venue_id)
+        return "true" if resolve_sandbox(kind, venue_id) else "false"
     except ConfigError:
-        return fallback
+        return None
 
 
 def setup_check() -> dict[str, object]:
@@ -511,6 +500,7 @@ def setup_check() -> dict[str, object]:
     except ConfigError as exc:
         venues = {}
         venues_error = str(exc)
+    selecao = selected_venues()
     return {
         "status": "ok" if _dependencies_ready(venv_deps) else "needs_bootstrap",
         "runtime": {
@@ -543,21 +533,17 @@ def setup_check() -> dict[str, object]:
         "venues": venues,
         "venues_error": venues_error,
         "safe_defaults": {
-            "dex_id": _clean_env_value(os.environ.get("DEX_ID") or os.environ.get("TRADE_DEX_ID") or "nado"),
-            "cex_id": _clean_env_value(os.environ.get("CEX_ID") or os.environ.get("TRADE_CEX_ID") or "kraken"),
+            # Pela mesma funcao do caminho de ordem: reler o env aqui perdia o
+            # alias `PRIMARY_CEX`, e o relatorio descrevia uma venue diferente
+            # da que opera.
+            "dex_id": selecao.dex_id,
+            "cex_id": selecao.cex_id,
             "dex_network": _clean_env_value(os.environ.get("DEX_NETWORK") or os.environ.get("NADO_NETWORK") or os.environ.get("NETWORK") or "testnet"),
-            # Do resumo, que agora sai do resolvedor unico. `None` quando a
-            # config esta invalida: com `venues` vazio, um `or "false"` seria
-            # um chute na direcao do dinheiro. O contrato completo dos campos
-            # de sandbox do relatorio vem na fatia que os redesenha.
-            "cex_sandbox": _clean_env_value(str(venues["cex_sandbox"])) if venues else None,
+            # Do resolvedor unico, para a CEX selecionada. `None` quando a
+            # config esta invalida: chutar `"false"` seria um palpite na
+            # direcao do dinheiro.
+            "cex_sandbox": _sandbox_do_relatorio("cex", selecao.cex_id),
             "nado_network": _clean_env_value(os.environ.get("NADO_NETWORK") or os.environ.get("NETWORK") or "testnet"),
-            # Segue a venue selecionada quando ela e da familia kraken, para
-            # enxergar `venues.cex.kraken-futures.sandbox` e
-            # `KRAKENFUTURES_SANDBOX`. Cravar o id `kraken` fazia o campo
-            # fabricar um `"true"` a partir do default enquanto a ordem ia para
-            # producao -- e contradizer `cex_sandbox` no mesmo payload.
-            "kraken_sandbox": "true" if _safe_sandbox("cex", _kraken_report_id(venues), True) else "false",
             "cex_market_type": _clean_env_value(os.environ.get("CEX_MARKET_TYPE") or os.environ.get("CEX_DEFAULT_TYPE") or ""),
             "require_linked_signer": _clean_env_value(os.environ.get("NADO_REQUIRE_LINKED_SIGNER") or "true"),
             "require_kraken_subaccount": "false",

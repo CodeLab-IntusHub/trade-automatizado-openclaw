@@ -364,22 +364,20 @@ def test_aviso_so_sai_quando_os_valores_divergem(tmp_path: Path, caplog) -> None
 
 
 def test_relatorio_nao_anuncia_sandbox_enquanto_a_ordem_vai_para_producao(tmp_path, monkeypatch) -> None:
-    """`cex_sandbox` passou a sair do resolvedor e `kraken_sandbox` ficou na
-    env crua: com o arquivo declarando `kraken.sandbox: false`, o relatorio
-    dizia `"true"` enquanto a ordem ia para producao. O recorte da fatia
-    reverteu a correcao e manteve a metade que a exige."""
+    """O relatorio saia da env crua enquanto a ordem ja saia do resolvedor:
+    com o arquivo declarando `kraken.sandbox: false`, ele dizia `"true"`."""
     import workspace.run as run
 
     (tmp_path / "settings.local.json").write_text(
         json.dumps({"venues": {"cex": {"kraken": {"sandbox": False}}}}), encoding="utf-8"
     )
-    for nome in ("KRAKEN_SANDBOX", "CEX_SANDBOX"):
+    for nome in ("KRAKEN_SANDBOX", "CEX_SANDBOX", "CEX_ID", "TRADE_CEX_ID", "PRIMARY_CEX"):
         monkeypatch.delenv(nome, raising=False)
     monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
     monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
 
     assert resolve_sandbox("cex", "kraken") is False
-    assert run.setup_check()["safe_defaults"]["kraken_sandbox"] == "false"
+    assert run.setup_check()["safe_defaults"]["cex_sandbox"] == "false"
 
 
 def test_doctor_acusa_config_de_venue_invalida(tmp_path, monkeypatch) -> None:
@@ -513,10 +511,10 @@ def test_doctor_reprova_com_config_de_venue_invalida(tmp_path, monkeypatch) -> N
     assert run.doctor()["status"] == "ok"
 
 
-def test_kraken_sandbox_segue_a_variante_selecionada(tmp_path, monkeypatch) -> None:
-    """Cravar o id `kraken` fazia o campo fabricar um `"true"` a partir do
-    default enquanto a ordem ia para producao -- e contradizer `cex_sandbox`
-    no mesmo payload."""
+def test_relatorio_segue_a_variante_selecionada(tmp_path, monkeypatch) -> None:
+    """O campo `kraken_sandbox` foi removido: ele falava de uma venue que podia
+    nao ser a selecionada, e ficava ao lado de `cex_sandbox` sem nada indicar
+    isso. `cex_id` + `cex_sandbox` dizem a mesma coisa sem ambiguidade."""
     import workspace.run as run
 
     (tmp_path / "settings.local.json").write_text(
@@ -529,8 +527,40 @@ def test_kraken_sandbox_segue_a_variante_selecionada(tmp_path, monkeypatch) -> N
     monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
 
     defaults = run.setup_check()["safe_defaults"]
-    assert resolve_sandbox("cex", "kraken-futures") is False
-    assert defaults["cex_sandbox"] == defaults["kraken_sandbox"] == "false"
+    assert "kraken_sandbox" not in defaults
+    assert defaults["cex_id"] == "kraken-futures"
+    assert defaults["cex_sandbox"] == "false" == ("false" if resolve_sandbox("cex", "kraken-futures") is False else "true")
+
+
+def test_relatorio_honra_o_alias_primary_cex(tmp_path, monkeypatch) -> None:
+    """`selected_venues` resolve `CEX_ID -> TRADE_CEX_ID -> PRIMARY_CEX`.
+    Reler o env perdia o terceiro, e o relatorio descrevia outra venue."""
+    import workspace.run as run
+
+    for nome in ("CEX_ID", "TRADE_CEX_ID", "CEX_SANDBOX"):
+        monkeypatch.delenv(nome, raising=False)
+    monkeypatch.setenv("PRIMARY_CEX", "binance")
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+
+    report = run.setup_check()
+    assert report["safe_defaults"]["cex_id"] == report["venues"]["cex_id"] == "binance"
+    assert report["safe_defaults"]["cex_sandbox"] == report["venues"]["cex_sandbox"] == "false"
+
+
+def test_relatorio_diz_nao_sei_com_config_ilegivel(tmp_path, monkeypatch) -> None:
+    """`None` em vez de `"false"`: chutar aqui seria palpite na direcao do
+    dinheiro sobre uma config que ninguem conseguiu ler."""
+    import workspace.run as run
+
+    (tmp_path / "settings.local.json").write_text(
+        json.dumps({"venues": {"cex": {"sandbox": "ture"}}}), encoding="utf-8"
+    )
+    monkeypatch.delenv("CEX_SANDBOX", raising=False)
+    monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
+    monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
+
+    assert run.setup_check()["safe_defaults"]["cex_sandbox"] is None
 
 
 def test_setup_check_nao_le_os_arquivos_de_env_do_operador(tmp_path, monkeypatch) -> None:
@@ -561,6 +591,9 @@ def test_setup_check_nao_le_os_arquivos_de_env_do_operador(tmp_path, monkeypatch
     assert os.environ.get("CEX_SANDBOX") is None
 
 
+_CANARIO_SUJOU = False
+
+
 def test_environ_a_suja_de_proposito() -> None:
     """Primeira metade do canario do `conftest`.
 
@@ -568,15 +601,24 @@ def test_environ_a_suja_de_proposito() -> None:
     de dentro do teste tambem escreve no ambiente. Foi observado: um teste
     deixou `CEX_ID=binance` para tras e derrubou dois testes de `test_v2.py`.
     """
+    global _CANARIO_SUJOU
     import os
 
     os.environ["_CANARIO_VAZAMENTO"] = "sujo"
+    _CANARIO_SUJOU = True
 
 
 def test_environ_volta_limpo_no_teste_seguinte() -> None:
-    """Segunda metade: falha se a restauracao do `conftest` sair."""
+    """Segunda metade: falha se a restauracao do `conftest` sair.
+
+    O `skip` existe para o par nao passar vazio quando a ordem muda (`-k`,
+    `pytest-randomly`, xdist): sem ele, rodar so esta metade seria um teste
+    verde que nao guarda nada.
+    """
     import os
 
+    if not _CANARIO_SUJOU:
+        pytest.skip("a metade que suja o ambiente nao rodou antes desta")
     assert os.environ.get("_CANARIO_VAZAMENTO") is None
 
 
@@ -591,3 +633,15 @@ def test_settings_versionado_tambem_e_isolado(tmp_path: Path) -> None:
         json.dumps({"venues": {"cex": {"sandbox": True}}}), encoding="utf-8"
     )
     assert resolve_sandbox("cex", "binance") is True
+
+
+def test_grafia_escrita_vence_o_alias_no_empate(tmp_path: Path) -> None:
+    """Com as duas grafias no mesmo nivel de especificidade, o `sort`
+    desempatava pela string -- e `-` vem antes de `_`, entao o alias ganhava
+    da grafia que o operador de fato selecionou."""
+    s = _settings(
+        tmp_path,
+        local={"venues": {"cex": {"kraken_futures": {"sandbox": True}, "kraken-futures": {"sandbox": False}}}},
+    )
+    assert resolve_sandbox("cex", "kraken_futures", settings=s) is True
+    assert resolve_sandbox("cex", "kraken-futures", settings=s) is False

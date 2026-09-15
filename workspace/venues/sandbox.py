@@ -226,17 +226,22 @@ def _best_settings_key(cfg: "Settings", keys: tuple[tuple[int, str], ...]) -> st
     continua valendo -- o arquivo do operador manda --, mas perder uma
     declaracao de seguranca em silencio nao.
     """
-    declared: list[tuple[tuple[int, int], str]] = []
-    for specificity, dotted in keys:
+    declared: list[tuple[tuple[int, int, int], str]] = []
+    for ordem, (specificity, dotted) in enumerate(keys):
         layer = _LAYER_RANK.get(cfg.origin(dotted).layer)
         if layer is None:  # veio do default: nao foi declarada em arquivo
             continue
-        declared.append(((layer, specificity), dotted))
+        # `ordem` entra como terceiro criterio para que o empate de
+        # especificidade -- duas grafias da mesma venue -- caia na ordem em que
+        # `venue_spellings` as emite, com a grafia escrita primeiro. Sem ele o
+        # `sort` desempatava pela string, e `-` vem antes de `_`: o alias
+        # ganhava da grafia que o operador de fato selecionou.
+        declared.append(((layer, specificity, ordem), dotted))
     if not declared:
         return None
     declared.sort()
-    (_, winner_specificity), winner = declared[0]
-    for (_, specificity), dotted in declared[1:]:
+    (_, winner_specificity, _ordem), winner = declared[0]
+    for (_, specificity, _o), dotted in declared[1:]:
         if specificity >= winner_specificity:
             continue
         # So avisa quando os valores de fato divergem. Avisar com os dois
@@ -273,7 +278,9 @@ def _avisa_se_engoliu_declaracao(
     nova, declara `venues.cex.<venue>.sandbox` no arquivo -- e a declaracao
     seria descartada em silencio.
     """
-    especificidade_env = next(r for r, n in env_names if n == declared_env)
+    # Um valor derivado (a rede) nao esta na lista de envs de sandbox: ele
+    # entra na camada de ambiente no nivel mais generico, abaixo de todas elas.
+    especificidade_env = next((r for r, n in env_names if n == declared_env), env_names[-1][0])
     if especificidade_env == 0:
         return  # a env ja e a mais especifica que existe
     for especificidade, dotted in keys:
@@ -301,6 +308,7 @@ def resolve_sandbox(
     *,
     settings: "Settings | None" = None,
     env_default: bool | None = None,
+    env_default_origem: str | None = None,
 ) -> bool:
     """Veredito unico de sandbox para uma venue.
 
@@ -308,6 +316,8 @@ def resolve_sandbox(
     em variavel de ambiente global. `env_default` e para quem derivou o valor
     de **outra variavel de ambiente** da mesma venue, e por isso participa da
     camada de ambiente; passe `None` quando essa env nao foi declarada.
+    `env_default_origem` e o nome dessa variavel, usado nas mensagens -- sem
+    ele o aviso nomearia uma env que o operador talvez nao tenha definido.
     """
     from workspace.config import load_settings
 
@@ -325,6 +335,11 @@ def resolve_sandbox(
         return valor
 
     if env_default is not None:
+        # Avisa igual ao ramo da env explicita: sem isso, um valor derivado de
+        # outra env (a rede da Hyperliquid) engolia uma declaracao de arquivo
+        # mais especifica em silencio -- que e o caso de migracao de quem tem
+        # `HYPERLIQUID_NETWORK` do exemplo e passou a declarar no settings.
+        _avisa_se_engoliu_declaracao(cfg, env_default_origem or "(derivado do ambiente)", env_names, keys, env_default)
         return env_default
 
     chosen = _best_settings_key(cfg, keys)

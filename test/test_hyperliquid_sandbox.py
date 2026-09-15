@@ -149,3 +149,79 @@ def test_env_example_nao_traz_mais_sandbox_da_hyperliquid() -> None:
     linhas = (ROOT / "workspace" / ".env.example").read_text(encoding="utf-8").splitlines()
     ativas = [ln for ln in linhas if "_SANDBOX=" in ln and not ln.lstrip().startswith("#")]
     assert ativas == [], f"env de sandbox descomentada mata o settings: {ativas}"
+
+
+# --- achados do code-review da fatia 2 --------------------------------------
+
+
+def test_rede_do_exemplo_nao_mata_o_settings(tmp_path: Path, monkeypatch, caplog) -> None:
+    """Comentar `HYPERLIQUID_SANDBOX` e deixar `HYPERLIQUID_NETWORK=mainnet`
+    ativo so mudou o buraco de lugar: depois que a rede passou a entrar na
+    camada de ambiente, ela tambem derruba `venues.dex.*.sandbox`."""
+    from workspace import cli
+
+    _limpa_rede(monkeypatch)
+    monkeypatch.setenv("HYPERLIQUID_NETWORK", "mainnet")
+    (tmp_path / "settings.local.json").write_text(
+        json.dumps({"venues": {"dex": {"hyperliquid": {"sandbox": True}}}}), encoding="utf-8"
+    )
+    with caplog.at_level("WARNING"):
+        assert cli._load_hyperliquid_config("hyperliquid")["sandbox"] is False
+    # a env continua vencendo -- mas o operador fica sabendo que perdeu a
+    # declaracao do arquivo, que antes sumia em silencio
+    assert "venues.dex.hyperliquid.sandbox" in caplog.text
+
+
+def test_env_example_nao_traz_rede_nem_sandbox_ativas() -> None:
+    """O guard so procurava `_SANDBOX=`, entao nao via a rede -- que faz a
+    mesma coisa desde que passou para a camada de ambiente."""
+    # So as que chegam ao resolvedor com valor. `DEX_NETWORK=` vazio conta
+    # como nao definida, e `NADO_NETWORK` nao passa por aqui -- o adapter da
+    # Nado nunca chama o resolvedor.
+    QUE_DERRUBAM = ("CEX_SANDBOX", "KRAKEN_SANDBOX", "HYPERLIQUID_SANDBOX", "DEX_SANDBOX",
+                    "HYPERLIQUID_NETWORK", "DEX_NETWORK")
+    ativas = []
+    for linha in (ROOT / "workspace" / ".env.example").read_text(encoding="utf-8").splitlines():
+        crua = linha.lstrip()
+        if crua.startswith("#") or "=" not in crua:
+            continue
+        nome, _, resto = crua.partition("=")
+        valor = resto.split("#", 1)[0].strip()
+        if nome.strip() in QUE_DERRUBAM and valor:
+            ativas.append(linha)
+    assert ativas == [], f"env ativa que derruba o settings: {ativas}"
+
+
+def test_typo_na_rede_nao_vira_mainnet(tmp_path: Path, monkeypatch) -> None:
+    """O `ture` de novo, noutra variavel -- e pior, porque este valor entra na
+    camada de ambiente e por isso tambem derruba o arquivo."""
+    from workspace import cli
+    from workspace.config import ConfigError
+
+    _limpa_rede(monkeypatch)
+    monkeypatch.setenv("HYPERLIQUID_NETWORK", "testnetz")
+    with pytest.raises(ConfigError) as exc:
+        cli._load_hyperliquid_config("hyperliquid")
+    assert "testnetz" in str(exc.value)
+
+
+def test_mainnet_declarada_continua_valida(monkeypatch) -> None:
+    from workspace import cli
+
+    _limpa_rede(monkeypatch)
+    for valor in ("mainnet", "main", "production", "prod", "live"):
+        monkeypatch.setenv("HYPERLIQUID_NETWORK", valor)
+        assert cli._load_hyperliquid_config("hyperliquid")["sandbox"] is False, valor
+
+
+def test_aviso_nomeia_a_env_que_decidiu(monkeypatch, caplog) -> None:
+    """O aviso citava `HYPERLIQUID_NETWORK` mesmo quando quem decidia era
+    `DEX_NETWORK`, mandando mexer numa variavel nao definida."""
+    from workspace import cli
+
+    _limpa_rede(monkeypatch)
+    monkeypatch.setenv("DEX_NETWORK", "testnet")
+    monkeypatch.setenv("DEX_SANDBOX", "false")
+    with caplog.at_level("WARNING"):
+        cli._load_hyperliquid_config("hyperliquid")
+    assert "DEX_NETWORK" in caplog.text

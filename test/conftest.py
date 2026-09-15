@@ -79,5 +79,9 @@ def isola_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import workspace.run as run
 
     vazio = tmp_path / "sem-env"
-    for constante in ("USER_CONFIG_FILE", "STATE_CONFIG_FILE", "DEFAULT_ENV_FILE", "LEGACY_ENV_FILE"):
+    # `ENV_FILE` entra junto: quando `DELTA_NEUTRAL_ENV_FILE` esta definida
+    # (modo `--runtime-env`), `_env_file_candidates()` devolve so ela, e todo o
+    # resto do redirecionamento nao vale nada.
+    monkeypatch.delenv("DELTA_NEUTRAL_ENV_FILE", raising=False)
+    for constante in ("ENV_FILE", "USER_CONFIG_FILE", "STATE_CONFIG_FILE", "DEFAULT_ENV_FILE", "LEGACY_ENV_FILE"):
         monkeypatch.setattr(run, constante, vazio / f"{constante.lower()}.env", raising=False)

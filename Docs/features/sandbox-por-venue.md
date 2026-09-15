@@ -90,6 +90,12 @@ do tipo (misturando os eixos que o resto do módulo separa) e depois abaixo de
 toda configuração de arquivo — e aí um `venues.dex.sandbox: false` derrubava uma
 rede declarada por variável de ambiente.
 
+A rede tem vocabulário com os dois lados declarados, como o de booleano:
+`testnet`/`sandbox`/`demo` de um lado, `mainnet`/`main`/`production`/`prod`/`live`
+do outro. `HYPERLIQUID_NETWORK=testnetz` levanta `ConfigError` em vez de virar
+produção — é o mesmo defeito do `ture`, e aqui seria pior, porque o valor entra
+na camada de ambiente e por isso derruba também o arquivo.
+
 **Quem passa `env_default` deve passar `None` quando a env não foi declarada.**
 Uma expressão como `network in {"testnet", ...}` é sempre um `bool`: injetar
 esse `False` incondicional coloca na camada de ambiente um valor que ninguém
@@ -158,9 +164,9 @@ o custo de adivinhar aqui é uma ordem com dinheiro real. Os dois comandos de
 diagnóstico são exceção deliberada, já que são rodados justamente quando algo
 está errado:
 
-- `setup-check` reporta a mensagem no campo `venues_error` e segue produzindo o
-  relatório; o campo `cex_sandbox` vira `null`, porque chutar `"false"` ali
-  seria um palpite na direção do dinheiro.
+- `setup-check` reporta a mensagem no campo `venues_error`, marca o check
+  `venues_config` e segue produzindo o relatório; o campo `cex_sandbox` vira
+  `null`, porque chutar `"false"` ali seria um palpite na direção do dinheiro.
 - `venues` termina com a mensagem de erro, não com traceback.
 
 ## Limitações conhecidas
@@ -190,3 +196,4 @@ específica inalcançável sem que nada avisasse.
 | 14/09/2026 | Documento inicial: resolvedor único, cadeia de venue, precedência com camada como eixo externo, defaults e avisos |
 | 15/09/2026 | Hyperliquid migrada: `env_default` na camada de ambiente e aviso quando a rede declarada contradiz o sandbox |
 | 15/09/2026 | Especificidade vem da cadeia da venue (e não do índice da lista); as duas grafias resolvem nos dois sentidos |
+| 15/09/2026 | Vocabulário da rede da Hyperliquid; `env_default` também avisa; `kraken_sandbox` removido do relatório |
