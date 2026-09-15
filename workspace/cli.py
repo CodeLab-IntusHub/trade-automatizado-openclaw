@@ -182,6 +182,8 @@ from workspace.venues import (  # noqa: E402
 from workspace.venues.ccxt_cex import GenericCcxtTrader  # noqa: E402
 from workspace.venues.custom_dex import load_custom_dex_adapter  # noqa: E402
 from workspace.venues.hyperliquid_dex import HyperliquidDexTrader  # noqa: E402
+from workspace.config import ConfigError  # noqa: E402
+from workspace.venues.sandbox import resolve_sandbox  # noqa: E402
 
 SKILL_ID = "trade-automatizado-openclaw"
 LEGACY_SKILL_ID = "delta-neutral-airdrop-farmer"
@@ -5082,12 +5084,9 @@ def _load_pair_cex_market_type(cex_id: str) -> str:
 
 
 def _load_pair_cex_sandbox(cex_id: str) -> bool:
-    prefix = _venue_prefix(cex_id)
-    default = cex_id.startswith("kraken")
-    raw = _first_env(f"{prefix}_SANDBOX", "CEX_SANDBOX")
-    if raw is None:
-        return default
-    return raw.lower() in {"1", "true", "yes", "sim"}
+    # Mesma pergunta, mesmo veredito: este helper e o `_load_cex_sandbox`
+    # tinham precedencias invertidas entre si.
+    return resolve_sandbox("cex", cex_id)
 
 
 def _pair_cex_credentials(cex_id: str) -> dict[str, str]:
@@ -5506,8 +5505,7 @@ def _load_cex_market_type(cex_id: str) -> str:
 
 
 def _load_cex_sandbox(cex_id: str) -> bool:
-    default = cex_id.startswith("kraken")
-    return _load_bool_env("CEX_SANDBOX", _load_bool_env(f"{cex_id.upper().replace('-', '_')}_SANDBOX", default))
+    return resolve_sandbox("cex", cex_id)
 
 
 def _load_hyperliquid_config(dex_id: str) -> dict:
@@ -5532,6 +5530,8 @@ def _load_hyperliquid_config(dex_id: str) -> dict:
             _first_env("HYPERLIQUID_VAULT_ADDRESS")
             or str(cfg.get("vault_address") or cfg.get("vaultAddress") or "")
         ),
+        # Ainda pelo helper antigo: a Hyperliquid deriva sandbox da rede, e
+        # esse degrau na camada de ambiente vem na fatia seguinte.
         sandbox=_load_bool_env("HYPERLIQUID_SANDBOX", _load_bool_env("DEX_SANDBOX", sandbox_default)),
         market_type=_first_env("HYPERLIQUID_MARKET_TYPE", "DEX_MARKET_TYPE") or str(cfg.get("market_type") or "swap"),
         symbol_quote=_first_env("HYPERLIQUID_SYMBOL_QUOTE") or str(cfg.get("symbol_quote") or "USDT"),
@@ -5581,7 +5581,9 @@ def build_engine(*, require_nado: bool = True, require_kraken: bool = True) -> D
             kraken_venue = "spot"
         if kraken_venue == "swap":
             kraken_venue = "futures"
-        kraken_sandbox = _load_bool_env("KRAKEN_SANDBOX", _load_cex_sandbox(cex_id))
+        # `KRAKEN_SANDBOX` continua valendo para as variantes: e uma env de
+        # familia, declarada em `workspace.venues.sandbox`.
+        kraken_sandbox = resolve_sandbox("cex", cex_id)
         kraken_account = (_clean_literal_env(os.environ.get("KRAKEN_ACCOUNT")) or "flex").lower()
         kraken_account_symbol = _clean_literal_env(os.environ.get("KRAKEN_ACCOUNT_SYMBOL"))
         kraken_require_subaccount = _load_bool_env("KRAKEN_REQUIRE_SUBACCOUNT", False)  # opcional: usuario decide exigir subconta
@@ -5805,7 +5807,12 @@ def _log_calibration_leaderboard(
 
 
 def cmd_venues(_: argparse.Namespace) -> None:
-    summary = venue_summary()
+    # Este comando existe para mostrar a configuracao: se ela estiver
+    # invalida, a mensagem e a resposta, nao um traceback.
+    try:
+        summary = venue_summary()
+    except ConfigError as exc:
+        raise SystemExit(f"Configuracao de venue invalida: {exc}") from exc
     logger.info("venues | DEX=%s adapter=%s | CEX=%s adapter=%s market=%s sandbox=%s",
                 summary["dex_id"], summary["dex_adapter"], summary["cex_id"], summary["cex_adapter"],
                 summary["cex_market_type"], summary["cex_sandbox"])

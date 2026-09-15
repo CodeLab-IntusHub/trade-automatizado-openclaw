@@ -33,6 +33,7 @@ __all__ = [
     "BOOL_TRUE_VALUES",
     "ConfigError",
     "ConfigOrigin",
+    "FILE_LAYERS",
     "Settings",
     "load_settings",
 ]
@@ -45,6 +46,11 @@ BOOL_FALSE_VALUES = frozenset({"0", "false", "no", "nao", "não", "off", "n"})
 
 _VERSIONED_FILE = "settings.json"
 _LOCAL_FILE = "settings.local.json"
+
+# Camadas de arquivo, da mais forte para a mais fraca. Publica porque quem
+# resolve uma chave em mais de um caminho precisa comparar camadas sem
+# recodificar esta ordem -- duas copias dela divergiriam.
+FILE_LAYERS = (_LOCAL_FILE, _VERSIONED_FILE)
 
 SKILL_ID = "trade-automatizado-openclaw"
 # Onde procurar o settings do operador, em ordem. A skill e reinstalada por
@@ -158,6 +164,20 @@ class Settings:
 
     def origin(self, dotted: str, *, env: str | Sequence[str] | None = None) -> ConfigOrigin:
         return self._resolve(dotted, env)[1]
+
+    def has_env(self, *names: str) -> str | None:
+        """Primeira env do grupo que esta definida, ou `None`.
+
+        Existe para quem precisa separar *camada* de *especificidade*: sem
+        isso, perguntar "veio do ambiente?" obriga a passar uma chave
+        pontilhada junto, e a resposta mistura as duas coisas. Vazio conta
+        como nao definida, pela mesma razao de `_resolve`.
+        """
+        for name in names:
+            raw = self._env.get(name)
+            if raw is not None and raw.strip() != "":
+                return name
+        return None
 
     def _require(self, dotted: str, env: str | Sequence[str] | None, default: Any) -> Any:
         value, _origin = self._resolve(dotted, env)

@@ -12,6 +12,7 @@ trabalho não ficam aqui.
 |---|---|
 | [Configuração de setups](features/configuracao-de-setups.md) | `settings.json`, precedência, calibração por setup e timeframe |
 | [Proteção de ordens](features/protecao-de-ordens.md) | Validação de SL/TP, substituição de stop, limitações por venue |
+| [Sandbox por venue](features/sandbox-por-venue.md) | Resolvedor único de sandbox, precedência e defaults por venue |
 
 ## Venues
 
@@ -34,6 +35,10 @@ código. A variável de ambiente vence o arquivo — o boot avisa quais chaves d
 settings estão encobertas.
 
 Segredo nunca entra no settings: o arquivo declara só o *nome* da variável.
+
+`sandbox` tem resolvedor único (`workspace/venues/sandbox.py`): uma precedência,
+um vocabulário, um default por venue. Valor inválido derruba o comando em vez de
+virar `false` — ver [Sandbox por venue](features/sandbox-por-venue.md).
 
 ## Plataforma
 
