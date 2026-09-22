@@ -31,7 +31,7 @@ Esta skill pode operar capital real se configurada para live trading. Por isso:
 - prefira operar em subconta/conta isolada quando a corretora/DEX oferecer esse recurso; a decisão é do usuário e não deve ser hard-coded; no mínimo use API key dedicada sem saque;
 - use Nado linked signer limitado quando configurado;
 - fallback para Nado owner key ou Kraken main account exige flags explícitas e confirmação privilegiada;
-- mantenha `KRAKEN_SANDBOX=true` e `NADO_NETWORK=testnet` até validar tudo;
+- mantenha `venues.cex.kraken.sandbox: true` no `settings.json` e `NADO_NETWORK=testnet` até validar tudo (ver [Sandbox por venue](Docs/features/sandbox-por-venue.md));
 - comandos de trade são bloqueados pelo wrapper até definir `AUTORIZAR_TRADE_REAL=sim` na execução aprovada; `TRADE_AUTOMATIZADO_CONFIRM_LIVE=true` e `DELTA_NEUTRAL_CONFIRM_LIVE=true` seguem aceitos como aliases técnicos.
 
 ## Estrutura
@@ -215,7 +215,8 @@ NADO_ALLOW_OWNER_FALLBACK=false  # só para erro/mismatch; ausência de linked s
 KRAKEN_API_KEY=***
 KRAKEN_API_SECRET=***
 KRAKEN_VENUE=futures
-KRAKEN_SANDBOX=true
+# sandbox NÃO vai aqui: configure em settings.json (venues.cex.kraken.sandbox).
+# A variável KRAKEN_SANDBOX continua sendo lida, mas vence o arquivo.
 KRAKEN_ACCOUNT=flex
 KRAKEN_REQUIRE_SUBACCOUNT=false
 KRAKEN_API_IS_SUBACCOUNT=false

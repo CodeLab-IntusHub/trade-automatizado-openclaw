@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import logging
 import os
 import platform
 import subprocess
@@ -23,9 +24,10 @@ REPO_DIR = WORKSPACE_DIR.parent
 if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 from workspace.venues import venue_summary  # noqa: E402
-from workspace.venues.sandbox import resolve_sandbox  # noqa: E402
+from workspace.venues.sandbox import resolve_sandbox, sandbox_settings_keys  # noqa: E402
 from workspace.venues.config import selected_venues  # noqa: E402
 from workspace.config import ConfigError  # noqa: E402
+_logger = logging.getLogger(__name__)
 REQUIREMENTS = WORKSPACE_DIR / "requirements.txt"
 SKILL_ID = "trade-automatizado-openclaw"
 LEGACY_SKILL_ID = "delta-neutral-airdrop-farmer"
@@ -291,6 +293,46 @@ def _clean_env_value(value: str | None) -> str:
     return value.split("#", 1)[0].strip().strip('"').strip("'")
 
 
+# Envs que, lidas de um arquivo de config, **derrubam o `settings.json`**:
+# elas entram na camada de ambiente, que vence arquivo por desenho. Ate esta
+# fatia a documentacao mandava justamente salva-las aqui -- fechar o
+# `.env.example` e o assistente de primeiro uso nao alcancava quem seguia o
+# manual, que e a maioria.
+#
+# Elas continuam sendo carregadas. Tira-las da allowlist pareceria a correcao
+# obvia e seria pior: quem tem `HYPERLIQUID_SANDBOX=true` salvo aqui cairia no
+# default da venue, que e `False`, e passaria a operar na mainnet so por
+# atualizar. A precedencia fica; o silencio e que sai.
+#
+# O par e `(tipo, venue)`; a chave de settings sai do **proprio resolvedor**,
+# para nao manter uma segunda tabela que diverge da primeira.
+CONFIG_ENV_QUE_VENCE_SETTINGS = {
+    "CEX_SANDBOX": ("cex", ""),
+    "KRAKEN_SANDBOX": ("cex", "kraken"),
+    "DEX_SANDBOX": ("dex", ""),
+    "DEX_NETWORK": ("dex", ""),
+    "HYPERLIQUID_SANDBOX": ("dex", "hyperliquid"),
+    "HYPERLIQUID_NETWORK": ("dex", "hyperliquid"),
+}
+
+
+def _avisa_env_que_vence_settings(key: str, source: Path) -> None:
+    """Diz que chave de settings acabou de ser encoberta, e por qual arquivo.
+
+    `NADO_NETWORK` e `NETWORK` ficam de fora de proposito: o adapter da Nado e
+    construido so a partir delas e nunca chama o resolvedor, entao elas nao
+    encobrem settings nenhum. Um aviso que sai sempre e um aviso ignorado.
+    """
+    kind, venue = CONFIG_ENV_QUE_VENCE_SETTINGS[key]
+    chave = sandbox_settings_keys(kind, venue)[0]
+    _logger.warning(
+        "config: %s veio de %s e entra na camada de ambiente, que vence arquivo. "
+        "Enquanto ela existir, %s no seu settings.json nao tem efeito. "
+        "Para configurar por arquivo, remova a linha e declare a chave no settings.",
+        key, source, chave,
+    )
+
+
 def _load_key_value_file(source: Path, *, allowed_keys: set[str] | None = None) -> bool:
     loaded = False
     for raw in source.read_text(encoding="utf-8").splitlines():
@@ -309,6 +351,10 @@ def _load_key_value_file(source: Path, *, allowed_keys: set[str] | None = None) 
         if key not in os.environ:
             os.environ[key] = value
             loaded = True
+            # So na injecao: quando a variavel ja esta no ambiente, o arquivo
+            # nao decidiu nada e avisar sobre ele apontaria para o lugar errado.
+            if key in CONFIG_ENV_QUE_VENCE_SETTINGS:
+                _avisa_env_que_vence_settings(key, source)
     return loaded
 
 

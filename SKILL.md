@@ -49,7 +49,6 @@ Configuração principal:
 DEX_ID=nado                       # nado | hyperliquid | id custom, ex.: dydx, uniswap
 CEX_ID=kraken                     # kraken ou exchange_id CCXT: binance, bybit, okx, kucoin, mexc, bitget, gateio etc.
 CEX_MARKET_TYPE=swap              # swap | future | spot
-CEX_SANDBOX=false
 CEX_API_KEY / CEX_API_SECRET / CEX_API_PASSWORD
 HYPERLIQUID_WALLET_ADDRESS=0x...  # obrigatorio se DEX_ID=hyperliquid
 HYPERLIQUID_PRIVATE_KEY=...       # obrigatorio se DEX_ID=hyperliquid; nunca commitar
@@ -107,7 +106,8 @@ O wrapper:
 ## Guardrails OpenClaw preservados
 
 - Em runtime OpenClaw, não carregar `.env` local automaticamente quando `QC_SECRETS_PROXY` ou `QC_SERVICE_KEY_NAMES` existirem; credenciais vêm do ambiente/secret manager.
-- Configurações não sensíveis podem vir do workspace do usuário em `~/.openclaw/workspace/trade-automatizado-openclaw.config.env` ou do state em `~/.openclaw/state/trade-automatizado-openclaw/config.env`. Exemplos: `KRAKEN_VENUE=futures`, `KRAKEN_SANDBOX=false`, `NADO_NETWORK=mainnet`, `NADO_SUBACCOUNT_NAME=default_1`, `NADO_REQUIRE_LINKED_SIGNER=true`, `MARGIN_MODE`, `KRAKEN_MARGIN_MODE`, `NADO_MARGIN_MODE`. Segredos nunca devem ser salvos nesses arquivos.
+- Configurações não sensíveis podem vir do workspace do usuário em `~/.openclaw/workspace/trade-automatizado-openclaw.config.env` ou do state em `~/.openclaw/state/trade-automatizado-openclaw/config.env`. Exemplos: `KRAKEN_VENUE=futures`, `NADO_NETWORK=mainnet`, `NADO_SUBACCOUNT_NAME=default_1`, `NADO_REQUIRE_LINKED_SIGNER=true`, `MARGIN_MODE`, `KRAKEN_MARGIN_MODE`, `NADO_MARGIN_MODE`. Segredos nunca devem ser salvos nesses arquivos.
+- **`sandbox` não vai nesses arquivos.** Ele se configura em `settings.json` (`venues.<tipo>.<venue>.sandbox`). As variáveis `*_SANDBOX` e `HYPERLIQUID_NETWORK`/`DEX_NETWORK` continuam sendo lidas, mas entram na camada de ambiente e **vencem o arquivo**: salvá-las aqui deixa o `settings.json` do usuário sem efeito, e o carregamento passa a emitir `WARNING` dizendo qual chave foi encoberta. Ver `Docs/features/sandbox-por-venue.md`.
 - Manter `KRAKEN_API_KEY_` como alias aceito de `KRAKEN_API_KEY`.
 - Manter venv, estado e logs fora do Git em `~/.openclaw/state/trade-automatizado-openclaw/`.
 - Bloquear `rodar-setups-live` (`setup-live`) e `abrir` (`open`) em live sem tamanho explícito: `--valor-nominal`, `--margem-usd`, `--margem-dex-usd`, `--margem-cex-usd` ou `--slots-margem-conta`; aceitar os aliases técnicos antigos.
@@ -156,7 +156,6 @@ CEX_API_KEY
 CEX_API_SECRET
 CEX_API_PASSWORD              # quando a venue exigir
 CEX_MARKET_TYPE=swap|future|spot
-CEX_SANDBOX=true|false
 CEX_OPTIONS_JSON={...}
 
 # Hyperliquid — DEX builtin via CCXT
@@ -164,8 +163,6 @@ DEX_ID=hyperliquid
 HYPERLIQUID_WALLET_ADDRESS
 HYPERLIQUID_PRIVATE_KEY
 HYPERLIQUID_VAULT_ADDRESS=opcional
-HYPERLIQUID_NETWORK=mainnet|testnet
-HYPERLIQUID_SANDBOX=true|false
 HYPERLIQUID_SYMBOL_QUOTE=USDT
 HYPERLIQUID_OPTIONS_JSON={...}
 
@@ -173,11 +170,10 @@ HYPERLIQUID_OPTIONS_JSON={...}
 DEX_ID=dydx|uniswap|...
 DEX_ADAPTER_MODULE=pacote.modulo:Classe
 DEX_CONFIG_JSON={...}
-DEX_NETWORK=mainnet|testnet|devnet
+DEX_NETWORK                   # mainnet/testnet/devnet conforme o adapter; com DEX_ID=hyperliquid ela decide sandbox e vence o settings.json
 
 # Kraken — config não sensível: preferir workspace/state config.env, não Secret Manager
 KRAKEN_VENUE=futures|spot
-KRAKEN_SANDBOX=true|false
 KRAKEN_ALLOW_MAIN_ACCOUNT=false  # legado/opcional; subaccount não é requisito obrigatório da skill
 
 EXECUTION_MODE=hedged|dex_only|cex_only
