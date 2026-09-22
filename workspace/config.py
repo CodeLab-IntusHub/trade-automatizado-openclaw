@@ -33,6 +33,7 @@ __all__ = [
     "BOOL_TRUE_VALUES",
     "ConfigError",
     "ConfigOrigin",
+    "coerce_bool",
     "FILE_LAYERS",
     "Settings",
     "load_settings",
@@ -43,6 +44,36 @@ __all__ = [
 # indistinguíveis -- e o valor perigoso era justamente o default silencioso.
 BOOL_TRUE_VALUES = frozenset({"1", "true", "yes", "sim", "on", "y", "s"})
 BOOL_FALSE_VALUES = frozenset({"0", "false", "no", "nao", "não", "off", "n"})
+
+
+
+def coerce_bool(value: Any, origem: str) -> bool:
+    """Coage ao vocabulario de booleano, ou levanta nomeando `origem`.
+
+    Extraida de `Settings.get_bool` para que os portoes lidos direto do
+    ambiente (`cli._load_bool_env`) usem **o mesmo** vocabulario, em vez de
+    uma segunda copia. A copia que existia definia so o lado verdadeiro, e o
+    `else` implicito desligava protecao: `NADO_REQUIRE_LINKED_SIGNER=ture`
+    resolvia `False` -- e tambem `on`, `s` e `y`, que sao validos aqui.
+
+    `origem` e a chave pontilhada ou o nome da variavel de ambiente: quem le a
+    mensagem precisa reconhecer o que ele mesmo escreveu.
+    """
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in BOOL_TRUE_VALUES:
+        return True
+    if text in BOOL_FALSE_VALUES:
+        return False
+    raise ConfigError(
+        f"valor booleano inválido para '{origem}': {value!r}. "
+        f"Use um de {sorted(BOOL_TRUE_VALUES)} ou {sorted(BOOL_FALSE_VALUES)}. "
+        "Valor não reconhecido não é tratado como falso — em portões como "
+        "sandbox, falso significa dinheiro real, e num portão de proteção "
+        "ligado por padrão ele desliga a proteção."
+    )
+
 
 _VERSIONED_FILE = "settings.json"
 _LOCAL_FILE = "settings.local.json"
@@ -210,20 +241,7 @@ class Settings:
         return str(value)
 
     def get_bool(self, dotted: str, *, env: str | Sequence[str] | None = None, default: Any = _MISSING) -> bool:
-        value = self._require(dotted, env, default)
-        if isinstance(value, bool):
-            return value
-        text = str(value).strip().lower()
-        if text in BOOL_TRUE_VALUES:
-            return True
-        if text in BOOL_FALSE_VALUES:
-            return False
-        raise ConfigError(
-            f"valor booleano inválido para '{dotted}': {value!r}. "
-            f"Use um de {sorted(BOOL_TRUE_VALUES)} ou {sorted(BOOL_FALSE_VALUES)}. "
-            "Valor não reconhecido não é tratado como falso — em portões como "
-            "sandbox, falso significa dinheiro real."
-        )
+        return coerce_bool(self._require(dotted, env, default), dotted)
 
     def get_int(self, dotted: str, *, env: str | Sequence[str] | None = None, default: Any = _MISSING) -> int:
         value = self._require(dotted, env, default)

@@ -16,10 +16,22 @@ Configuração (.env):
 """
 
 import os
+import sys
 import logging
+from pathlib import Path
+
 from dotenv import load_dotenv
 
-from nado_integration import NadoTrader, BTC_PERP, logger
+# Este modulo e executado tanto como `workspace.nado.example` quanto direto de
+# dentro da propria pasta (o `from nado_integration import` abaixo depende
+# disso). A raiz do repo entra no path para que o vocabulario de booleano venha
+# de `workspace.config` nos dois modos, em vez de uma copia local.
+_RAIZ = Path(__file__).resolve().parents[2]
+if str(_RAIZ) not in sys.path:
+    sys.path.insert(0, str(_RAIZ))
+
+from workspace.config import coerce_bool  # noqa: E402
+from nado_integration import NadoTrader, BTC_PERP, logger  # noqa: E402
 
 # ─── Configuração de logging ─────────────────────────────────
 logging.basicConfig(
@@ -30,10 +42,18 @@ logging.basicConfig(
 
 
 def _env_bool(name: str, default: bool) -> bool:
+    """Portao booleano com o vocabulario compartilhado (`workspace.config`).
+
+    A copia anterior era `raw.lower() in {"1","true","yes","sim"}` -- todo o
+    resto virava `False`. Aqui isso importa especialmente:
+    `NADO_REQUIRE_LINKED_SIGNER` vale `True` por padrao, entao um valor nao
+    reconhecido **desligava** a verificacao de linked signer. E `on`, `s` e `y`
+    -- validos no vocabulario que o `sandbox` usa -- faziam exatamente isso.
+    """
     raw = _clean_literal_env(os.environ.get(name))
     if raw is None:
         return default
-    return raw.lower() in {"1", "true", "yes", "sim"}
+    return coerce_bool(raw, name)
 
 
 def _clean_literal_env(value: str | None) -> str | None:

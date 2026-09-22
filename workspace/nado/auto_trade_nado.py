@@ -27,6 +27,7 @@ import logging
 from typing import Optional
 from dotenv import load_dotenv
 
+from ..config import coerce_bool
 from .decision import CryptoDecisionEngine, DecisionResult
 from .nado_integration import NadoTrader, get_nado_fees, logger
 
@@ -77,10 +78,18 @@ def _parse_list(s: str) -> list:
 
 
 def _env_bool(name: str, default: bool) -> bool:
+    """Portao booleano com o vocabulario compartilhado (`workspace.config`).
+
+    A copia anterior era `raw.lower() in {"1","true","yes","sim"}` -- todo o
+    resto virava `False`. Aqui isso importa especialmente:
+    `NADO_REQUIRE_LINKED_SIGNER` vale `True` por padrao, entao um valor nao
+    reconhecido **desligava** a verificacao de linked signer. E `on`, `s` e `y`
+    -- validos no vocabulario que o `sandbox` usa -- faziam exatamente isso.
+    """
     raw = _clean_literal_env(os.environ.get(name))
     if raw is None:
         return default
-    return raw.lower() in {"1", "true", "yes", "sim"}
+    return coerce_bool(raw, name)
 
 
 def _clean_literal_env(value: str | None) -> str | None:

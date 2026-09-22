@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 
 import ccxt
 
+from workspace.config import coerce_bool
 from workspace.venues.order_validation import (
     validate_order_response,
     wrap_replace_failure,
@@ -76,7 +77,10 @@ def _to_bool(value: Any, default: bool = False) -> bool:
         normalized = value.strip().lower()
         if not normalized:
             return default
-        return normalized in {"1", "true", "yes", "y", "sim", "s", "on"}
+        # Nao declarar continua devolvendo o default; declarar errado levanta.
+        # Este e o ultimo leitor de `sandbox` na cadeia, e o default dele e
+        # `False` -- producao --, entao engolir lixo aqui tem uma direcao.
+        return coerce_bool(normalized, "sandbox")
     return bool(value)
 
 
