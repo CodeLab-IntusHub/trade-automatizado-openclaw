@@ -52,6 +52,13 @@ def test_docs_de_operador_nao_mandam_escrever_sandbox_em_env() -> None:
 
     Sem este guard, a correcao das fatias 1 e 2 vale para quem le o codigo e
     nao para quem segue o manual -- que e a maioria.
+
+    **Limite conhecido:** ele pega a forma copiavel (`KRAKEN_SANDBOX=false`),
+    que e o vetor real -- o operador cola a linha no arquivo. Prosa que manda
+    salvar a variavel sem escrever a atribuicao passa por ele; uma linha assim
+    existia no `onboarding-detalhado.md` e foi encontrada a olho, nao por este
+    teste. Alargar o padrao para qualquer mencao pegaria tambem o texto que
+    explica **por que nao** usa-las, que e justamente o que se quer escrito.
     """
     ofensas: list[str] = []
     for relativo in DOCS_DE_OPERADOR:

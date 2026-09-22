@@ -291,7 +291,7 @@ Se o usuário não souber o que salvar, explique:
 6. Habilitar trading apenas se for executar live; manter saque/withdraw desabilitado.
 7. Se usar whitelist de IP, confirmar que o runtime tem IP fixo; se não souber, deixar sem whitelist até o operador definir o ambiente correto.
 8. Salvar `BINANCE_API_KEY` e `BINANCE_API_SECRET` no Secret Manager/OpenClaw, ou usar `CEX_API_KEY` e `CEX_API_SECRET` se essa for a única CEX ativa.
-9. Declarar `venues.cex.<venue>.sandbox: true` no `settings.json` apenas se estiver usando testnet/sandbox compatível; manter `false` para conta real só depois de validar.
+9. Declarar `venues.cex.binance.sandbox: true` no `settings.json` apenas se estiver usando testnet/sandbox compatível; manter `false` para conta real só depois de validar.
 10. Rodar `python3 workspace/run.py venues`, `cex-accounts`, `symbols` e dry-run antes de live.
 
 **Variáveis Binance:**
@@ -300,7 +300,7 @@ Se o usuário não souber o que salvar, explique:
 - `CEX_MARKET_TYPE=trade|future|spot`
 - `BINANCE_API_KEY` ou `CEX_API_KEY`
 - `BINANCE_API_SECRET` ou `CEX_API_SECRET`
-- sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+- sandbox: `venues.cex.binance.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 - `CEX_OPTIONS_JSON={...}` quando precisar passar opção CCXT não sensível.
 
 #### 4B. Variáveis da Bybit
@@ -317,7 +317,7 @@ Se o usuário não souber o que salvar, explique:
 6. Habilitar trade apenas para live; manter saque/withdraw desabilitado.
 7. Observar que a API pode ter restrições regionais; se retornar `403 Forbidden`, não insistir no live e escolher outra venue permitida/operacional.
 8. Salvar `BYBIT_API_KEY` e `BYBIT_API_SECRET` no OpenClaw, ou `CEX_API_KEY` e `CEX_API_SECRET` se for a CEX ativa.
-9. Declarar `venues.cex.<venue>.sandbox: true` no `settings.json` para testnet quando aplicável.
+9. Declarar `venues.cex.bybit.sandbox: true` no `settings.json` para testnet quando aplicável.
 10. Validar com `venues`, `cex-accounts`, `symbols` e dry-run.
 
 **Variáveis Bybit:**
@@ -326,7 +326,7 @@ Se o usuário não souber o que salvar, explique:
 - `CEX_MARKET_TYPE=trade|spot`
 - `BYBIT_API_KEY` ou `CEX_API_KEY`
 - `BYBIT_API_SECRET` ou `CEX_API_SECRET`
-- sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+- sandbox: `venues.cex.bybit.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 #### 4C. Variáveis da OKX
 
@@ -342,7 +342,7 @@ Se o usuário não souber o que salvar, explique:
 6. Habilitar leitura e trading quando for live; manter saque/withdraw desabilitado.
 7. Se houver IP whitelist, usar apenas quando o runtime tiver IP fixo confirmado.
 8. Salvar `OKX_API_KEY`, `OKX_API_SECRET` e `OKX_API_PASSWORD`; aliases genéricos `CEX_*` também são aceitos.
-9. Declarar `venues.cex.<venue>.sandbox: true` no `settings.json` apenas quando estiver em demo/sandbox compatível.
+9. Declarar `venues.cex.okx.sandbox: true` no `settings.json` apenas quando estiver em demo/sandbox compatível.
 10. Validar com `venues`, `cex-accounts`, `symbols` e dry-run.
 
 **Variáveis OKX:**
@@ -352,7 +352,7 @@ Se o usuário não souber o que salvar, explique:
 - `OKX_API_KEY` ou `CEX_API_KEY`
 - `OKX_API_SECRET` ou `CEX_API_SECRET`
 - `OKX_API_PASSWORD` ou `CEX_API_PASSWORD`
-- sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+- sandbox: `venues.cex.okx.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 #### 4D. Variáveis da KuCoin
 
@@ -378,7 +378,7 @@ Se o usuário não souber o que salvar, explique:
 - `KUCOIN_API_KEY` ou `CEX_API_KEY`
 - `KUCOIN_API_SECRET` ou `CEX_API_SECRET`
 - `KUCOIN_API_PASSWORD` ou `CEX_API_PASSWORD`
-- sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+- sandbox: `venues.cex.kucoin.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 #### 4E. Variáveis da MEXC
 
@@ -394,7 +394,7 @@ Se o usuário não souber o que salvar, explique:
 6. Habilitar trading apenas para live; manter saque/withdraw desabilitado.
 7. Se houver IP whitelist, usar apenas quando o runtime tiver IP fixo confirmado.
 8. Salvar `MEXC_API_KEY` e `MEXC_API_SECRET`; aliases genéricos `CEX_*` também são aceitos.
-9. Declarar `venues.cex.<venue>.sandbox: true` no `settings.json` somente se a conta/API estiver em ambiente sandbox compatível.
+9. Declarar `venues.cex.mexc.sandbox: true` no `settings.json` somente se a conta/API estiver em ambiente sandbox compatível.
 10. Validar com `venues`, `cex-accounts`, `symbols` e dry-run antes de live.
 
 **Variáveis MEXC:**
@@ -403,7 +403,7 @@ Se o usuário não souber o que salvar, explique:
 - `CEX_MARKET_TYPE=trade|spot`
 - `MEXC_API_KEY` ou `CEX_API_KEY`
 - `MEXC_API_SECRET` ou `CEX_API_SECRET`
-- sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+- sandbox: `venues.cex.mexc.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 #### 4F. Variáveis da Bitget
 
@@ -429,7 +429,7 @@ Se o usuário não souber o que salvar, explique:
 - `BITGET_API_KEY` ou `CEX_API_KEY`
 - `BITGET_API_SECRET` ou `CEX_API_SECRET`
 - `BITGET_API_PASSWORD` ou `CEX_API_PASSWORD`
-- sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+- sandbox: `venues.cex.bitget.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 #### 4G. Variáveis da Gate.io
 
@@ -445,7 +445,7 @@ Se o usuário não souber o que salvar, explique:
 6. Habilitar trading apenas para live; manter saque/withdraw desabilitado.
 7. Se houver IP whitelist, usar apenas quando o runtime tiver IP fixo confirmado.
 8. Salvar `GATEIO_API_KEY` e `GATEIO_API_SECRET`; aliases genéricos `CEX_*` também são aceitos.
-9. Declarar `venues.cex.<venue>.sandbox: true` no `settings.json` somente se a conta/API estiver em ambiente sandbox compatível.
+9. Declarar `venues.cex.gateio.sandbox: true` no `settings.json` somente se a conta/API estiver em ambiente sandbox compatível.
 10. Validar com `venues`, `cex-accounts`, `symbols` e dry-run antes de live.
 
 **Variáveis Gate.io:**
@@ -454,7 +454,7 @@ Se o usuário não souber o que salvar, explique:
 - `CEX_MARKET_TYPE=trade|spot`
 - `GATEIO_API_KEY` ou `CEX_API_KEY`
 - `GATEIO_API_SECRET` ou `CEX_API_SECRET`
-- sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+- sandbox: `venues.cex.gateio.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 #### 4H. Variáveis da Hyperliquid e outras DEXs via adapter
 
@@ -568,7 +568,7 @@ python3 workspace/run.py rodar-setups-live --dry-run --max-iter 1
 - `CEX_API_KEY`
 - `CEX_API_SECRET`
 - `CEX_API_PASSWORD` quando exigido
-- sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+- sandbox: `venues.cex.<CEX_ID>.sandbox` (troque `<CEX_ID>` pelo id da exchange, ex.: `venues.cex.binance.sandbox`) no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 - `CEX_OPTIONS_JSON={...}` sem segredos
 
 #### 5. Onde salvar no OpenClaw
@@ -649,56 +649,57 @@ Também trate `DEX_ID`, `CEX_ID`, `CEX_MARKET_TYPE`, `CEX_SANDBOX`, `DEX_NETWORK
   - `CEX_ID=kraken`
   - `KRAKEN_API_KEY_` ou `KRAKEN_API_KEY`
   - `KRAKEN_API_SECRET`
-  - arquivo de configuração não sensível carregado com `KRAKEN_VENUE`/`CEX_MARKET_TYPE` e `KRAKEN_SANDBOX`/`CEX_SANDBOX`, quando aplicável
+  - arquivo de configuração não sensível carregado com `KRAKEN_VENUE`/`CEX_MARKET_TYPE`
+  - sandbox: `venues.cex.kraken.sandbox` no `settings.json` — **não** no arquivo de configuração, que vence o settings e o deixa sem efeito
 
 - Binance / `cex_only`:
   - `CEX_ID=binance`
   - `CEX_MARKET_TYPE=trade|future|spot`
   - `BINANCE_API_KEY` e `BINANCE_API_SECRET`; ou `CEX_API_KEY` e `CEX_API_SECRET`
-  - sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+  - sandbox: `venues.cex.binance.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 - Bybit / `cex_only`:
   - `CEX_ID=bybit`
   - `CEX_MARKET_TYPE=trade|spot`
   - `BYBIT_API_KEY` e `BYBIT_API_SECRET`; ou `CEX_API_KEY` e `CEX_API_SECRET`
-  - sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+  - sandbox: `venues.cex.bybit.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 - OKX / `cex_only`:
   - `CEX_ID=okx`
   - `CEX_MARKET_TYPE=trade|future|spot`
   - `OKX_API_KEY`, `OKX_API_SECRET` e `OKX_API_PASSWORD`; ou `CEX_API_KEY`, `CEX_API_SECRET` e `CEX_API_PASSWORD`
-  - sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+  - sandbox: `venues.cex.okx.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 - KuCoin / `cex_only`:
   - `CEX_ID=kucoin`
   - `CEX_MARKET_TYPE=trade|future|spot`
   - `KUCOIN_API_KEY`, `KUCOIN_API_SECRET` e `KUCOIN_API_PASSWORD`; ou `CEX_API_KEY`, `CEX_API_SECRET` e `CEX_API_PASSWORD`
-  - sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+  - sandbox: `venues.cex.kucoin.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 - MEXC / `cex_only`:
   - `CEX_ID=mexc`
   - `CEX_MARKET_TYPE=trade|spot`
   - `MEXC_API_KEY` e `MEXC_API_SECRET`; ou `CEX_API_KEY` e `CEX_API_SECRET`
-  - sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+  - sandbox: `venues.cex.mexc.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 - Bitget / `cex_only`:
   - `CEX_ID=bitget`
   - `CEX_MARKET_TYPE=trade|spot`
   - `BITGET_API_KEY`, `BITGET_API_SECRET` e `BITGET_API_PASSWORD`; ou `CEX_API_KEY`, `CEX_API_SECRET` e `CEX_API_PASSWORD`
-  - sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+  - sandbox: `venues.cex.bitget.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 - Gate.io / `cex_only`:
   - `CEX_ID=gateio`
   - `CEX_MARKET_TYPE=trade|spot`
   - `GATEIO_API_KEY` e `GATEIO_API_SECRET`; ou `CEX_API_KEY` e `CEX_API_SECRET`
-  - sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+  - sandbox: `venues.cex.gateio.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 - Outra CEX via CCXT / `cex_only`:
   - `CEX_ID=<exchange_id>`
   - `CEX_MARKET_TYPE=trade|future|spot`
   - `CEX_API_KEY` e `CEX_API_SECRET`
   - `CEX_API_PASSWORD` quando exigido pela corretora
-  - sandbox: `venues.cex.<venue>.sandbox` no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
+  - sandbox: `venues.cex.<CEX_ID>.sandbox` (troque `<CEX_ID>` pelo id da exchange, ex.: `venues.cex.binance.sandbox`) no `settings.json` (a env `CEX_SANDBOX` ainda e lida e vence o arquivo)
 
 - Hedge / `hedged`:
   - todas as variáveis da DEX escolhida;
