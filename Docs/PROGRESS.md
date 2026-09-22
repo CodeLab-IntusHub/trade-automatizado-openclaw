@@ -1,7 +1,7 @@
 # Progresso
 
 > Última atualização: 22 de setembro de 2026
-> Versão da skill: 1.3.0
+> Versão da skill: 1.4.0
 
 Estado do **produto** — o que existe e funciona. Roadmap e pendências de
 trabalho não ficam aqui.

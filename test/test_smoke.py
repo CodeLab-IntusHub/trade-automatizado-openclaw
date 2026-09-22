@@ -105,7 +105,22 @@ def test_manifest_fields():
 
     manifest = json.loads((ROOT / "skill.json").read_text(encoding="utf-8"))
     assert manifest["name"] == "trade-automatizado-openclaw"
-    assert manifest["version"] == "1.3.0"
+    # Contra a versao literal o teste so exigia ser editado junto; ele nao
+    # protegia do defeito real, que e `package.json` em 1.4.0 e `skill.json`
+    # em 1.3.0 -- duas fontes de versao divergindo sem nada apontar.
+    package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    versao = manifest["version"]
+    assert package["version"] == versao, (
+        f"package.json ({package['version']}) e skill.json ({versao}) divergem"
+    )
+    release_wizard = manifest["metadata"]["wizard"]["release"]
+    assert release_wizard == versao, (
+        f"metadata.wizard.release ({release_wizard}) diverge de version ({versao})"
+    )
+    # O CHANGELOG precisa ter a secao fechada da versao que esta sendo
+    # publicada: bump sem nota de release e release sem historia.
+    assert f"## v{versao} " in changelog, f"CHANGELOG sem secao fechada para v{versao}"
     assert "delta-neutral" in manifest["tags"]
     assert "NADO_OWNER_PRIVATE_KEY" in manifest["dependencies"]["env"]
     assert any(cmd["name"] == "venues" for cmd in manifest["commands"])

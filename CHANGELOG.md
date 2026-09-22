@@ -1,6 +1,6 @@
 # Changelog
 
-## Nao publicado
+## v1.4.0 — 2026-09-22
 
 ### Corrigido
 
