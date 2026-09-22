@@ -67,7 +67,8 @@ Regras:
 KRAKEN_API_KEY=***
 KRAKEN_API_SECRET=***
 KRAKEN_VENUE=futures
-KRAKEN_SANDBOX=true
+# sandbox NAO vai aqui: configure em settings.json (venues.cex.kraken.sandbox).
+# KRAKEN_SANDBOX continua sendo lida, mas vence o arquivo -- ver Docs/features/sandbox-por-venue.md.
 KRAKEN_ACCOUNT=flex
 KRAKEN_ACCOUNT_SYMBOL=
 KRAKEN_REQUIRE_SUBACCOUNT=false
@@ -79,7 +80,7 @@ Regras:
 - a segregacao recomendada vem de subconta/conta isolada; no mínimo use API key dedicada sem saque
 - `KRAKEN_ACCOUNT` e `KRAKEN_ACCOUNT_SYMBOL` sao contexto de leitura/organizacao
 - `KRAKEN_API_IS_SUBACCOUNT=true` so deve ser usado quando a API key realmente vier da subconta dedicada; por padrao deixe `false`
-- para API key real da Kraken Futures, use `KRAKEN_SANDBOX=false`
+- para API key real da Kraken Futures, declare `venues.cex.kraken.sandbox: false` no `settings.json` (a venue nasce apontada para sandbox)
 - main account fallback so e permitido com `KRAKEN_ALLOW_MAIN_ACCOUNT=true` e `DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK=true`
 
 ### Parametros de trade
@@ -175,7 +176,8 @@ Fontes oficiais:
 KRAKEN_API_KEY=***
 KRAKEN_API_SECRET=***
 KRAKEN_VENUE=futures
-KRAKEN_SANDBOX=false
+# sandbox NAO vai aqui: configure em settings.json (venues.cex.kraken.sandbox).
+# KRAKEN_SANDBOX continua sendo lida, mas vence o arquivo -- ver Docs/features/sandbox-por-venue.md.
 KRAKEN_ACCOUNT=flex
 KRAKEN_ACCOUNT_SYMBOL=
 KRAKEN_REQUIRE_SUBACCOUNT=false
@@ -199,7 +201,7 @@ O esperado:
 - Positions sao margined no nivel da subconta.
 - Sign-ins sao separados por subconta.
 - Withdrawals a partir da subconta sao bloqueados; a Kraken orienta mover fundos de volta para a master para sacar.
-- Se voce usar API key real, o projeto precisa estar com `KRAKEN_SANDBOX=false`.
+- Se voce usar API key real, o projeto precisa estar com `venues.cex.kraken.sandbox: false` no `settings.json`.
 
 ## 4A. Conta Kraken separada para o bot também é válida
 
@@ -230,7 +232,8 @@ Fonte oficial:
 KRAKEN_API_KEY=***
 KRAKEN_API_SECRET=***
 KRAKEN_VENUE=futures
-KRAKEN_SANDBOX=false
+# sandbox NAO vai aqui: configure em settings.json (venues.cex.kraken.sandbox).
+# KRAKEN_SANDBOX continua sendo lida, mas vence o arquivo -- ver Docs/features/sandbox-por-venue.md.
 KRAKEN_ACCOUNT=flex
 KRAKEN_ACCOUNT_SYMBOL=
 KRAKEN_REQUIRE_SUBACCOUNT=false
@@ -470,10 +473,14 @@ Acao:
 ### API real nao funciona no projeto
 
 Causa:
-- o `.env` ainda esta com `KRAKEN_SANDBOX=true`
+- a Kraken nasce apontada para sandbox e nada declarou o contrario; ou ha uma
+  variavel `KRAKEN_SANDBOX`/`CEX_SANDBOX` no `.env` ou no `config.env`, que
+  vence o `settings.json` (o carregamento avisa quando isso acontece)
 
 Acao:
-- para API key real da Kraken Futures, trocar para `KRAKEN_SANDBOX=false`
+- declarar `venues.cex.kraken.sandbox: false` no `settings.json`
+- conferir se `KRAKEN_SANDBOX`/`CEX_SANDBOX` nao estao definidas no ambiente:
+  enquanto existirem, a chave do arquivo nao tem efeito
 
 ### `A API key atual aparenta ser de conta master`
 

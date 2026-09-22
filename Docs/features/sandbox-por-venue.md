@@ -1,7 +1,7 @@
 # Sandbox por venue
 
-> Última atualização: 14 de setembro de 2026
-> Versão: 1.0.0
+> Última atualização: 22 de setembro de 2026
+> Versão: 1.1.0
 
 ## Visão geral
 
@@ -151,6 +151,33 @@ fraca — mandando para produção quem contava com elas. Nesse segundo caso sai
 `WARNING`; no primeiro, não há o que avisar, porque nada foi declarado do outro
 lado.
 
+### Os três distribuidores
+
+O `settings.json` só vale se nada o estiver encobrindo por variável de
+ambiente. Havia três lugares distribuindo essas variáveis, e fechar dois não
+resolvia:
+
+| Distribuidor | Fechado em |
+|---|---|
+| `workspace/.env.example` | fatia 1 (CEX) e 2 (rede da Hyperliquid) |
+| `workspace/first_run_setup.py` | fatia 2 — 16 menções removidas |
+| A documentação de operador | fatia 3 — 42 linhas em 6 arquivos |
+
+O terceiro era o mais difícil de ver e o mais grave: o `SKILL.md` — a instrução
+que a própria skill carrega — recomendava salvar `KRAKEN_SANDBOX=false` no
+`~/.openclaw/.../config.env`, e `run._load_key_value_file` **reinjeta esse
+arquivo em `os.environ`**. Com `venues.cex.kraken.sandbox: true` declarado, quem
+seguia o manual operava com dinheiro real, sem aviso: `KRAKEN_SANDBOX` é a env
+mais específica que existe para a venue, então o aviso de "genérica engoliu
+específica" não se aplicava.
+
+As seis variáveis que chegam ao resolvedor continuam sendo lidas do
+`config.env` — removê-las da allowlist faria quem tem `HYPERLIQUID_SANDBOX=true`
+salvo lá cair no default da venue, que é `False`, e passar a operar na mainnet
+só por atualizar. A precedência fica; o silêncio é que saiu:
+`_avisa_env_que_vence_settings` nomeia o arquivo e a chave encoberta, e deriva
+essa chave de `sandbox_settings_keys` para não manter uma segunda tabela.
+
 As variáveis `CEX_SANDBOX`, `KRAKEN_SANDBOX` e `HYPERLIQUID_SANDBOX` vêm
 **comentadas** no `workspace/.env.example`. Elas continuam funcionando, mas têm
 precedência sobre o arquivo: deixá-las ativas no exemplo tornava o settings
@@ -197,3 +224,4 @@ específica inalcançável sem que nada avisasse.
 | 15/09/2026 | Hyperliquid migrada: `env_default` na camada de ambiente e aviso quando a rede declarada contradiz o sandbox |
 | 15/09/2026 | Especificidade vem da cadeia da venue (e não do índice da lista); as duas grafias resolvem nos dois sentidos |
 | 15/09/2026 | Vocabulário da rede da Hyperliquid; `env_default` também avisa; `kraken_sandbox` removido do relatório |
+| 22/09/2026 | Terceiro distribuidor fechado: a documentação de operador deixa de prescrever `*_SANDBOX`, e o `config.env` avisa qual chave de settings encobriu |

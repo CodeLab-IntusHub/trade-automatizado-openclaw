@@ -1,6 +1,6 @@
 # Progresso
 
-> Última atualização: 14 de setembro de 2026
+> Última atualização: 22 de setembro de 2026
 > Versão da skill: 1.3.0
 
 Estado do **produto** — o que existe e funciona. Roadmap e pendências de
@@ -39,6 +39,12 @@ Segredo nunca entra no settings: o arquivo declara só o *nome* da variável.
 `sandbox` tem resolvedor único (`workspace/venues/sandbox.py`): uma precedência,
 um vocabulário, um default por venue. Valor inválido derruba o comando em vez de
 virar `false` — ver [Sandbox por venue](features/sandbox-por-venue.md).
+
+Sandbox se configura **por arquivo**, em `venues.<tipo>.<venue>.sandbox`. As
+variáveis `*_SANDBOX` continuam sendo lidas e vencem o arquivo, por isso vêm
+comentadas no `.env.example` e não são mais prescritas em documento nenhum; se
+uma delas chegar pelo `config.env` do operador, o carregamento avisa qual chave
+de settings ficou sem efeito.
 
 ## Plataforma
 

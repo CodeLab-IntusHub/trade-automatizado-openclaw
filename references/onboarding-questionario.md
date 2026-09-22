@@ -66,7 +66,7 @@ Roteamento rápido:
 
 Checklist por modo:
 - `dex_only` com Nado: `DEX_ID=nado`, `NADO_OWNER_PRIVATE_KEY`; opcional/recomendado `NADO_LINKED_SIGNER_PRIVATE_KEY`. `NADO_SUBACCOUNT_NAME=default_1` é opcional por padrão; só ajuste se a Nado/runtime usar outro nome.
-- `dex_only` com Hyperliquid: `DEX_ID=hyperliquid`, `DEX_MARKET_TYPE=trade` ou `HYPERLIQUID_MARKET_TYPE=trade`, `HYPERLIQUID_WALLET_ADDRESS`, `HYPERLIQUID_PRIVATE_KEY`, `HYPERLIQUID_NETWORK`/`HYPERLIQUID_SANDBOX` e `HYPERLIQUID_VAULT_ADDRESS` opcional. Para outra DEX: `DEX_ADAPTER_MODULE=pacote.modulo:Classe`; `DEX_MARKET_TYPE=trade` só vale se o adapter ler esse parâmetro.
+- `dex_only` com Hyperliquid: `DEX_ID=hyperliquid`, `DEX_MARKET_TYPE=trade` ou `HYPERLIQUID_MARKET_TYPE=trade`, `HYPERLIQUID_WALLET_ADDRESS`, `HYPERLIQUID_PRIVATE_KEY`, sandbox por `venues.dex.hyperliquid.sandbox` no `settings.json` e `HYPERLIQUID_VAULT_ADDRESS` opcional. Para outra DEX: `DEX_ADAPTER_MODULE=pacote.modulo:Classe`; `DEX_MARKET_TYPE=trade` só vale se o adapter ler esse parâmetro.
 - `cex_only` com Kraken: `CEX_ID=kraken`, `KRAKEN_API_KEY_` ou `KRAKEN_API_KEY`, e `KRAKEN_API_SECRET`; subconta é opcional, o requisito é API key dedicada/sem saque na conta correta.
 - `cex_only` com Binance: `CEX_ID=binance`, `CEX_MARKET_TYPE=trade|future|spot`, `BINANCE_API_KEY` e `BINANCE_API_SECRET`; aliases `CEX_API_KEY` e `CEX_API_SECRET` também são aceitos.
 - `cex_only` com Bybit: `CEX_ID=bybit`, `CEX_MARKET_TYPE=trade|spot`, `BYBIT_API_KEY` e `BYBIT_API_SECRET`; aliases `CEX_API_KEY` e `CEX_API_SECRET` também são aceitos.

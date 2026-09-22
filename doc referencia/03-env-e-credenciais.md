@@ -24,7 +24,8 @@ Notas:
 KRAKEN_API_KEY=***
 KRAKEN_API_SECRET=***
 KRAKEN_VENUE=futures
-KRAKEN_SANDBOX=true
+# sandbox: settings.json -> venues.cex.kraken.sandbox
+# (KRAKEN_SANDBOX ainda e lida, mas vence o arquivo e o deixa sem efeito)
 KRAKEN_ACCOUNT=flex
 KRAKEN_ACCOUNT_SYMBOL=
 KRAKEN_REQUIRE_SUBACCOUNT=false
@@ -42,7 +43,7 @@ Notas:
 - subconta/conta isolada e recomendada quando a corretora/DEX oferecer esse recurso, mas nao obrigatoria por padrao; a decisao final e do usuario e nao deve ser hard-coded
 - se o usuario nao usar esse modelo, mantenha no minimo API key dedicada sem saque e valide com `doctor`/dry-run
 - `KRAKEN_ACCOUNT` continua sendo contexto de leitura/organizacao
-- para API key real da Kraken Futures, use `KRAKEN_SANDBOX=false`
+- para API key real da Kraken Futures, declare `venues.cex.kraken.sandbox: false` no `settings.json`
 - `PROTECTIVE_STOP_LOSS_PCT` adiciona stop loss reduce-only nas novas pernas abertas pelo bot
 - `PROTECTIVE_STOP_TRIGGER_SLIPPAGE_PCT` controla a folga de execucao do trigger, especialmente na Nado
 - `MARGIN_USD` calcula notional operacional como margem * leverage
@@ -92,7 +93,7 @@ Fluxo oficial resumido:
 7. Fazer login diretamente na subconta.
 8. Gerar a API key em `Settings` > `API` > `Create Key`.
 9. Usar `General API: Full Access` e `Withdrawal API: No Access`.
-10. Salvar as chaves no `.env` com `KRAKEN_SANDBOX=false` e `KRAKEN_API_IS_SUBACCOUNT=true`; use `KRAKEN_REQUIRE_SUBACCOUNT=true` somente se o usuario decidir ativar a validacao estrita de subconta.
+10. Salvar as chaves no `.env` com `KRAKEN_API_IS_SUBACCOUNT=true` e declarar `venues.cex.kraken.sandbox: false` no `settings.json`; use `KRAKEN_REQUIRE_SUBACCOUNT=true` somente se o usuario decidir ativar a validacao estrita de subconta.
 
 Pontos importantes da Kraken:
 - API keys sao geradas e controladas separadamente por subconta
@@ -118,7 +119,7 @@ Passos:
 3. verificar essa nova conta
 4. habilitar Derivatives nela pelo Kraken Pro
 5. gerar a API key nessa conta separada
-6. usar a API no projeto com `KRAKEN_SANDBOX=false`
+6. usar a API no projeto com `venues.cex.kraken.sandbox: false` no `settings.json`
 
 Trade-offs:
 - continua isolando os trades da principal
