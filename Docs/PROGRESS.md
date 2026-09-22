@@ -13,6 +13,7 @@ trabalho não ficam aqui.
 | [Configuração de setups](features/configuracao-de-setups.md) | `settings.json`, precedência, calibração por setup e timeframe |
 | [Proteção de ordens](features/protecao-de-ordens.md) | Validação de SL/TP, substituição de stop, limitações por venue |
 | [Sandbox por venue](features/sandbox-por-venue.md) | Resolvedor único de sandbox, precedência e defaults por venue |
+| [Vocabulário de booleanos](features/vocabulario-de-booleanos.md) | `coerce_bool` como definição única; os oito portões lidos do ambiente |
 
 ## Venues
 

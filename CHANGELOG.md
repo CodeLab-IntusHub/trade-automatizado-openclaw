@@ -1,5 +1,21 @@
 # Changelog
 
+## Nao publicado
+
+### Corrigido
+
+- **Os oito portoes booleanos que sobraram ganham vocabulario com os dois lados.** `_load_bool_env` era `raw.lower() in {"1","true","yes","sim"}`: todo o resto caia no `else` implicito e virava `False`. Em `NADO_REQUIRE_LINKED_SIGNER`, cujo default e `True`, isso **desligava a protecao** -- e aqui nao ha o consolo de o default ser o lado seguro, como havia no sandbox. Medido: `ture`, `tru`, `verdadeiro` e tambem `on`, `s` e `y` resolviam `False`. Os tres ultimos sao o caso que mais incomoda, porque sao **validos** no vocabulario que o `sandbox` usa: quem aprendeu a escrever `CEX_SANDBOX=on` desligava a verificacao de linked signer sem nada dizer.
+- **Quatro copias do vocabulario viraram uma.** `Settings.get_bool` passou a delegar para `config.coerce_bool`, e os leitores que nao carregam `Settings` consomem a mesma funcao: `cli._load_bool_env`, `nado/auto_trade_nado._env_bool`, `nado/example._env_bool` e `venues/hyperliquid_dex._to_bool`. Corrigir so o `cli` repetiria o defeito de origem do sandbox -- `NADO_REQUIRE_LINKED_SIGNER` e lido em tres lugares, e nos tres o default e `True`.
+- **`hyperliquid_dex._to_bool` era um quinto leitor de `sandbox`**, a jusante do resolvedor e com default `False` -- producao. Hoje o resolvedor entrega um `bool` de verdade e a recoercao e inofensiva, mas um valor irreconhecivel chegando por qualquer caminho resolvia para producao em silencio.
+
+### Mudanca de comportamento (atencao ao atualizar)
+
+- **Valor fora do vocabulario nos oito portoes agora derruba o comando** em vez de virar `False`. Ausente ou vazio continua devolvendo o default -- nao declarar segue sendo diferente de declarar errado --, e comentario inline (`false  # legado`) continua sendo cortado antes da leitura. Confira os valores de `NADO_REQUIRE_LINKED_SIGNER`, `KRAKEN_API_IS_SUBACCOUNT`, `KRAKEN_REQUIRE_SUBACCOUNT`, `KRAKEN_ALLOW_MAIN_ACCOUNT`, `NADO_ALLOW_OWNER_FALLBACK`, `DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK`, `SETUP_NOTIFY_MONITORED_ON_START` e `SETUP_NOTIFY_MONITORED_FORCE` no seu `.env`: o vocabulario aceito e `1/true/yes/sim/on/y/s` e `0/false/no/nao/nao/off/n`. `ConfigError` e um `RuntimeError`, entao o comando termina com a mensagem, nao com traceback.
+
+### Nao coberto por esta mudanca
+
+- Restam ~20 leituras booleanas inline (`SETUP_NOTIFY_*`, `SETUP_NOTIFY_TRADINGVIEW_*`) com o mesmo `else` implicito. Ficaram de fora de proposito: todas tem default `False` e ligam funcionalidade de notificacao/renderizacao, entao o typo desliga o que o operador queria ligar -- sem direcao de dinheiro nem de protecao. Migra-las e limpeza, nao correcao.
+
 ## v1.4.0 — 2026-09-22
 
 ### Corrigido

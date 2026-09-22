@@ -182,7 +182,7 @@ from workspace.venues import (  # noqa: E402
 from workspace.venues.ccxt_cex import GenericCcxtTrader  # noqa: E402
 from workspace.venues.custom_dex import load_custom_dex_adapter  # noqa: E402
 from workspace.venues.hyperliquid_dex import HyperliquidDexTrader  # noqa: E402
-from workspace.config import ConfigError  # noqa: E402
+from workspace.config import ConfigError, coerce_bool  # noqa: E402
 from workspace.venues.sandbox import resolve_sandbox, sandbox_env_names  # noqa: E402
 
 SKILL_ID = "trade-automatizado-openclaw"
@@ -390,10 +390,23 @@ def _fmt_percent(rate: float | None) -> str:
 
 
 def _load_bool_env(name: str, default: bool) -> bool:
+    """Portao booleano lido do ambiente, com vocabulario dos dois lados.
+
+    A versao anterior era `raw.lower() in {"1","true","yes","sim"}`: todo o
+    resto caia no `else` implicito e virava `False`. Onde o default e `True`
+    -- `NADO_REQUIRE_LINKED_SIGNER` -- isso **desligava a protecao** por um
+    typo. E `on`, `s` e `y`, validos no vocabulario que o `sandbox` usa,
+    faziam o mesmo: quem aprendeu a escrever `CEX_SANDBOX=on` desligava a
+    verificacao de linked signer sem nada dizer.
+
+    Nao declarar continua sendo diferente de declarar errado: ausente ou vazio
+    devolve o default, valor irreconhecivel levanta `ConfigError` -- que e um
+    `RuntimeError`, entao o `main` o transforma em mensagem, nao em traceback.
+    """
     raw = _clean_literal_env(os.environ.get(name))
     if raw is None:
         return default
-    return raw.lower() in {"1", "true", "yes", "sim"}
+    return coerce_bool(raw, name)
 
 
 def _load_float_env(name: str, default: float) -> float:
