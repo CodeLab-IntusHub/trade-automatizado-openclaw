@@ -183,7 +183,7 @@ from workspace.venues.ccxt_cex import GenericCcxtTrader  # noqa: E402
 from workspace.venues.custom_dex import load_custom_dex_adapter  # noqa: E402
 from workspace.venues.hyperliquid_dex import HyperliquidDexTrader  # noqa: E402
 from workspace.config import ConfigError  # noqa: E402
-from workspace.venues.sandbox import resolve_sandbox  # noqa: E402
+from workspace.venues.sandbox import resolve_sandbox, sandbox_env_names  # noqa: E402
 
 SKILL_ID = "trade-automatizado-openclaw"
 LEGACY_SKILL_ID = "delta-neutral-airdrop-farmer"
@@ -5508,10 +5508,92 @@ def _load_cex_sandbox(cex_id: str) -> bool:
     return resolve_sandbox("cex", cex_id)
 
 
+HYPERLIQUID_TESTNET_NETWORKS = frozenset({"testnet", "sandbox", "demo"})
+# Os dois lados explicitos, pelo mesmo motivo do vocabulario de booleano: a
+# versao anterior testava so a pertinencia ao conjunto de testnet, entao
+# `HYPERLIQUID_NETWORK=testnetz` resolvia para producao em silencio. Pior que o
+# `ture` original, porque este valor entra na camada de ambiente e por isso
+# derruba tambem o `venues.dex.*.sandbox` do arquivo.
+HYPERLIQUID_MAINNET_NETWORKS = frozenset({"mainnet", "main", "production", "prod", "live"})
+
+
+def _hyperliquid_rede_implica_sandbox(network: str) -> bool | None:
+    """`True`/`False` para rede declarada, `None` quando nao ha rede.
+
+    Valor fora do vocabulario levanta em vez de virar producao.
+    """
+    if not network:
+        return None
+    if network in HYPERLIQUID_TESTNET_NETWORKS:
+        return True
+    if network in HYPERLIQUID_MAINNET_NETWORKS:
+        return False
+    raise ConfigError(
+        f"rede invalida para a Hyperliquid: {network!r}. "
+        f"Use um de {sorted(HYPERLIQUID_TESTNET_NETWORKS)} ou "
+        f"{sorted(HYPERLIQUID_MAINNET_NETWORKS)}. "
+        "Valor nao reconhecido nao e tratado como mainnet -- aqui isso "
+        "significaria dinheiro real."
+    )
+
+
+def _first_env_name(*names: str) -> str | None:
+    """Nome da primeira env definida do grupo -- para mensagens.
+
+    O aviso de conflito citava `HYPERLIQUID_NETWORK` mesmo quando quem decidia
+    era `DEX_NETWORK`, mandando o operador mexer numa variavel que ele nao
+    tinha definido.
+    """
+    for name in names:
+        if _clean_literal_env(os.environ.get(name)):
+            return name
+    return None
+
+
+def _hyperliquid_sandbox(
+    dex_id: str,
+    network: str,
+    rede_implica_sandbox: bool | None,
+    rede_env: str | None = None,
+) -> bool:
+    """Sandbox da Hyperliquid, avisando quando a rede declarada e descartada.
+
+    `HyperliquidDexTrader.__init__` faz `self.network = "testnet" if
+    self.sandbox else "mainnet"`: a rede declarada nao sobrevive ao construtor,
+    quem manda e o sandbox. Enquanto `HYPERLIQUID_SANDBOX=false` vinha ativo no
+    `.env.example` ao lado de `HYPERLIQUID_NETWORK`, trocar so a rede para
+    `testnet` deixava o operador na mainnet sem nada dizer.
+
+    A precedencia nao muda -- a env explicita responde a pergunta e continua
+    vencendo --, mas a contradicao para de ser silenciosa.
+    """
+    sandbox = resolve_sandbox(
+        "dex",
+        dex_id,
+        env_default=rede_implica_sandbox,
+        env_default_origem=rede_env or "a rede configurada",
+    )
+    if rede_implica_sandbox is not None and rede_implica_sandbox != sandbox:
+        logger.warning(
+            "hyperliquid: %s=%r implica sandbox=%s, mas a configuracao resolveu sandbox=%s. "
+            "O adapter deriva a rede do sandbox, entao voce vai operar em %s. "
+            "Alinhe a rede e a configuracao de sandbox (%s).",
+            rede_env or "a rede configurada", network, rede_implica_sandbox, sandbox,
+            "testnet" if sandbox else "mainnet",
+            " / ".join(sandbox_env_names("dex", dex_id)),
+        )
+    return sandbox
+
+
 def _load_hyperliquid_config(dex_id: str) -> dict:
     cfg = dex_config(dex_id)
     network = (_first_env("HYPERLIQUID_NETWORK", "DEX_NETWORK") or str(cfg.get("network") or "")).lower()
-    sandbox_default = network in {"testnet", "sandbox", "demo"}
+    # `None` quando nenhuma rede foi declarada: uma expressao como
+    # `network in {...}` e sempre um bool, e esse `False` incondicional
+    # entraria na camada de ambiente como se alguem o tivesse escrito,
+    # derrubando o settings do operador.
+    rede_env = _first_env_name("HYPERLIQUID_NETWORK", "DEX_NETWORK")
+    rede_implica_sandbox = _hyperliquid_rede_implica_sandbox(network)
     options_json = _first_env("HYPERLIQUID_OPTIONS_JSON", "DEX_OPTIONS_JSON")
     cfg.update(
         wallet_address=(
@@ -5530,9 +5612,7 @@ def _load_hyperliquid_config(dex_id: str) -> dict:
             _first_env("HYPERLIQUID_VAULT_ADDRESS")
             or str(cfg.get("vault_address") or cfg.get("vaultAddress") or "")
         ),
-        # Ainda pelo helper antigo: a Hyperliquid deriva sandbox da rede, e
-        # esse degrau na camada de ambiente vem na fatia seguinte.
-        sandbox=_load_bool_env("HYPERLIQUID_SANDBOX", _load_bool_env("DEX_SANDBOX", sandbox_default)),
+        sandbox=_hyperliquid_sandbox(dex_id, network, rede_implica_sandbox, rede_env),
         market_type=_first_env("HYPERLIQUID_MARKET_TYPE", "DEX_MARKET_TYPE") or str(cfg.get("market_type") or "swap"),
         symbol_quote=_first_env("HYPERLIQUID_SYMBOL_QUOTE") or str(cfg.get("symbol_quote") or "USDT"),
     )
