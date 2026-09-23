@@ -1,9 +1,7 @@
 ccxt==4.5.50
-python-dotenv==1.0.1
+python-dotenv==1.2.3
 pandas==2.2.3
 numpy==2.2.6
 pytest==8.3.5
-# eth-keyfile ainda importa pkg_resources; setuptools>=81 remove essa API.
-setuptools<81
 # A venue Nado tem SDK proprio e exige toolchain de build nativo:
 #   pip install -r workspace/requirements-nado.txt
