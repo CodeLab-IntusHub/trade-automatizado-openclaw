@@ -895,7 +895,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "command",
         nargs="?",
-        help="setup-check, doctor, bootstrap, dashboard, dashboard-publisher ou comando original do cli.py",
+        help="setup-check, doctor, config-export, bootstrap, dashboard, dashboard-publisher ou comando original do cli.py",
     )
     parser.add_argument("args", nargs=argparse.REMAINDER)
     if runtime_env_error:
@@ -916,6 +916,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if ns.command == "doctor":
         _print_json(doctor())
+        return 0
+    if ns.command == "config-export":
+        # JSON na stdout, aviso na stderr: `config-export > settings.json`
+        # precisa produzir um arquivo valido, e aviso misturado o quebraria --
+        # o operador so descobriria no boot seguinte.
+        from workspace.config_export import exportar, formatar_relatorio
+
+        exportado, relatorio = exportar()
+        _print_json(exportado)
+        print(formatar_relatorio(relatorio), file=sys.stderr)
         return 0
     if ns.command == "bootstrap":
         _print_json(bootstrap(force="--force" in ns.args))
