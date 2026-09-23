@@ -1,30 +1,36 @@
 # Changelog
 
-## Nao publicado
+## v1.6.0 — 2026-09-23
+
+Uma familia de defeitos, tres formas. Em todas elas um valor que o operador
+escreveu era descartado em silencio e substituido por um default -- e em
+todas elas o default decidia dinheiro ou protecao. O padrao e o mesmo do
+`CEX_SANDBOX=ture` que abriu esta fase.
 
 ### Corrigido
 
+- **Percentual de risco invalido deixa de virar o default em silencio.** `_pct_from_env` e `_notice_pct_from_env` faziam `except (TypeError, ValueError): return default`, e o que elas alimentam e **stop loss e take profit** (`PROTECTIVE_STOP_LOSS_PCT`, `MAX_PAIR_LOSS_PCT`, `SETUP_NOTIFY_STOP_LOSS_PCT`). Com `default=0.03`, medido: `2,5` virava `0.030` -- um stop 20% mais largo que o pretendido, calado. **A virgula decimal e a escrita natural em portugues**, entao este nao e um typo improvavel: e a forma como muita gente escreve numero. Mesmo formato de defeito do `CEX_SANDBOX=ture` e do `NADO_REQUIRE_LINKED_SIGNER=on`.
+- **A mensagem diz o que corrigir.** Valor com virgula recebe `Use ponto como separador decimal (2.5), nao virgula` -- dizer so "valor invalido" devolveria o operador ao mesmo lugar, procurando o erro num numero que para ele esta certo. E ela nomeia **a variavel que de fato carregou o valor**, e nao a primeira da cadeia de quatro: citar a primeira mandaria mexer numa variavel que o operador nao definiu.
+- **O scanner consome o mesmo parser.** `ccxt_entry_scanner._pct_from_env` tinha a sua propria copia, consultando exatamente as mesmas variaveis. Corrigir so o `cli` deixaria dois vereditos para a mesma pergunta -- o defeito de origem do sandbox.
+- **`_load_optional_float_arg` nomeia a variavel.** Ele decide `MARGIN_USD`, o tamanho da posicao. Ja falhava fechado, mas com `ValueError` cru: traceback, sem dizer qual variavel da cadeia estava errada.
 - **`UNIQUE_TREND` invalido deixa de apagar o filtro de direcao.** Ele restringe a direcao das entradas, e **string vazia significa sem filtro** -- e o que `decision.py:497` testa. O helper devolvia `""` para tudo que nao fosse exatamente `LONG` ou `SHORT`: medido, `LNOG`, `LONGO`, `comprado` e `LONG,SHORT` todos resolviam para vazio. O operador restringia a direcao e passava a operar **nos dois sentidos**, sem nada dizer. Aqui o vazio nao e a ausencia de um valor: e um valor com significado, entao resolver lixo para vazio nao era cair no default -- era apagar o que o operador escreveu.
 - **`comprado` e `compra` passam a valer tambem na variavel de ambiente.** `_normalize_order_side_arg`, na mesma `cli.py`, ja as aceitava para o mesmo conceito: o projeto entendia a palavra no argumento e a descartava na env. As duas portas passaram a ler de `_DIRECOES`, uma definicao so -- foi a divergencia entre duas copias que criou o desencontro.
 - **`CERTAINTY` nomeia a variavel.** O limiar que decide se a entrada acontece ja falhava fechado, mas com `ValueError` cru: traceback, sem dizer qual variavel nem o que se esperava dela. E `70,5` esbarrava na mesma virgula decimal dos percentuais.
 - **As copias da Nado consomem os mesmos helpers.** `nado/auto_trade_nado.py` tinha a propria versao dos dois, lendo as mesmas variaveis -- dois vereditos para a mesma pergunta.
 - **Um teste que consagrava o defeito foi corrigido.** `test_v2.py` afirmava `UNIQUE_TREND=true` -> `""`, ou seja, exigia que um valor que nao e direcao nenhuma apagasse a restricao em silencio.
 
-### Mudanca de comportamento (atencao ao atualizar)
+### Removido
 
-- **Direcao fora do vocabulario derruba o comando** em vez de virar "sem filtro". Ausente ou em branco continua significando sem filtro. Se voce tem `UNIQUE_TREND` com um valor que nao seja `long`/`comprado`/`compra`/`short`/`vendido`/`venda`, ele **ja nao estava filtrando nada** -- a diferenca e que agora voce fica sabendo.
-
-
-- **Percentual de risco invalido deixa de virar o default em silencio.** `_pct_from_env` e `_notice_pct_from_env` faziam `except (TypeError, ValueError): return default`, e o que elas alimentam e **stop loss e take profit** (`PROTECTIVE_STOP_LOSS_PCT`, `MAX_PAIR_LOSS_PCT`, `SETUP_NOTIFY_STOP_LOSS_PCT`). Com `default=0.03`, medido: `2,5` virava `0.030` -- um stop 20% mais largo que o pretendido, calado. **A virgula decimal e a escrita natural em portugues**, entao este nao e um typo improvavel: e a forma como muita gente escreve numero. Mesmo formato de defeito do `CEX_SANDBOX=ture` e do `NADO_REQUIRE_LINKED_SIGNER=on`.
-- **A mensagem diz o que corrigir.** Valor com virgula recebe `Use ponto como separador decimal (2.5), nao virgula` -- dizer so "valor invalido" devolveria o operador ao mesmo lugar, procurando o erro num numero que para ele esta certo. E ela nomeia **a variavel que de fato carregou o valor**, e nao a primeira da cadeia de quatro: citar a primeira mandaria mexer numa variavel que o operador nao definiu.
-- **O scanner consome o mesmo parser.** `ccxt_entry_scanner._pct_from_env` tinha a sua propria copia, consultando exatamente as mesmas variaveis. Corrigir so o `cli` deixaria dois vereditos para a mesma pergunta -- o defeito de origem do sandbox.
-- **`_load_optional_float_arg` nomeia a variavel.** Ele decide `MARGIN_USD`, o tamanho da posicao. Ja falhava fechado, mas com `ValueError` cru: traceback, sem dizer qual variavel da cadeia estava errada.
+- Os dois PRDs em HTML da raiz (`PRD.html` e `trade-automatizado-openclaw-prd.html`), copias byte a byte um do outro. Nenhum documento versionado os referenciava.
 
 ### Mudanca de comportamento (atencao ao atualizar)
+
+Sao **duas**, e as duas na mesma direcao: valor irreconhecivel agora derruba o comando em vez de virar o default. Em ambos os casos, se voce tem hoje um valor fora do vocabulario, ele **ja nao estava valendo** -- a diferenca e que agora voce fica sabendo.
 
 - **Percentual fora do vocabulario derruba o comando** em vez de cair no default. Ausente ou em branco continua caindo no default -- nao declarar segue sendo diferente de declarar errado. Confira `PROTECTIVE_STOP_LOSS_PCT`, `PROTECTIVE_TAKE_PROFIT_PCT`, `MAX_PAIR_LOSS_PCT` e `MARGIN_USD` no seu `.env`: se algum usa virgula decimal, ele **ja nao estava valendo** -- a diferenca e que agora voce fica sabendo.
+- **Direcao fora do vocabulario derruba o comando** em vez de virar "sem filtro". Ausente ou em branco continua significando sem filtro. Se voce tem `UNIQUE_TREND` com um valor que nao seja `long`/`comprado`/`compra`/`short`/`vendido`/`venda`, ele **ja nao estava filtrando nada** -- a diferenca e que agora voce fica sabendo.
 
-### Nao coberto por esta mudanca
+### Nao coberto por esta versao
 
 - Os `_to_float` dos adapters (`kraken_integration`, `ccxt_cex`, `hyperliquid_dex`) tambem caem no default em silencio, mas parseiam **resposta de corretora**, nao config do operador. Dado externo com default e outra decisao, e misturar as duas na mesma mudanca so dificultaria a revisao.
 
