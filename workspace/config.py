@@ -174,6 +174,15 @@ class Settings:
         self._local = dict(local)
         self._env = dict(env)
 
+    def camadas_de_arquivo(self) -> tuple[tuple[str, dict[str, Any]], ...]:
+        """`(nome do arquivo, payload)` para quem valida o vocabulário.
+
+        Devolve cópia e nomeia a origem: um erro de chave desconhecida que não
+        diz em qual dos dois arquivos ela está manda o operador procurar no
+        lugar errado.
+        """
+        return ((_LOCAL_FILE, dict(self._local)), (_VERSIONED_FILE, dict(self._versioned)))
+
     # -- resolução ---------------------------------------------------------
 
     def _resolve(self, dotted: str, env: str | Sequence[str] | None) -> tuple[Any, ConfigOrigin]:

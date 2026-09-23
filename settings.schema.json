@@ -1,0 +1,71 @@
+{
+  "_comentario": "Vocabulario do settings.json / settings.local.json. Chave fora daqui derruba o comando em vez de ser ignorada -- um typo em nome de chave nao produzia erro nenhum, e a chave morta levava a venue para o default, que fora da familia kraken e producao. Validado por workspace/settings_schema.py.",
+
+  "_comentario_formato": "Cada no tem: 'campos' (chaves escalares aceitas), 'filhos' (sub-objetos de nome fixo), 'padroes' (sub-objetos cujo nome casa uma regex) e 'livre' (qualquer outro nome e um sub-objeto; 'dominio' diz contra o que validar o nome). '_comentario*' e aceito em qualquer nivel.",
+
+  "raiz": {
+    "filhos": {
+      "venues": {
+        "_comentario": "sandbox por tipo e por venue. O escalar 'sandbox' convive com os ids de venue no mesmo nivel: um e a chave generica do tipo, os outros sao objetos por venue.",
+        "filhos": {
+          "cex": {
+            "campos": ["sandbox"],
+            "livre": {
+              "dominio": "cex",
+              "no": { "campos": ["sandbox"] }
+            }
+          },
+          "dex": {
+            "campos": ["sandbox"],
+            "livre": {
+              "dominio": "dex",
+              "no": { "campos": ["sandbox"] }
+            }
+          }
+        }
+      },
+
+      "setups": {
+        "_comentario": "Parametros por setup. A lista e POR SETUP de proposito: uma lista unica aceitaria 'funding-arb.pivot_window', e a chave ficaria morta do mesmo jeito.",
+        "filhos": {
+          "triangle-breakout": {
+            "campos": [
+              "pivot_window",
+              "contraction_max_ratio",
+              "volume_multiplier",
+              "breakout_buffer_atr_mult",
+              "flat_threshold_atr_mult",
+              "slope_threshold_atr_mult",
+              "stop_atr_mult"
+            ]
+          },
+          "funding-arb": {
+            "campos": ["min_rate", "exit_rate", "max_hold_hours", "max_spread_bps"]
+          }
+        },
+        "padroes": {
+          "^divergence-and-volume(-(15m|1h|4h))?$": {
+            "_comentario": "A chave do divergence e gerada com sufixo de timeframe (divergence_volume_setup_key). Sem sufixo vale para backtest, que nao passa timeframe.",
+            "campos": [
+              "rsi_period",
+              "volume_avg_period",
+              "volume_factor",
+              "fibonacci_tolerance_pct",
+              "divergence_lookback",
+              "fibonacci_lookback",
+              "min_gap",
+              "rsi_delta",
+              "fibonacci_tolerance_atr",
+              "atr_buffer",
+              "fibonacci_levels",
+              "target_levels",
+              "target_weights",
+              "min_reward_risk",
+              "max_hold_bars"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
