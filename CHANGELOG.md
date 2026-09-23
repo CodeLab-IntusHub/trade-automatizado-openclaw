@@ -1,5 +1,22 @@
 # Changelog
 
+## Nao publicado
+
+### Corrigido
+
+- **Percentual de risco invalido deixa de virar o default em silencio.** `_pct_from_env` e `_notice_pct_from_env` faziam `except (TypeError, ValueError): return default`, e o que elas alimentam e **stop loss e take profit** (`PROTECTIVE_STOP_LOSS_PCT`, `MAX_PAIR_LOSS_PCT`, `SETUP_NOTIFY_STOP_LOSS_PCT`). Com `default=0.03`, medido: `2,5` virava `0.030` -- um stop 20% mais largo que o pretendido, calado. **A virgula decimal e a escrita natural em portugues**, entao este nao e um typo improvavel: e a forma como muita gente escreve numero. Mesmo formato de defeito do `CEX_SANDBOX=ture` e do `NADO_REQUIRE_LINKED_SIGNER=on`.
+- **A mensagem diz o que corrigir.** Valor com virgula recebe `Use ponto como separador decimal (2.5), nao virgula` -- dizer so "valor invalido" devolveria o operador ao mesmo lugar, procurando o erro num numero que para ele esta certo. E ela nomeia **a variavel que de fato carregou o valor**, e nao a primeira da cadeia de quatro: citar a primeira mandaria mexer numa variavel que o operador nao definiu.
+- **O scanner consome o mesmo parser.** `ccxt_entry_scanner._pct_from_env` tinha a sua propria copia, consultando exatamente as mesmas variaveis. Corrigir so o `cli` deixaria dois vereditos para a mesma pergunta -- o defeito de origem do sandbox.
+- **`_load_optional_float_arg` nomeia a variavel.** Ele decide `MARGIN_USD`, o tamanho da posicao. Ja falhava fechado, mas com `ValueError` cru: traceback, sem dizer qual variavel da cadeia estava errada.
+
+### Mudanca de comportamento (atencao ao atualizar)
+
+- **Percentual fora do vocabulario derruba o comando** em vez de cair no default. Ausente ou em branco continua caindo no default -- nao declarar segue sendo diferente de declarar errado. Confira `PROTECTIVE_STOP_LOSS_PCT`, `PROTECTIVE_TAKE_PROFIT_PCT`, `MAX_PAIR_LOSS_PCT` e `MARGIN_USD` no seu `.env`: se algum usa virgula decimal, ele **ja nao estava valendo** -- a diferenca e que agora voce fica sabendo.
+
+### Nao coberto por esta mudanca
+
+- Os `_to_float` dos adapters (`kraken_integration`, `ccxt_cex`, `hyperliquid_dex`) tambem caem no default em silencio, mas parseiam **resposta de corretora**, nao config do operador. Dado externo com default e outra decisao, e misturar as duas na mesma mudanca so dificultaria a revisao.
+
 ## v1.5.0 — 2026-09-22
 
 ### Adicionado
