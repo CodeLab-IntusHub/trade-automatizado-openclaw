@@ -657,6 +657,29 @@ def _signal_idempotency_key(signal: dict[str, Any]) -> str:
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
 
 
+# Fronteira do que o dict interno pode levar para o payload publico.
+#
+# `raw_payload` era `signal` inteiro -- passagem direta. O que entrasse no dict
+# interno saia para o grupo do Discord e sairia para qualquer bot que venha a
+# consumir. Nao e que houvesse segredo ali hoje: e que nada impedia, porque a
+# seguranca do campo dependia de ninguem nunca por nada sensivel no dict.
+#
+# Sao os 14 campos que o produtor real monta (`_scan`, mais abaixo), e todos ja
+# saem como campo de primeira classe no payload. O campo fica -- limitado --
+# para nao quebrar quem ja le dele; sai numa release futura, junto com a
+# inversao do `schema`, quando o consumidor estiver conferido.
+CAMPOS_PUBLICOS_DO_SINAL = (
+    "exchange", "symbol", "setup", "side", "timeframe", "reason",
+    "entry_price", "stop_price", "take_profit", "targets",
+    "leverage", "risk_profile", "created_at", "bar_at",
+)
+
+
+def _payload_publico(signal: dict[str, Any]) -> dict[str, Any]:
+    """So os campos declarados, na ordem declarada."""
+    return {campo: signal[campo] for campo in CAMPOS_PUBLICOS_DO_SINAL if campo in signal}
+
+
 def _structured_signal_call(signal: dict[str, Any]) -> dict[str, Any]:
     targets = _ensure_four_targets(list(signal.get("targets") or []))
     created_at = float(signal.get("created_at") or time.time())
@@ -698,9 +721,12 @@ def _structured_signal_call(signal: dict[str, Any]) -> dict[str, Any]:
             "raw_symbol": signal.get("symbol"),
             "take_profit": signal.get("take_profit"),
             "margin_mode": signal.get("margin_mode") or "",
-            "scanner_state_path": str(STATE_PATH),
+            # `scanner_state_path` saiu daqui: ele emitia o caminho absoluto do
+            # operador -- com o nome de usuario da maquina -- para dentro de uma
+            # mensagem que vai para um grupo, e iria para qualquer bot que venha
+            # a consumir. E dado de diagnostico e pertence ao log local.
         },
-        "raw_payload": signal,
+        "raw_payload": _payload_publico(signal),
     }
 
 

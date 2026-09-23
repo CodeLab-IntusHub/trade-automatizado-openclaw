@@ -2,6 +2,16 @@
 
 ## Nao publicado
 
+### Corrigido
+
+- **O payload do sinal deixa de emitir o caminho de arquivo do operador.** `context.scanner_state_path` carregava o caminho absoluto -- com o **nome de usuario da maquina** -- para dentro de uma mensagem que ja vai para um grupo, e que passaria a ir para qualquer bot que venha a consumir. Medido: o valor era o caminho completo do arquivo de estado dentro do diretorio pessoal do operador, comecando pela raiz de perfis do sistema e pelo nome da conta. E dado de diagnostico e pertence ao log local, nao ao sinal.
+- **`raw_payload` deixa de ser passagem direta do dicionario interno.** Uma chave arbitraria plantada na entrada atravessava inteira para a saida. Nao e que houvesse segredo ali hoje -- e que nada impedia: a seguranca do campo dependia de ninguem nunca por nada sensivel no dict interno, o que nao e propriedade que alguem garanta. E congelava os internos no contrato, fazendo de toda mudanca interna uma quebra para quem consome. Agora ele carrega apenas os 14 campos declarados em `CAMPOS_PUBLICOS_DO_SINAL` -- que sao exatamente os que o produtor monta, e que ja saem como campo de primeira classe.
+- **Um teste que consagrava a passagem direta foi corrigido.** `test_unified_signal_publication.py` afirmava `structured["raw_payload"] == signal`, isto e, exigia que o dict interno atravessasse inteiro.
+
+### Nao coberto por esta mudanca
+
+- `raw_payload` **continua existindo**, limitado, para nao quebrar quem ja le dele. Ele e redundante com os campos do topo e sai numa release futura, junto com a inversao do `schema`/`schema_canonico`, quando o consumidor estiver conferido -- uma confirmacao fecha as duas.
+
 ### Alterado
 
 - **Rebrand Aspira -> IntusCripto.** "Aspira" era o nome do OpenClaw onde esta skill foi desenvolvida; o produto hoje e IntusCripto. Renomeados: os 13 `.pine` (arquivo e nome do estudo), o `mapping.json`, o README e o checklist da pasta, os ids de DOM e globais do HTML gerado, o boundary MIME, os comentarios editoriais, e a marca exibida (`SETUP_NOTIFY_BRAND` e `SETUP_NOTIFY_DISCORD_EMBED_AUTHOR` no `.env.example`, mais o badge do `render_trade_chart.js`).
