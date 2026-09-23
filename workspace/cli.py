@@ -2236,9 +2236,35 @@ def _normalize_target_stop_mode(raw: str | None) -> str:
 
 
 def _target_stop_mode_from_state(state: ManagedSetupState) -> str:
+    """Modo de stop por alvo gravado no estado de uma posicao aberta.
+
+    Valor irreconhecivel resolvia para `off` sem dizer nada. `off` nao deixa a
+    posicao sem stop -- o stop inicial continua onde foi colocado --, mas
+    desliga o **trailing**: com `breakeven_on_tp1` ou `ladder`, o stop deveria
+    subir depois de um alvo atingido, e passa a nao subir. O operador pediu a
+    melhoria e ela silenciosamente nao acontece.
+
+    Dentro de uma mesma versao isso nao ocorre: `cli.py` normaliza o valor na
+    entrada do comando e levanta ali. Ocorre **entre versoes** -- o arquivo de
+    estado sobrevive ao upgrade, entao um alias removido apaga o trailing de
+    toda posicao aberta -- e com estado editado a mao.
+
+    Continua devolvendo `off` em vez de levantar: o loop gerencia varias
+    posicoes, e derruba-lo por causa do estado de uma so deixaria as outras sem
+    gestao. `off` e a acao conservadora quando nao da para interpretar o valor;
+    o que faltava era dizer que foi isso que aconteceu.
+    """
+    declarado = state.metadata.get("target_stop_mode")
     try:
-        return _normalize_target_stop_mode(str(state.metadata.get("target_stop_mode") or TARGET_STOP_MODE_OFF))
+        return _normalize_target_stop_mode(str(declarado or TARGET_STOP_MODE_OFF))
     except ValueError:
+        logger.warning(
+            "%s %s: target_stop_mode=%r nao reconhecido no estado; o trailing de stop "
+            "fica desligado para esta posicao (o stop atual permanece onde esta). "
+            "Modos validos: %s.",
+            state.symbol, state.setup_key, declarado,
+            "/".join(sorted({v for v in TARGET_STOP_MODE_ALIASES.values()})),
+        )
         return TARGET_STOP_MODE_OFF
 
 

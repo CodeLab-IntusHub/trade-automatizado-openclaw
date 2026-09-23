@@ -1,5 +1,12 @@
 # Changelog
 
+## Nao publicado
+
+### Corrigido
+
+- **Modo de stop por alvo irreconhecivel no estado deixa de desligar o trailing em silencio.** `_target_stop_mode_from_state` devolvia `off` para qualquer valor fora do vocabulario, sem dizer nada. `off` **nao** deixa a posicao sem stop -- o stop inicial continua onde foi colocado --, mas desliga a melhoria: com `breakeven_on_tp1` ou `ladder` o stop deveria subir depois de um alvo atingido, e passava a nao subir. O operador pede a melhoria e ela silenciosamente nao acontece. Dentro de uma mesma versao isso nao ocorre (o valor e normalizado na entrada do comando, que levanta); ocorre **entre versoes**, porque o arquivo de estado sobrevive ao upgrade e um alias removido apagaria o trailing de toda posicao aberta, e com estado editado a mao.
+- Ele **continua** devolvendo `off` em vez de levantar, de proposito: o loop gerencia varias posicoes, e derruba-lo por causa do estado de uma so deixaria as outras sem gestao. `off` e a acao conservadora quando nao da para interpretar o valor; o que faltava era dizer que foi isso que aconteceu, nomeando o simbolo, o setup e o valor recusado.
+
 ## v1.6.0 — 2026-09-23
 
 Uma familia de defeitos, tres formas. Em todas elas um valor que o operador
