@@ -15,6 +15,7 @@ trabalho não ficam aqui.
 | [Sandbox por venue](features/sandbox-por-venue.md) | Resolvedor único de sandbox, precedência e defaults por venue |
 | [Vocabulário de booleanos](features/vocabulario-de-booleanos.md) | `coerce_bool` como definição única; os oito portões lidos do ambiente |
 | [Schema do settings](features/schema-do-settings.md) | Chave desconhecida derruba o comando em vez de ser ignorada |
+| [config-export](features/config-export.md) | Emite o `settings.json` equivalente ao ambiente atual, e o que ele não cobre |
 
 ## Venues
 

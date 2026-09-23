@@ -2,6 +2,13 @@
 
 ## Nao publicado
 
+### Adicionado
+
+- **`config-export`**: emite na stdout o `settings.json` equivalente ao ambiente atual, com os avisos na stderr -- `python workspace/run.py config-export > settings.json` produz um arquivo valido. A migracao de env para arquivo e incremental por desenho, e o caminho entre as duas coisas era transcrever a mao, lendo o codigo para descobrir qual chave corresponde a qual variavel.
+- O comando **nao pode parecer completo**, e e isso que define o desenho dele. So parte das variaveis tem equivalente em settings hoje; um arquivo que aparentasse substituir o `.env` levaria o operador a apagar o `.env` e perder credencial. Saem tres avisos, nenhum decorativo: o que **nao tem equivalente** (uniao de `skill.json` com o `.env.example` -- nenhum dos dois e completo sozinho), o que **continua vencendo** o arquivo (exportar nao muda nada enquanto a variavel existir, porque ambiente vence arquivo por desenho) e os **segredos definidos**, pelo nome, nunca pelo valor.
+- As chaves saem do proprio codigo: os getters de `Settings` sao espionados enquanto `validate_setup_settings` roda, entao a colheita acompanha o codigo sem lista paralela. O sandbox das venues vem do mesmo `resolve_sandbox` que a ordem usa -- emitir aqui um valor obtido de outro jeito devolveria o problema que esta fase acabou de fechar.
+- A saida passa pelo `settings.schema.json` (ha teste): um export que o proprio validador recusa derrubaria o boot de quem o usou.
+
 ### Corrigido
 
 - **Chave desconhecida no settings deixa de ser ignorada em silencio.** Um typo no *nome* de uma chave nao produzia erro nenhum: a chave nao era lida, o codigo caia no default e o operador via o comando rodar achando que a configuracao dele valia. Medido: `venues.cex.binance.sandbxo: true` e `venues.cex.binanse.sandbox: true` resolviam `False` -- **producao** --, `venues.cexs.kraken.sandbox: false` resolvia `True`, e `setups.triangle-breakout.pivot_windwo: 9` operava com o default `2`. `validate_setup_settings`, que existe para o erro aparecer no boot, passava por todos: ela valida os **valores** das chaves que conhece, e um typo produz uma chave que ela nao conhece. Esta e a contrapartida da fatia anterior -- passar a instruir o operador a escrever `venues.cex.binance.sandbox` num arquivo, sem nada conferir o que ele escreveu, troca um modo de falha silenciosa por outro.
