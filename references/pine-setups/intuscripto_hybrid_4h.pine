@@ -1,5 +1,5 @@
 //@version=5
-indicator("Aspira HYBRID 4H", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+indicator("IntusCripto HYBRID 4H", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
 
 emaLen = input.int(50, "EMA trend", minval=1)
 rsiLen = input.int(14, "RSI length", minval=1)

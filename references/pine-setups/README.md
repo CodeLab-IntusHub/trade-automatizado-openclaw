@@ -1,22 +1,22 @@
-# Aspira Trade Pine setup scripts
+# IntusCripto Trade Pine setup scripts
 
 These Pine scripts define the main visual rules used by the Python scanner setups. They are meant to be pasted into TradingView Pine Editor and saved/published as indicators.
 
 Files:
 
-- `aspira_grid_1h.pine` -> setup `grid` (deprecated)
-- `aspira_grid_strict_1h.pine` -> setup `grid-strict`
-- `aspira_delta_neutral_1h.pine` -> setup `delta-neutral` (single-chart proxy; execution still requires real venue spread)
-- `aspira_institutional_strict_1h.pine` -> setup `institutional-strict`
-- `aspira_hybrid_4h.pine` -> setup `hybrid` (deprecated)
-- `aspira_hybrid_15m.pine` -> setup `hybrid-15m` (deprecated)
-- `aspira_bollinger_mean_reversion_15m.pine` -> setup `bollinger-mean-reversion`
-- `aspira_funding_arb_1h.pine` -> setup `funding-arb` (manual/proxy funding context; execution still uses Kraken funding)
-- `aspira_liquidity_sweep_15m.pine` -> setup `liquidity-sweep`
-- `aspira_low_stoch_storm_4h.pine` -> setup `low-stoch-storm`
-- `aspira_divergence_and_volume_15m.pine` -> setup `divergence-and-volume-15m`
-- `aspira_divergence_and_volume_1h.pine` -> setup `divergence-and-volume-1h`
-- `aspira_divergence_and_volume_4h.pine` -> setup `divergence-and-volume-4h`
+- `intuscripto_grid_1h.pine` -> setup `grid` (deprecated)
+- `intuscripto_grid_strict_1h.pine` -> setup `grid-strict`
+- `intuscripto_delta_neutral_1h.pine` -> setup `delta-neutral` (single-chart proxy; execution still requires real venue spread)
+- `intuscripto_institutional_strict_1h.pine` -> setup `institutional-strict`
+- `intuscripto_hybrid_4h.pine` -> setup `hybrid` (deprecated)
+- `intuscripto_hybrid_15m.pine` -> setup `hybrid-15m` (deprecated)
+- `intuscripto_bollinger_mean_reversion_15m.pine` -> setup `bollinger-mean-reversion`
+- `intuscripto_funding_arb_1h.pine` -> setup `funding-arb` (manual/proxy funding context; execution still uses Kraken funding)
+- `intuscripto_liquidity_sweep_15m.pine` -> setup `liquidity-sweep`
+- `intuscripto_low_stoch_storm_4h.pine` -> setup `low-stoch-storm`
+- `intuscripto_divergence_and_volume_15m.pine` -> setup `divergence-and-volume-15m`
+- `intuscripto_divergence_and_volume_1h.pine` -> setup `divergence-and-volume-1h`
+- `intuscripto_divergence_and_volume_4h.pine` -> setup `divergence-and-volume-4h`
 
 After publishing/adding the indicator in TradingView, configure the delivered chart renderer with the study identifier accepted by TradingView:
 

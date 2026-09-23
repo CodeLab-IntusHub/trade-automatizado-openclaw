@@ -1,5 +1,5 @@
 //@version=5
-indicator("Aspira Delta Neutral 1H Proxy", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+indicator("IntusCripto Delta Neutral 1H Proxy", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
 
 minMovePct = input.float(0.003, "Min candle move", minval=0.0, step=0.0001)
 basisLen = input.int(21, "Proxy basis EMA", minval=1)

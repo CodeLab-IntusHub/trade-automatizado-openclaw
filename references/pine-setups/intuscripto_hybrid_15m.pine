@@ -1,5 +1,5 @@
 //@version=5
-indicator("Aspira HYBRID 15m", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+indicator("IntusCripto HYBRID 15m", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
 
 emaFastLen = input.int(9, "EMA fast", minval=1)
 emaMidLen = input.int(21, "EMA mid", minval=1)

@@ -664,7 +664,17 @@ def _structured_signal_call(signal: dict[str, Any]) -> dict[str, Any]:
     setup = str(signal.get("setup") or "")
     side = str(signal.get("side") or "").upper()
     return {
+        # O produto virou IntusCripto, mas este campo e **contrato de fio**: ha
+        # um pipeline no ar consumindo estes sinais e nao foi possivel confirmar
+        # que nada casa por esta string. Trocar o valor de `schema` quebraria
+        # esse consumidor em silencio -- nao levanta excecao, so para de casar,
+        # e sinal que nao casa e sinal que nao chega.
+        #
+        # Por isso o nome novo entra **ao lado**, no campo canonico, e o antigo
+        # permanece onde o consumidor existente ja le. Inverter os dois (e
+        # remover `schema_legado`) quando o pipeline do grupo estiver conferido.
         "schema": "aspira.trading.signal_call.v1",
+        "schema_canonico": "intuscripto.trading.signal_call.v1",
         "idempotency_key": _signal_idempotency_key(signal),
         "source": "unified_scanner",
         "called_at": _utc_iso(created_at),
@@ -856,7 +866,7 @@ def _signal_chart_image(signal: dict[str, Any]) -> Path | None:
 
 
 def _discord_multipart_body(payload: dict, image_path: Path) -> tuple[bytes, str]:
-    boundary = f"aspira-trade-{int(time.time() * 1000)}"
+    boundary = f"intuscripto-trade-{int(time.time() * 1000)}"
     filename = image_path.name or "trade-chart.png"
     content_type = mimetypes.guess_type(filename)[0] or "image/png"
     chunks: list[bytes] = []

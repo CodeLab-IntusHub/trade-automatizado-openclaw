@@ -381,7 +381,7 @@ def _tradingview_attachment(entry: dict[str, str]) -> Path | None:
 
 
 def _discord_multipart_body(payload: dict, image_path: Path) -> tuple[bytes, str]:
-    boundary = f"aspira-trade-{int(time.time() * 1000)}"
+    boundary = f"intuscripto-trade-{int(time.time() * 1000)}"
     filename = image_path.name or "trade-chart.png"
     content_type = mimetypes.guess_type(filename)[0] or "image/png"
     chunks: list[bytes] = []
