@@ -4,6 +4,20 @@
 
 ### Alterado
 
+- **Rebrand Aspira -> IntusCripto.** "Aspira" era o nome do OpenClaw onde esta skill foi desenvolvida; o produto hoje e IntusCripto. Renomeados: os 13 `.pine` (arquivo e nome do estudo), o `mapping.json`, o README e o checklist da pasta, os ids de DOM e globais do HTML gerado, o boundary MIME, os comentarios editoriais, e a marca exibida (`SETUP_NOTIFY_BRAND` e `SETUP_NOTIFY_DISCORD_EMBED_AUTHOR` no `.env.example`, mais o badge do `render_trade_chart.js`).
+- **Tres superficies seguem com `aspira` de proposito**, porque espelham estado que vive fora deste repositorio e renomea-las trocaria uma inconsistencia cosmetica por uma quebra silenciosa:
+  - **Caminhos de estado** (`~/.openclaw/state/aspira-trading-whatsapp-scanner*`): ja existem na maquina de quem opera. Renomear faz o scanner nao achar o estado anterior e recomecar do zero, sem erro nenhum. Nome de arquivo interno nao e superficie de marca.
+  - **`pine_title`, `layout_name` e `tradingview_actual_layout_name`** do `tradingview-managed-layouts.json`: nomeiam layouts e estudos que existem na conta TradingView, e o renderer casa por string -- `tradingview_sandbox_render.js:145` derruba o render quando o `pine_title` nao esta no layout. Os `.pine` ja trazem o nome novo (valido a partir da proxima publicacao); ao republicar, atualizar o `pine_title` no mesmo commit. O acoplamento esta escrito no checklist.
+  - **O campo `schema` do sinal**: e contrato de fio, com pipeline no ar consumindo. O nome novo entra **ao lado**, em `schema_canonico`; o campo `schema` preserva `aspira.trading.signal_call.v1` para nao quebrar em silencio quem ja casa por ele. Inverter os dois e remover o legado quando o consumidor estiver conferido.
+- Ha teste para as tres: sem eles nada na suite falharia se um proximo rebrand as arrastasse junto.
+
+### Nao coberto por esta mudanca
+
+- O badge do `render_trade_chart.js` continua **hardcoded** em vez de ler `SETUP_NOTIFY_BRAND` -- contraria a regra de nao hardcodear config, mas ligar env naquele renderer e outra mudanca, com teste proprio.
+- `OPENCLAW-SOURCE.md` e a regra anti-legado do `SKILL.md` mantem "Aspira": sao registro historico correto de proveniencia, nao marca em uso.
+
+### Alterado
+
 - **`setuptools<81` sai do `requirements.txt` base e vai para o `requirements-nado.txt`.** A restricao existe por causa do `eth-keyfile`, que ainda importa `pkg_resources` (removido no setuptools 81) e **so vem com o SDK da Nado**. No base ela limitava o `setuptools` de toda instalacao por uma dependencia que a maioria nao instala -- inclusive no `bootstrap`, que instalava `setuptools<81` para todo mundo. O `pip` reaplica a restricao quando o extra da Nado e instalado.
 - **`python-dotenv` 1.0.1 -> 1.2.3.** O projeto usa apenas `load_dotenv`, a parte mais estavel da API; a suite passa integralmente com a versao nova, local e na CI (ubuntu x windows, 3.12 e 3.13).
 

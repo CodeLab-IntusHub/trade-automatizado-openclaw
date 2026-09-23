@@ -31,7 +31,7 @@
       "tradingview_actual_layout_name": "Aspira Render Clean",
       "layout_url": "https://www.tradingview.com/chart/<TRADINGVIEW_CHART_ID>/?symbol={symbol}&interval=5",
       "pine_title": "",
-      "pine_file": "aspira_btc_intraday_short_breakdown_5m.pine",
+      "pine_file": "intuscripto_btc_intraday_short_breakdown_5m.pine",
       "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_BTC_INTRADAY_SHORT_BREAKDOWN",
       "require_pine_in_layout": false,
       "validated_at": "2026-07-20",
@@ -44,7 +44,7 @@
       "layout_name": "Aspira Render | Grid Strict | 1H",
       "layout_url": "",
       "pine_title": "Aspira Grid Strict 1H",
-      "pine_file": "aspira_grid_strict_1h.pine",
+      "pine_file": "intuscripto_grid_strict_1h.pine",
       "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_GRID_STRICT"
     },
     "institutional-strict": {
@@ -54,7 +54,7 @@
       "layout_name": "Aspira Render | Institutional Strict | 1H",
       "layout_url": "",
       "pine_title": "Aspira Institutional Strict 1H",
-      "pine_file": "aspira_institutional_strict_1h.pine",
+      "pine_file": "intuscripto_institutional_strict_1h.pine",
       "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_INSTITUTIONAL_STRICT"
     },
     "bollinger-mean-reversion": {
@@ -64,7 +64,7 @@
       "layout_name": "Aspira Render | Bollinger Mean Reversion | 15M",
       "layout_url": "",
       "pine_title": "Aspira Bollinger Mean Reversion 15m",
-      "pine_file": "aspira_bollinger_mean_reversion_15m.pine",
+      "pine_file": "intuscripto_bollinger_mean_reversion_15m.pine",
       "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_BOLLINGER_MEAN_REVERSION"
     },
     "low-stoch-storm": {
@@ -74,7 +74,7 @@
       "layout_name": "Aspira Render | Low Stoch Storm | 4H",
       "layout_url": "",
       "pine_title": "Aspira Low Stoch Storm 4H",
-      "pine_file": "aspira_low_stoch_storm_4h.pine",
+      "pine_file": "intuscripto_low_stoch_storm_4h.pine",
       "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_LOW_STOCH_STORM"
     },
     "divergence-and-volume-15m": {
@@ -84,7 +84,7 @@
       "layout_name": "Aspira Render | Divergence Volume | 15M",
       "layout_url": "",
       "pine_title": "Aspira Divergence and Volume 15m",
-      "pine_file": "aspira_divergence_and_volume_15m.pine",
+      "pine_file": "intuscripto_divergence_and_volume_15m.pine",
       "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_DIVERGENCE_AND_VOLUME_15M"
     },
     "divergence-and-volume-1h": {
@@ -94,7 +94,7 @@
       "layout_name": "Aspira Render | Divergence Volume | 1H",
       "layout_url": "",
       "pine_title": "Aspira Divergence and Volume 1h",
-      "pine_file": "aspira_divergence_and_volume_1h.pine",
+      "pine_file": "intuscripto_divergence_and_volume_1h.pine",
       "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_DIVERGENCE_AND_VOLUME_1H"
     },
     "divergence-and-volume-4h": {
@@ -105,10 +105,11 @@
       "tradingview_actual_layout_name": "Aspira Render | Divergence Volume | 4H",
       "layout_url": "https://www.tradingview.com/chart/<TRADINGVIEW_CHART_ID>/?symbol={symbol}&interval=240",
       "pine_title": "Aspira Divergence and Volume 4h",
-      "pine_file": "aspira_divergence_and_volume_4h.pine",
+      "pine_file": "intuscripto_divergence_and_volume_4h.pine",
       "study_env": "SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_DIVERGENCE_AND_VOLUME_4H",
       "validated_at": "2026-07-07",
       "notes": "Layout TradingView renomeado e validado em modo estrito: o Pine já estava presente no layout, sem inserção runtime."
     }
-  }
+  },
+  "_comentario_marca": "Os campos layout_name, tradingview_actual_layout_name e pine_title espelham nomes que existem na conta TradingView e sao casados por string pelo renderer (tradingview_sandbox_render.js). Eles seguem em 'Aspira' de proposito: o produto virou IntusCripto, mas renomear aqui sem renomear la quebra o render em vez de arrumar o nome. Trocar so depois de renomear os layouts/estudos no TradingView."
 }

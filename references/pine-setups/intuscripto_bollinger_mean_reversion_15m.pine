@@ -1,5 +1,5 @@
 //@version=5
-indicator("Aspira Bollinger Mean Reversion 15m", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+indicator("IntusCripto Bollinger Mean Reversion 15m", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
 
 bbLen = input.int(20, "Bollinger length", minval=1)
 bbStd = input.float(2.0, "Bollinger std", minval=0.1, step=0.1)

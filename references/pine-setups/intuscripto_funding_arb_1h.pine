@@ -1,5 +1,5 @@
 //@version=5
-indicator("Aspira Funding Arb 1H Context", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+indicator("IntusCripto Funding Arb 1H Context", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
 
 fundingSource = input.string("manual", "Funding source", options=["manual", "proxy"])
 manualFundingRate = input.float(0.0, "Manual funding rate 8h", step=0.00001)

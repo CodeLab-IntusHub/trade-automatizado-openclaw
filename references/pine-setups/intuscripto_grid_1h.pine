@@ -1,5 +1,5 @@
 //@version=5
-indicator("Aspira Grid 1H", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+indicator("IntusCripto Grid 1H", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
 
 smaLen = input.int(50, "SMA length", minval=1)
 stdLen = input.int(50, "StdDev length", minval=1)

@@ -1,5 +1,5 @@
 //@version=5
-indicator("Aspira Liquidity Sweep 15m", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+indicator("IntusCripto Liquidity Sweep 15m", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
 
 pivotWindow = input.int(2, "Pivot window", minval=1)
 contractionMaxRatio = input.float(0.80, "Max contraction ratio", minval=0.1, step=0.05)

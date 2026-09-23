@@ -1,4 +1,4 @@
-# Aspira Trade — checklist de publicação Pine no TradingView
+# IntusCripto Trade — checklist de publicação Pine no TradingView
 
 Status operacional desde 2026-07-07 23:55 UTC: **rota Pine pausada para entrega Discord**.
 
@@ -10,13 +10,29 @@ Decisão mais recente: voltar à entrega gráfica funcional do Discord baseada e
 
 | Setup | Timeframe | Arquivo Pine | Variável de ambiente |
 |---|---:|---|---|
-| grid-strict | 1H | `aspira_grid_strict_1h.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_GRID_STRICT` |
-| institutional-strict | 1H | `aspira_institutional_strict_1h.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_INSTITUTIONAL_STRICT` |
-| bollinger-mean-reversion | 15M | `aspira_bollinger_mean_reversion_15m.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_BOLLINGER_MEAN_REVERSION` |
-| low-stoch-storm | 4H | `aspira_low_stoch_storm_4h.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_LOW_STOCH_STORM` |
-| divergence-and-volume-15m | 15M | `aspira_divergence_and_volume_15m.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_DIVERGENCE_AND_VOLUME_15M` |
-| divergence-and-volume-1h | 1H | `aspira_divergence_and_volume_1h.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_DIVERGENCE_AND_VOLUME_1H` |
-| divergence-and-volume-4h | 4H | `aspira_divergence_and_volume_4h.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_DIVERGENCE_AND_VOLUME_4H` |
+| grid-strict | 1H | `intuscripto_grid_strict_1h.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_GRID_STRICT` |
+| institutional-strict | 1H | `intuscripto_institutional_strict_1h.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_INSTITUTIONAL_STRICT` |
+| bollinger-mean-reversion | 15M | `intuscripto_bollinger_mean_reversion_15m.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_BOLLINGER_MEAN_REVERSION` |
+| low-stoch-storm | 4H | `intuscripto_low_stoch_storm_4h.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_LOW_STOCH_STORM` |
+| divergence-and-volume-15m | 15M | `intuscripto_divergence_and_volume_15m.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_DIVERGENCE_AND_VOLUME_15M` |
+| divergence-and-volume-1h | 1H | `intuscripto_divergence_and_volume_1h.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_DIVERGENCE_AND_VOLUME_1H` |
+| divergence-and-volume-4h | 4H | `intuscripto_divergence_and_volume_4h.pine` | `SETUP_NOTIFY_TRADINGVIEW_PINE_STUDIES_DIVERGENCE_AND_VOLUME_4H` |
+
+## Rebrand: o nome do estudo mudou aqui, mas nao no TradingView
+
+Os arquivos `.pine` foram renomeados para `intuscripto_*` e o `indicator()`
+dentro deles passou a dizer `IntusCripto ...`. Isso e o **nome futuro**, valido
+a partir da proxima publicacao.
+
+Os campos `pine_title`, `layout_name` e `tradingview_actual_layout_name` do
+`tradingview-managed-layouts.json` continuam em `Aspira ...` de proposito: eles
+espelham o que existe **hoje** na conta TradingView, e o renderer casa por
+string (`tradingview_sandbox_render.js:145` derruba o render quando o
+`pine_title` nao esta no layout). Renomear la sem renomear no TradingView troca
+uma inconsistencia cosmetica por um render quebrado.
+
+**Ao republicar um Pine com o nome novo, atualize o `pine_title` desse setup no
+mesmo commit.** Sao as duas pontas do mesmo nome.
 
 ## Procedimento
 
@@ -38,7 +54,7 @@ Status atual:
 - os IDs existem e apontam para os scripts salvos na conta logada;
 - o widget isolado limpo aceita estudos públicos/nativos como `RSI@tv-basicstudies`;
 - o widget isolado retornou `403` para `USER;...` privado e não carregou o Pine real;
-- formatos testados sem sucesso para `Aspira Divergence and Volume 4h`: `USER;...`, `USER;...@tv-scripting`, `Script$USER;...@tv-scripting`, `Script$USER;...`.
+- formatos testados sem sucesso para `IntusCripto Divergence and Volume 4h`: `USER;...`, `USER;...@tv-scripting`, `Script$USER;...@tv-scripting`, `Script$USER;...`.
 
 Próximo passo para entrega Discord com TradingView limpo: obter ID aceito pelo widget/renderizador, provavelmente `PUB;...`/publicação protegida/convite, ou renderizar via app logado em layout descartável isolado validado pela árvore de objetos/janela de dados.
 
@@ -55,9 +71,9 @@ Regra:
 
 Primeiro layout validado:
 - setup: `divergence-and-volume-4h`
-- layout TradingView: `Aspira Render | Divergence Volume | 4H`
+- layout TradingView: `IntusCripto Render | Divergence Volume | 4H`
 - chart id: `ffzh8YJR`
-- Pine esperado: `Aspira Divergence and Volume 4h`
+- Pine esperado: `IntusCripto Divergence and Volume 4h`
 - prova estrutural: renderer estrito passou com `inserted:false`, ou seja, o Pine já estava definido no layout e não foi injetado na hora.
 - correção visual histórica pré-2026-08-04: a versão com tabela `ASPIRA DV 4H`, marcadores de componente e fib/faixas foi rejeitada por poluição visual. Regra atual: o Pine do layout deve carregar somente a lógica/indicadores necessários do setup/timeframe específico; entrada, stop e alvos continuam fora do Pine e vêm do payload do trade. Referências humanas antigas neste item não criam validador/owner atual.
 - prova visual limpa 2026-07-07: Pine corrigido contra runtime `RE10008`, salvo/aplicado no TradingView sem painel/tabela, sem marcadores históricos e sem faixas decorativas; renderer captura o pane limpo com entrada/stop/alvos.

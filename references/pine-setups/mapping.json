@@ -1,124 +1,124 @@
 {
   "active": {
-    "grid-strict": "aspira_grid_strict_1h.pine",
-    "institutional-strict": "aspira_institutional_strict_1h.pine",
-    "bollinger-mean-reversion": "aspira_bollinger_mean_reversion_15m.pine",
-    "low-stoch-storm": "aspira_low_stoch_storm_4h.pine",
-    "divergence-and-volume-15m": "aspira_divergence_and_volume_15m.pine",
-    "divergence-and-volume-1h": "aspira_divergence_and_volume_1h.pine",
-    "divergence-and-volume-4h": "aspira_divergence_and_volume_4h.pine"
+    "grid-strict": "intuscripto_grid_strict_1h.pine",
+    "institutional-strict": "intuscripto_institutional_strict_1h.pine",
+    "bollinger-mean-reversion": "intuscripto_bollinger_mean_reversion_15m.pine",
+    "low-stoch-storm": "intuscripto_low_stoch_storm_4h.pine",
+    "divergence-and-volume-15m": "intuscripto_divergence_and_volume_15m.pine",
+    "divergence-and-volume-1h": "intuscripto_divergence_and_volume_1h.pine",
+    "divergence-and-volume-4h": "intuscripto_divergence_and_volume_4h.pine"
   },
   "legacy_or_proxy": {
-    "grid": "aspira_grid_1h.pine",
-    "delta-neutral": "aspira_delta_neutral_1h.pine",
-    "funding-arb": "aspira_funding_arb_1h.pine",
-    "hybrid": "aspira_hybrid_4h.pine",
-    "hybrid-15m": "aspira_hybrid_15m.pine",
-    "liquidity-sweep": "aspira_liquidity_sweep_15m.pine"
+    "grid": "intuscripto_grid_1h.pine",
+    "delta-neutral": "intuscripto_delta_neutral_1h.pine",
+    "funding-arb": "intuscripto_funding_arb_1h.pine",
+    "hybrid": "intuscripto_hybrid_4h.pine",
+    "hybrid-15m": "intuscripto_hybrid_15m.pine",
+    "liquidity-sweep": "intuscripto_liquidity_sweep_15m.pine"
   },
   "summary": [
     {
       "setup": "grid-strict",
-      "file": "aspira_grid_strict_1h.pine",
+      "file": "intuscripto_grid_strict_1h.pine",
       "active_monitor": true,
       "pine_version": "5",
-      "title": "Aspira Grid Strict 1H",
+      "title": "IntusCripto Grid Strict 1H",
       "input_count": 8
     },
     {
       "setup": "institutional-strict",
-      "file": "aspira_institutional_strict_1h.pine",
+      "file": "intuscripto_institutional_strict_1h.pine",
       "active_monitor": true,
       "pine_version": "5",
-      "title": "Aspira Institutional Strict 1H",
+      "title": "IntusCripto Institutional Strict 1H",
       "input_count": 13
     },
     {
       "setup": "bollinger-mean-reversion",
-      "file": "aspira_bollinger_mean_reversion_15m.pine",
+      "file": "intuscripto_bollinger_mean_reversion_15m.pine",
       "active_monitor": true,
       "pine_version": "5",
-      "title": "Aspira Bollinger Mean Reversion 15m",
+      "title": "IntusCripto Bollinger Mean Reversion 15m",
       "input_count": 10
     },
     {
       "setup": "low-stoch-storm",
-      "file": "aspira_low_stoch_storm_4h.pine",
+      "file": "intuscripto_low_stoch_storm_4h.pine",
       "active_monitor": true,
       "pine_version": "5",
-      "title": "Aspira Low Stoch Storm 4H",
+      "title": "IntusCripto Low Stoch Storm 4H",
       "input_count": 13
     },
     {
       "setup": "divergence-and-volume-15m",
-      "file": "aspira_divergence_and_volume_15m.pine",
+      "file": "intuscripto_divergence_and_volume_15m.pine",
       "active_monitor": true,
       "pine_version": "5",
-      "title": "Aspira Divergence and Volume 15m",
+      "title": "IntusCripto Divergence and Volume 15m",
       "input_count": 10
     },
     {
       "setup": "divergence-and-volume-1h",
-      "file": "aspira_divergence_and_volume_1h.pine",
+      "file": "intuscripto_divergence_and_volume_1h.pine",
       "active_monitor": true,
       "pine_version": "5",
-      "title": "Aspira Divergence and Volume 1h",
+      "title": "IntusCripto Divergence and Volume 1h",
       "input_count": 10
     },
     {
       "setup": "divergence-and-volume-4h",
-      "file": "aspira_divergence_and_volume_4h.pine",
+      "file": "intuscripto_divergence_and_volume_4h.pine",
       "active_monitor": true,
       "pine_version": "5",
-      "title": "Aspira Divergence and Volume 4h",
+      "title": "IntusCripto Divergence and Volume 4h",
       "input_count": 10
     },
     {
       "setup": "grid",
-      "file": "aspira_grid_1h.pine",
+      "file": "intuscripto_grid_1h.pine",
       "active_monitor": false,
       "pine_version": "5",
-      "title": "Aspira Grid 1H",
+      "title": "IntusCripto Grid 1H",
       "input_count": 8
     },
     {
       "setup": "delta-neutral",
-      "file": "aspira_delta_neutral_1h.pine",
+      "file": "intuscripto_delta_neutral_1h.pine",
       "active_monitor": false,
       "pine_version": "5",
-      "title": "Aspira Delta Neutral 1H Proxy",
+      "title": "IntusCripto Delta Neutral 1H Proxy",
       "input_count": 3
     },
     {
       "setup": "funding-arb",
-      "file": "aspira_funding_arb_1h.pine",
+      "file": "intuscripto_funding_arb_1h.pine",
       "active_monitor": false,
       "pine_version": "5",
-      "title": "Aspira Funding Arb 1H Context",
+      "title": "IntusCripto Funding Arb 1H Context",
       "input_count": 10
     },
     {
       "setup": "hybrid",
-      "file": "aspira_hybrid_4h.pine",
+      "file": "intuscripto_hybrid_4h.pine",
       "active_monitor": false,
       "pine_version": "5",
-      "title": "Aspira HYBRID 4H",
+      "title": "IntusCripto HYBRID 4H",
       "input_count": 7
     },
     {
       "setup": "hybrid-15m",
-      "file": "aspira_hybrid_15m.pine",
+      "file": "intuscripto_hybrid_15m.pine",
       "active_monitor": false,
       "pine_version": "5",
-      "title": "Aspira HYBRID 15m",
+      "title": "IntusCripto HYBRID 15m",
       "input_count": 8
     },
     {
       "setup": "liquidity-sweep",
-      "file": "aspira_liquidity_sweep_15m.pine",
+      "file": "intuscripto_liquidity_sweep_15m.pine",
       "active_monitor": false,
       "pine_version": "5",
-      "title": "Aspira Liquidity Sweep 15m",
+      "title": "IntusCripto Liquidity Sweep 15m",
       "input_count": 10
     }
   ]

@@ -259,7 +259,7 @@ async function cleanScreenshotChrome(page) {
   await page.mouse.move(5, 5).catch(() => {});
   await page.evaluate(() => {
     const style = document.createElement('style');
-    style.id = 'aspira-clean-screenshot-style';
+    style.id = 'intuscripto-clean-screenshot-style';
     style.textContent = `
       [role="toolbar"],
       [data-name*="toolbar"],
@@ -270,7 +270,7 @@ async function cleanScreenshotChrome(page) {
     `;
     document.head.appendChild(style);
     const hide = (el) => {
-      el.dataset.aspiraHiddenForScreenshot = '1';
+      el.dataset.intuscriptoHiddenForScreenshot = '1';
       el.style.setProperty('display', 'none', 'important');
       el.style.setProperty('visibility', 'hidden', 'important');
     };
@@ -283,8 +283,8 @@ async function cleanScreenshotChrome(page) {
         continue;
       }
       const buttonCount = el.querySelectorAll('button,[role="button"]').length;
-      const looksLikeFloatingDrawingToolbar = r.y > 40 && r.y < 170 && r.x > 420 && r.x < window.innerWidth - 420 && r.width > 160 && r.width < 760 && r.height > 24 && r.height < 95 && buttonCount >= 3 && !/XMR|Aspira|Volume|ENTRADA|STOP|ALVO/i.test(text);
-      const looksLikeBottomNavToolbar = r.y > window.innerHeight - 260 && r.x > 420 && r.x < window.innerWidth - 420 && r.width > 90 && r.width < 420 && r.height > 18 && r.height < 80 && buttonCount >= 3 && !/XMR|Aspira|Volume|ENTRADA|STOP|ALVO/i.test(text);
+      const looksLikeFloatingDrawingToolbar = r.y > 40 && r.y < 170 && r.x > 420 && r.x < window.innerWidth - 420 && r.width > 160 && r.width < 760 && r.height > 24 && r.height < 95 && buttonCount >= 3 && !/XMR|IntusCripto|Volume|ENTRADA|STOP|ALVO/i.test(text);
+      const looksLikeBottomNavToolbar = r.y > window.innerHeight - 260 && r.x > 420 && r.x < window.innerWidth - 420 && r.width > 90 && r.width < 420 && r.height > 18 && r.height < 80 && buttonCount >= 3 && !/XMR|IntusCripto|Volume|ENTRADA|STOP|ALVO/i.test(text);
       if (looksLikeFloatingDrawingToolbar || looksLikeBottomNavToolbar) hide(el);
     }
     const pane = document.querySelector('[data-qa-id="pane"]');
@@ -295,14 +295,14 @@ async function cleanScreenshotChrome(page) {
           const x = pr.left + pr.width / 2 + dx;
           const y = pr.bottom + dy;
           for (const hit of document.elementsFromPoint(x, y)) {
-            if (!hit || hit.id === 'aspira-final-overlay' || hit.closest?.('#aspira-final-overlay')) continue;
+            if (!hit || hit.id === 'intuscripto-final-overlay' || hit.closest?.('#intuscripto-final-overlay')) continue;
             let cur = hit;
             for (let depth = 0; cur && depth < 5; depth += 1, cur = cur.parentElement) {
               const cr = cur.getBoundingClientRect();
               const text = (cur.innerText || cur.textContent || '').trim();
               const buttons = cur.querySelectorAll?.('button,[role="button"]').length || 0;
               const buttonish = cur.matches?.('button,[role="button"]') || buttons >= 2;
-              const centerBottomUi = buttonish && cr.y > pr.bottom - 190 && cr.y < pr.bottom + 20 && cr.x > pr.left + 120 && cr.x < pr.right - 120 && cr.width < 520 && cr.height < 120 && !/XMR|Aspira|Volume|ENTRADA|STOP|ALVO/i.test(text);
+              const centerBottomUi = buttonish && cr.y > pr.bottom - 190 && cr.y < pr.bottom + 20 && cr.x > pr.left + 120 && cr.x < pr.right - 120 && cr.width < 520 && cr.height < 120 && !/XMR|IntusCripto|Volume|ENTRADA|STOP|ALVO/i.test(text);
               if (centerBottomUi) hide(cur);
             }
           }
@@ -315,7 +315,7 @@ async function cleanScreenshotChrome(page) {
 
 async function injectOverlay(page) {
   return page.evaluate(({ trade, modelExpr, showSummaryBox, maskBottomNav }) => {
-    document.getElementById('aspira-final-overlay')?.remove();
+    document.getElementById('intuscripto-final-overlay')?.remove();
     const model = eval(modelExpr);
     const main = (model && typeof model.mainSeries === 'function' && model.mainSeries()) || (model && model._mainSeries);
     const priceScale = (main && typeof main.priceScale === 'function' && main.priceScale()) || (main && main._priceScale);
@@ -325,7 +325,7 @@ async function injectOverlay(page) {
     if (!pane) throw new Error('pane principal não encontrado');
     const rect = pane.getBoundingClientRect();
     const root = document.createElement('div');
-    root.id = 'aspira-final-overlay';
+    root.id = 'intuscripto-final-overlay';
     root.style.position = 'absolute';
     root.style.inset = '0';
     root.style.pointerEvents = 'none';

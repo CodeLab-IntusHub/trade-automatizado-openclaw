@@ -1147,7 +1147,7 @@ async function injectPreciseOverlay(page) {{
     if (legacyLevels) legacyLevels.style.display = 'none';
     const legacyMeta = document.getElementById('meta');
     if (legacyMeta) legacyMeta.style.display = 'none';
-    document.getElementById('aspira-tradingview-overlay')?.remove();
+    document.getElementById('intuscripto-tradingview-overlay')?.remove();
     document.getElementById('legacy-tradingview-overlay')?.remove();
     const pageWidth = document.documentElement.clientWidth || window.innerWidth;
     const pane = {{
@@ -1161,7 +1161,7 @@ async function injectPreciseOverlay(page) {{
     const clampY = y => Math.max(pane.y, Math.min(pane.bottom, y));
     const levels = data.levels.map(level => ({{ ...level, absY: clampY(frameBox.y + data.pane.y + level.y), labelY: clampY(frameBox.y + data.pane.y + level.y), outOfView: Boolean(level.outOfView) }}));
     const root = document.createElement('div');
-    root.id = 'aspira-tradingview-overlay';
+    root.id = 'intuscripto-tradingview-overlay';
     root.style.position = 'absolute';
     root.style.inset = '0';
     root.style.zIndex = '2147483647';
@@ -1553,12 +1553,12 @@ async function injectManagedLayoutOverlay(page, payload) {{
   const invalid = data.levels.filter(l => l.y < -20 || l.y > data.pane.height + 20);
   if (invalid.length && !estimatedOverlay) throw new Error('nivel fora da escala visivel do TradingView apos ajuste de range: ' + invalid.map(l => l.label).join(', '));
   await page.evaluate(({{ data, P, cfg }}) => {{
-    document.getElementById('aspira-tradingview-overlay')?.remove();
+    document.getElementById('intuscripto-tradingview-overlay')?.remove();
     const pane = data.pane;
     const clampY = y => Math.max(pane.y, Math.min(pane.bottom, y));
     const levels = data.levels.map(level => ({{ ...level, absY: clampY(level.absY), outOfView: Boolean(level.outOfView) }}));
     const root = document.createElement('div');
-    root.id = 'aspira-tradingview-overlay';
+    root.id = 'intuscripto-tradingview-overlay';
     root.style.position = 'absolute';
     root.style.inset = '0';
     root.style.zIndex = '2147483647';
@@ -1731,16 +1731,16 @@ async function injectManagedLayoutOverlay(page, payload) {{
     const structure = /bos|choch/.test(reason) ? 'BOS/CHoCH' : 'Estrutura técnica';
     header.innerHTML = `<div style="font:800 18px Arial, sans-serif">${{P.setup_label || P.setup || 'Setup'}}</div><div style="margin-top:4px;font:700 12px Arial, sans-serif;color:#cbd5e1">${{P.indicator_label || ''}}</div><div style="display:inline-block;margin-top:8px;padding:5px 9px;border-radius:999px;background:${{String(P.side).toUpperCase()==='SHORT'?'#FF3B5C':'#00D4FF'}};color:#041016;font:900 12px Arial, sans-serif">${{String(P.side||'').toUpperCase()}} | ${{structure}}</div>`;
     root.appendChild(header);
-    window.__aspiraManagedLayoutClip = data.clip;
+    window.__intuscriptoManagedLayoutClip = data.clip;
   }}, {{ data, P: payload, cfg: overlayConfig }});
 }}
 async function cleanManagedScreenshotChrome(page) {{
   await page.keyboard.press('Escape').catch(() => {{}});
   await page.mouse.move(6, 6).catch(() => {{}});
   await page.evaluate(() => {{
-    if (!document.getElementById('aspira-managed-clean-screenshot-style')) {{
+    if (!document.getElementById('intuscripto-managed-clean-screenshot-style')) {{
       const style = document.createElement('style');
-      style.id = 'aspira-managed-clean-screenshot-style';
+      style.id = 'intuscripto-managed-clean-screenshot-style';
       style.textContent = `
         [role="toolbar"],
         [class*="toolbar"],
@@ -1756,7 +1756,7 @@ async function cleanManagedScreenshotChrome(page) {{
     const pane = document.querySelector('[data-qa-id="pane"]') || document.querySelector('.chart-markup-table.pane');
     const pr = pane ? pane.getBoundingClientRect() : {{ left:0, right:window.innerWidth, top:0, bottom:window.innerHeight }};
     for (const el of document.querySelectorAll('div,section,span,button,[role="button"]')) {{
-      if (el.id === 'aspira-tradingview-overlay' || el.closest?.('#aspira-tradingview-overlay')) continue;
+      if (el.id === 'intuscripto-tradingview-overlay' || el.closest?.('#intuscripto-tradingview-overlay')) continue;
       const r = el.getBoundingClientRect();
       if (!r.width || !r.height) continue;
       const text = (el.innerText || el.textContent || '').trim();
@@ -1829,7 +1829,7 @@ async function renderManagedLayoutPage(page, payload) {{
     if (!profileDir) throw new Error('renderer managed-layout exige SETUP_NOTIFY_TRADINGVIEW_PROFILE_DIR explicito; perfil pessoal padrao nao e usado automaticamente');
     await renderManagedLayoutPage(page, payload);
     await cleanManagedScreenshotChrome(page);
-    const clip = await page.evaluate(() => window.__aspiraManagedLayoutClip || null).catch(() => null);
+    const clip = await page.evaluate(() => window.__intuscriptoManagedLayoutClip || null).catch(() => null);
     if (clip && Number.isFinite(clip.x) && Number.isFinite(clip.y) && clip.width > 100 && clip.height > 100) {{
       await page.screenshot({{path:outputPath, clip}});
     }} else {{

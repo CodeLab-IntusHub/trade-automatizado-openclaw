@@ -258,14 +258,14 @@ python3 workspace/run.py rodar-setups-live --simular --setup institutional-stric
 python3 workspace/run.py abrir ETH/USDT --lado comprado --modo somente-dex --modo-margem isolated --margem-usd 20 --alavancagem 5
 ```
 
-## Entrega Discord Aspira
+## Entrega Discord IntusCripto
 
-Quando o usuário pedir que a skill funcione no Discord usando Zeus como referência técnica, use `doc referencia/05-entrega-discord-zeus.md` apenas como histórico de migração. Zeus não é marca, identidade, token nem dependência operacional do Aspira.
+Quando o usuário pedir que a skill funcione no Discord usando Zeus como referência técnica, use `doc referencia/05-entrega-discord-zeus.md` apenas como histórico de migração. Zeus não é marca, identidade, token nem dependência operacional do IntusCripto.
 
 - `DISCORD_BOT_TOKEN` salvo no Secret Manager/env seguro; nunca pedir ou exibir o valor no chat.
 - `SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID` apontando primeiro para canal de teste.
 - Bot adicionado ao servidor/canal com permissão de ler/ver canal, enviar mensagens, anexar arquivos e mencionar o cargo configurado.
-- Formato correto do Aspira: uma única mensagem com texto + imagem anexada, sem card/embed nativo. Use `SETUP_NOTIFY_DISCORD_NATIVE_EMBED=false`, `SETUP_NOTIFY_BRAND=ASPIRA TRADE` e `SETUP_NOTIFY_DISCORD_BOX=false`.
+- Formato correto do IntusCripto: uma única mensagem com texto + imagem anexada, sem card/embed nativo. Use `SETUP_NOTIFY_DISCORD_NATIVE_EMBED=false`, `SETUP_NOTIFY_BRAND=INTUSCRIPTO` e `SETUP_NOTIFY_DISCORD_BOX=false`.
 - Menção real de cargo só via `SETUP_NOTIFY_DISCORD_MENTION=<@&DISCORD_ROLE_ID>` ou outro cargo explícito; `allowed_mentions.roles` é derivado por regex da própria mensagem.
 - Validar `setup-check`, `doctor` e `rodar-setups-live --simular --max-iter 1` antes de canal público ou live.
 

@@ -1,5 +1,5 @@
 //@version=5
-indicator("Aspira Divergence and Volume 15m", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+indicator("IntusCripto Divergence and Volume 15m", overlay=true, max_labels_count=500, max_lines_count=500, max_bars_back=500)
 
 rsiLen = input.int(14, "RSI length", minval=1)
 volumeAvgLen = input.int(20, "Volume average length", minval=1)

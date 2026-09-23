@@ -1049,7 +1049,7 @@ def _discord_box_enabled() -> bool:
     # Box/código no Discord fica reservado para eventos de estado já formatados
     # por _format_state_event_notice: operação monitorada, atualização de alvo,
     # stop, fechamento etc. Sinal novo/entrada/cancelamento não deve cair em
-    # caixa por padrão, para não divergir do formato editorial do Zeus/Aspira.
+    # caixa por padrão, para não divergir do formato editorial do IntusCripto.
     raw = os.environ.get("SETUP_NOTIFY_DISCORD_BOX", "false").strip().lower()
     return raw not in {"0", "false", "no", "nao", "off"}
 
@@ -1230,7 +1230,7 @@ def _render_setup_chart_image(payload: dict[str, Any] | None) -> Path | None:
 
 
 def _discord_multipart_body(payload: dict, image_path: Path) -> tuple[bytes, str]:
-    boundary = f"aspira-trade-{int(time.time() * 1000)}"
+    boundary = f"intuscripto-trade-{int(time.time() * 1000)}"
     filename = image_path.name or "trade-chart.png"
     content_type = mimetypes.guess_type(filename)[0] or "image/png"
     file_bytes = image_path.read_bytes()
@@ -1417,7 +1417,7 @@ def _send_discord_native_embed(
     image_path: Path | None = None,
     reply_to_message_id: str = "",
 ) -> str | None:
-    # Nome mantido por compatibilidade: a entrega correta para o Aspira é texto + imagem,
+    # Nome mantido por compatibilidade: a entrega correta para o IntusCripto é texto + imagem,
     # sem card/embed nativo. O anexo aparece abaixo do texto na mesma mensagem.
     token = _discord_bot_token()
     channel_id = _discord_channel_id(target)

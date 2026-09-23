@@ -1,5 +1,5 @@
 //@version=5
-indicator("Aspira Divergence and Volume 4h", overlay=true, max_labels_count=50, max_lines_count=50, max_bars_back=500)
+indicator("IntusCripto Divergence and Volume 4h", overlay=true, max_labels_count=50, max_lines_count=50, max_bars_back=500)
 
 rsiLen = input.int(14, "RSI length", minval=1)
 volumeAvgLen = input.int(20, "Volume average length", minval=1)
@@ -97,4 +97,4 @@ plot(showFibLevels ? fibShort1618 : na, "DV4H Fib short 1.618", color=color.new(
 
 alertcondition(longSignal, "Divergence and Volume 4h LONG", "Divergence and Volume 4h LONG {{ticker}} {{interval}}")
 alertcondition(shortSignal, "Divergence and Volume 4h SHORT", "Divergence and Volume 4h SHORT {{ticker}} {{interval}}")
-alertcondition(not setupTimeframeOk, "Divergence and Volume 4h wrong timeframe", "Aspira Divergence and Volume 4h must run on 4H")
+alertcondition(not setupTimeframeOk, "Divergence and Volume 4h wrong timeframe", "IntusCripto Divergence and Volume 4h must run on 4H")

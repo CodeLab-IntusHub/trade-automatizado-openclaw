@@ -28,6 +28,13 @@ DEFAULT_STATE_PATH = HOME / ".openclaw" / "state" / SKILL_ID / "trade_dashboard.
 DEFAULT_HTML_PATH = HOME / ".openclaw" / "canvas" / "trade-dashboard.html"
 DEFAULT_SETUP_STATE_PATH = HOME / ".openclaw" / "state" / SKILL_ID / "setup_live_state.json"
 DEFAULT_OPENROUTER_CATALOG_PATH = HOME / ".openclaw" / "state" / SKILL_ID / "openrouter_models.json"
+# Estes dois nomes seguem com `aspira` **de proposito**. Eles apontam para
+# arquivos que ja existem em `~/.openclaw/state` na maquina de quem opera:
+# renomea-los faz o scanner nao achar o estado anterior e recomecar do zero,
+# em silencio -- exatamente a classe de defeito que esta fase esta fechando.
+# Rebrand nao justifica perder estado. Trocar so com migracao (ler o nome
+# novo, cair no antigo se existir) ou nunca: o nome de um arquivo interno nao
+# e superficie de marca.
 DEFAULT_WHATSAPP_SCANNER_LOG_PATH = DEFAULT_STATE_DIR / "aspira-trading-whatsapp-scanner.log"
 DEFAULT_WHATSAPP_SCANNER_STATE_PATH = DEFAULT_STATE_DIR / "aspira-trading-whatsapp-scanner-state.json"
 DEFAULT_VALIDATED_ENV_PATH = DEFAULT_STATE_DIR / "hyperliquid-whatsapp-validated-v5.env"
