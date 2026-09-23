@@ -160,13 +160,27 @@ def _parse_pct_value(raw: float | str | None) -> float:
 
 
 def _pct_from_env(*names: str, default: float = 0.0) -> float:
+    """Percentual de risco vindo do ambiente, com o vocabulario do `cli`.
+
+    Esta funcao tinha a sua propria copia do parser e o mesmo
+    `except ... return default` -- e consulta exatamente as mesmas variaveis
+    (`PROTECTIVE_STOP_LOSS_PCT`, `MAX_PAIR_LOSS_PCT`). Corrigir so o `cli`
+    deixaria dois vereditos para a mesma pergunta, que e o defeito de origem
+    do sandbox.
+    """
+    from workspace.cli import _parse_pct_value as _pct
+
     raw = _first_env(*names)
     if raw is None:
         return default
-    try:
-        return _parse_pct_value(raw)
-    except (TypeError, ValueError):
-        return default
+    # Mesmo criterio do `_first_env` acima: a variavel que de fato carregou o
+    # valor, e nao a primeira da cadeia -- citar a primeira mandaria o operador
+    # mexer numa variavel que ele nao definiu.
+    declarada = next(
+        (n for n in names if os.environ.get(n) is not None and str(os.environ[n]).strip()),
+        names[0],
+    )
+    return _pct(raw, declarada)
 
 
 TEST_STOP_LOSS_PCT = _pct_from_env(

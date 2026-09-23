@@ -484,25 +484,65 @@ def _normalize_margin_mode_arg(raw: str | None) -> str:
 
 
 def _load_optional_float_arg(raw: float | str | None, *env_names: str) -> float:
+    """Numero vindo de argumento ou de uma cadeia de envs.
+
+    Ele decide `MARGIN_USD` -- o tamanho da posicao. Ja falhava fechado, mas
+    com `ValueError` cru: traceback, sem dizer qual das variaveis da cadeia
+    estava errada nem o que se esperava dela.
+    """
     if raw is not None:
-        return float(raw)
+        return _numero(raw, "valor informado na linha de comando")
+    declarada = _first_env_name(*env_names)
     env_value = _first_env(*env_names)
     if env_value is None:
         return 0.0
-    return float(env_value)
+    return _numero(env_value, declarada or " / ".join(env_names))
 
 
-def _parse_pct_value(raw: float | str | None) -> float:
+def _numero(raw: float | str, origem: str, mostrar: str | None = None) -> float:
+    """Float com mensagem que nomeia a origem e a virgula decimal.
+
+    A virgula e o erro mais provavel aqui e a correcao nao e obvia para quem
+    escreve numero em portugues: `2,5` nao levantava nada, era descartado.
+    """
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        return float(raw)
+    texto = str(raw).strip()
+    try:
+        return float(texto)
+    except (TypeError, ValueError) as exc:
+        escrito = mostrar if mostrar is not None else repr(texto)
+        dica = (
+            " Use ponto como separador decimal (2.5), nao virgula."
+            if "," in str(escrito)
+            else ""
+        )
+        raise ConfigError(
+            f"valor numerico invalido para {origem}: {escrito}.{dica} "
+            "Valor nao reconhecido nao vira o default -- aqui o default "
+            "ocuparia o lugar de um numero que voce escreveu."
+        ) from exc
+
+
+def _parse_pct_value(raw: float | str | None, origem: str = "percentual") -> float:
+    """Percentual aceitando `2.5`, `2.5%` e a fracao `0.025`.
+
+    `origem` entra nas mensagens: quem le precisa reconhecer a variavel que ele
+    mesmo definiu, e nao uma qualquer da cadeia consultada.
+    """
     if raw is None:
         return 0.0
     text = str(raw).strip()
     if not text:
         return 0.0
-    value = float(text.rstrip("%"))
+    value = _numero(text.rstrip("%").strip(), origem, mostrar=repr(text))
     if value > 1:
         value /= 100
     if value < 0:
-        raise ValueError("percentual nao pode ser negativo")
+        raise ConfigError(
+            f"percentual negativo para {origem}: {text!r}. "
+            "Percentual de risco e sempre positivo."
+        )
     return value
 
 
@@ -2469,13 +2509,20 @@ def _apply_target_stop_mode(
 
 
 def _notice_pct_from_env(*env_names: str, default: float = 0.0) -> float:
+    """Percentual de risco vindo do ambiente.
+
+    O `except ... return default` que estava aqui descartava o valor escrito e
+    punha o default no lugar, calado -- e o que esta funcao alimenta e stop
+    loss e take profit. Com `default=0.03`, `PROTECTIVE_STOP_LOSS_PCT=2,5`
+    virava 3%: um stop 20% mais largo que o pretendido.
+
+    Ausente ou vazio continua caindo no default: nao declarar segue sendo
+    diferente de declarar errado.
+    """
     raw = _first_env(*env_names)
     if raw is None:
         return default
-    try:
-        return _parse_pct_value(raw)
-    except (TypeError, ValueError):
-        return default
+    return _parse_pct_value(raw, _first_env_name(*env_names) or env_names[0])
 
 
 def _notice_stop_loss_pct(stop_loss_pct: float = 0.0) -> float:
