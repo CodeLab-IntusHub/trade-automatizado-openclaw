@@ -2,6 +2,11 @@
 
 ## Nao publicado
 
+### Alterado
+
+- **`setuptools<81` sai do `requirements.txt` base e vai para o `requirements-nado.txt`.** A restricao existe por causa do `eth-keyfile`, que ainda importa `pkg_resources` (removido no setuptools 81) e **so vem com o SDK da Nado**. No base ela limitava o `setuptools` de toda instalacao por uma dependencia que a maioria nao instala -- inclusive no `bootstrap`, que instalava `setuptools<81` para todo mundo. O `pip` reaplica a restricao quando o extra da Nado e instalado.
+- **`python-dotenv` 1.0.1 -> 1.2.3.** O projeto usa apenas `load_dotenv`, a parte mais estavel da API; a suite passa integralmente com a versao nova, local e na CI (ubuntu x windows, 3.12 e 3.13).
+
 ### Corrigido
 
 - **Modo de stop por alvo irreconhecivel no estado deixa de desligar o trailing em silencio.** `_target_stop_mode_from_state` devolvia `off` para qualquer valor fora do vocabulario, sem dizer nada. `off` **nao** deixa a posicao sem stop -- o stop inicial continua onde foi colocado --, mas desliga a melhoria: com `breakeven_on_tp1` ou `ladder` o stop deveria subir depois de um alvo atingido, e passava a nao subir. O operador pede a melhoria e ela silenciosamente nao acontece. Dentro de uma mesma versao isso nao ocorre (o valor e normalizado na entrada do comando, que levanta); ocorre **entre versoes**, porque o arquivo de estado sobrevive ao upgrade e um alias removido apagaria o trailing de toda posicao aberta, e com estado editado a mao.

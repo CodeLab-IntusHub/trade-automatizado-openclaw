@@ -415,7 +415,12 @@ def _bootstrap_at(path: Path, *, force: bool) -> dict[str, object]:
     before = _dependency_status(py) if py.exists() else {}
     if force or not _dependencies_ready(before):
         subprocess.check_call(
-            [str(py), "-m", "pip", "install", "--upgrade", "pip", "setuptools<81", "wheel"],
+            # `setuptools` sem teto: a restricao `<81` e do `eth-keyfile`, que
+            # so vem com o SDK da Nado, e mora no `requirements-nado.txt`. Aqui
+            # ela limitava o ambiente de todo mundo por uma dependencia que a
+            # maioria nao instala -- e o `pip` a reaplica quando o extra da
+            # Nado e instalado.
+            [str(py), "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
         )
