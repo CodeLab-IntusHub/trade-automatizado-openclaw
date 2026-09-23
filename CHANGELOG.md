@@ -1,6 +1,6 @@
 # Changelog
 
-## Nao publicado
+## v1.5.0 — 2026-09-22
 
 ### Adicionado
 
@@ -15,21 +15,18 @@
 - **`settings.schema.json`**: o vocabulario como dado, legivel pelo operador, caminhado por `workspace/settings_schema.py`. Sem dependencia nova: o vocabulario e pequeno e o valor esta quase todo na mensagem, que aponta a chave, o caminho e a grafia provavel (`Voce quis dizer 'pivot_window'?`). A lista de parametros e **por setup**, nao uma lista unica: `funding-arb.pivot_window` existe como parametro, mas nao nesse setup, e uma lista unica o aceitaria com a chave morta do mesmo jeito.
 - **Id de venue da CEX e conferido contra `ccxt.exchanges`** mais as variantes internas (`kraken-spot`, `krakenfutures`, `hyperliquid-dex`). Id fora dessa lista nao constroi adapter nenhum, entao a chave estaria morta de qualquer forma -- e a venue cairia no default, que fora da familia kraken e producao. O id do **DEX** fica aberto de proposito: `DEX_ADAPTER_MODULE` permite adapter proprio, e fechar ali recusaria configuracao legitima.
 - **O `doctor` reporta e o veredito conta.** `settings_error` no relatorio e o check `settings_schema` em `BLOCKING_CHECKS`. Quem edita o settings roda `setup-check`, nao `setup-live`: reportar so no boot do live deixaria a descoberta para o momento em que ja ha ordem para abrir.
-
-### Mudanca de comportamento (atencao ao atualizar)
-
-- **Chave desconhecida em `settings.json` ou `settings.local.json` derruba o comando** no boot e marca `attention` no `doctor`. Se voce mantinha chaves proprias no arquivo -- anotacao, campo de outra ferramenta, resto de experimento --, prefixe com `_comentario` (aceito em qualquer nivel) ou remova. A direcao cara desta mudanca e recusar config legitima, e ha duas defesas contra isso na suite: o `settings.example.json` tem que passar pelo schema, e um espiao em `Settings._require` registra toda chave que os getters de setup pedem e exige que o schema aceite cada uma.
-
-
 - **Os oito portoes booleanos que sobraram ganham vocabulario com os dois lados.** `_load_bool_env` era `raw.lower() in {"1","true","yes","sim"}`: todo o resto caia no `else` implicito e virava `False`. Em `NADO_REQUIRE_LINKED_SIGNER`, cujo default e `True`, isso **desligava a protecao** -- e aqui nao ha o consolo de o default ser o lado seguro, como havia no sandbox. Medido: `ture`, `tru`, `verdadeiro` e tambem `on`, `s` e `y` resolviam `False`. Os tres ultimos sao o caso que mais incomoda, porque sao **validos** no vocabulario que o `sandbox` usa: quem aprendeu a escrever `CEX_SANDBOX=on` desligava a verificacao de linked signer sem nada dizer.
 - **Quatro copias do vocabulario viraram uma.** `Settings.get_bool` passou a delegar para `config.coerce_bool`, e os leitores que nao carregam `Settings` consomem a mesma funcao: `cli._load_bool_env`, `nado/auto_trade_nado._env_bool`, `nado/example._env_bool` e `venues/hyperliquid_dex._to_bool`. Corrigir so o `cli` repetiria o defeito de origem do sandbox -- `NADO_REQUIRE_LINKED_SIGNER` e lido em tres lugares, e nos tres o default e `True`.
 - **`hyperliquid_dex._to_bool` era um quinto leitor de `sandbox`**, a jusante do resolvedor e com default `False` -- producao. Hoje o resolvedor entrega um `bool` de verdade e a recoercao e inofensiva, mas um valor irreconhecivel chegando por qualquer caminho resolvia para producao em silencio.
 
 ### Mudanca de comportamento (atencao ao atualizar)
 
+Esta versao tem **duas** mudancas que podem derrubar um comando que hoje roda. As duas sao na mesma direcao: valor que antes era adivinhado em silencio agora e recusado. Confira o seu `.env` e o seu `settings.json` antes de atualizar.
+
+- **Chave desconhecida em `settings.json` ou `settings.local.json` derruba o comando** no boot e marca `attention` no `doctor`. Se voce mantinha chaves proprias no arquivo -- anotacao, campo de outra ferramenta, resto de experimento --, prefixe com `_comentario` (aceito em qualquer nivel) ou remova. A direcao cara desta mudanca e recusar config legitima, e ha duas defesas contra isso na suite: o `settings.example.json` tem que passar pelo schema, e um espiao em `Settings._require` registra toda chave que os getters de setup pedem e exige que o schema aceite cada uma.
 - **Valor fora do vocabulario nos oito portoes agora derruba o comando** em vez de virar `False`. Ausente ou vazio continua devolvendo o default -- nao declarar segue sendo diferente de declarar errado --, e comentario inline (`false  # legado`) continua sendo cortado antes da leitura. Confira os valores de `NADO_REQUIRE_LINKED_SIGNER`, `KRAKEN_API_IS_SUBACCOUNT`, `KRAKEN_REQUIRE_SUBACCOUNT`, `KRAKEN_ALLOW_MAIN_ACCOUNT`, `NADO_ALLOW_OWNER_FALLBACK`, `DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK`, `SETUP_NOTIFY_MONITORED_ON_START` e `SETUP_NOTIFY_MONITORED_FORCE` no seu `.env`: o vocabulario aceito e `1/true/yes/sim/on/y/s` e `0/false/no/nao/nao/off/n`. `ConfigError` e um `RuntimeError`, entao o comando termina com a mensagem, nao com traceback.
 
-### Nao coberto por esta mudanca
+### Nao coberto por esta versao
 
 - Restam ~20 leituras booleanas inline (`SETUP_NOTIFY_*`, `SETUP_NOTIFY_TRADINGVIEW_*`) com o mesmo `else` implicito. Ficaram de fora de proposito: todas tem default `False` e ligam funcionalidade de notificacao/renderizacao, entao o typo desliga o que o operador queria ligar -- sem direcao de dinheiro nem de protecao. Migra-las e limpeza, nao correcao.
 
