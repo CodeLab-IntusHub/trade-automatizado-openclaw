@@ -14,6 +14,7 @@ trabalho não ficam aqui.
 | [Proteção de ordens](features/protecao-de-ordens.md) | Validação de SL/TP, substituição de stop, limitações por venue |
 | [Sandbox por venue](features/sandbox-por-venue.md) | Resolvedor único de sandbox, precedência e defaults por venue |
 | [Vocabulário de booleanos](features/vocabulario-de-booleanos.md) | `coerce_bool` como definição única; os oito portões lidos do ambiente |
+| [Schema do settings](features/schema-do-settings.md) | Chave desconhecida derruba o comando em vez de ser ignorada |
 
 ## Venues
 
@@ -46,6 +47,11 @@ variáveis `*_SANDBOX` continuam sendo lidas e vencem o arquivo, por isso vêm
 comentadas no `.env.example` e não são mais prescritas em documento nenhum; se
 uma delas chegar pelo `config.env` do operador, o carregamento avisa qual chave
 de settings ficou sem efeito.
+
+Chave **desconhecida** no settings derruba o comando em vez de ser ignorada: um
+typo no nome fazia a chave não ser lida e o valor efetivo virar o default — que
+para `sandbox`, fora da família kraken, é produção. Ver
+[Schema do settings](features/schema-do-settings.md).
 
 ## Plataforma
 

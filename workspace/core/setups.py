@@ -899,6 +899,12 @@ def validate_setup_settings(*, settings: "Settings | None" = None) -> None:
     Chamar no boot, antes do loop.
     """
     cfg = _settings_for(settings)
+    # Antes de validar valor, validar vocabulário: um typo no NOME da chave
+    # produz uma chave que nenhum getter pede, então toda a validação abaixo
+    # passaria por ele sem ver nada -- e o valor efetivo seria o default.
+    from workspace.settings_schema import exigir_settings_valido
+
+    exigir_settings_valido(cfg)
     get_triangle_breakout_config(settings=cfg)
     get_funding_arb_config(settings=cfg)
     for timeframe in ("15m", "1h", "4h"):

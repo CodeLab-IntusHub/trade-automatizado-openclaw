@@ -26,7 +26,8 @@ if str(REPO_DIR) not in sys.path:
 from workspace.venues import venue_summary  # noqa: E402
 from workspace.venues.sandbox import resolve_sandbox, sandbox_settings_keys  # noqa: E402
 from workspace.venues.config import selected_venues  # noqa: E402
-from workspace.config import ConfigError  # noqa: E402
+from workspace.config import ConfigError, load_settings  # noqa: E402
+from workspace.settings_schema import validar_settings  # noqa: E402
 _logger = logging.getLogger(__name__)
 REQUIREMENTS = WORKSPACE_DIR / "requirements.txt"
 SKILL_ID = "trade-automatizado-openclaw"
@@ -530,6 +531,31 @@ def _sandbox_do_relatorio(kind: str, venue_id: str) -> str | None:
         return None
 
 
+def _erro_de_vocabulario_do_settings() -> str | None:
+    """Chaves desconhecidas nos arquivos de settings, ou `None`.
+
+    Chave desconhecida nao levanta na leitura -- ela simplesmente nao e lida, e
+    o valor efetivo vira o default. Quem edita o settings roda `setup-check`,
+    nao `setup-live`: reportar so no boot do live deixaria a descoberta para o
+    momento em que ja ha ordem para abrir.
+
+    Arquivo ilegivel nao entra aqui: isso e outro erro, e `load_settings` ja o
+    trata. Aqui so o vocabulario.
+    """
+    try:
+        camadas = load_settings().camadas_de_arquivo()
+        problemas = [
+            erro for nome, payload in camadas for erro in validar_settings(payload, origem=nome)
+        ]
+    except ConfigError:
+        # O `try` precisa cobrir a validacao tambem, e nao so a leitura: o
+        # schema ausente levanta de dentro dela, e ai o relatorio inteiro virava
+        # traceback -- em `setup_check`, que e rodado justamente quando algo
+        # esta errado. Mesma licao do `venues_error`.
+        return None
+    return "; ".join(problemas) or None
+
+
 def setup_check() -> dict[str, object]:
     env_loaded = _load_env_file()
     _safe_mkdirs()
@@ -548,6 +574,7 @@ def setup_check() -> dict[str, object]:
         venues_error = str(exc)
     selecao = selected_venues()
     return {
+        "settings_error": _erro_de_vocabulario_do_settings(),
         "status": "ok" if _dependencies_ready(venv_deps) else "needs_bootstrap",
         "runtime": {
             "python": sys.version.split()[0],
@@ -617,7 +644,7 @@ def setup_check() -> dict[str, object]:
 # de proposito: ela falta em quem ainda esta configurando, e nao impede o
 # diagnostico de rodar.
 BLOCKING_CHECKS = frozenset(
-    {"requirements_file", "state_dir_writable", "log_dir_writable", "venv_ready", "venues_config"}
+    {"requirements_file", "state_dir_writable", "log_dir_writable", "venv_ready", "venues_config", "settings_schema"}
 )
 
 
@@ -684,6 +711,15 @@ def doctor() -> dict[str, object]:
     # check acima silenciosamente derrubava outro do criterio -- foi o que
     # aconteceu com `venues_config`, que ficou fora e deixava o `doctor`
     # devolver `ok` com config que derruba todo comando de trade.
+    # Chave desconhecida nao levanta na leitura: ela e ignorada e o valor
+    # efetivo vira o default -- que para sandbox, fora da familia kraken, e
+    # producao. Bloqueante pelo mesmo motivo do `venues_config`.
+    settings_error = report.get("settings_error")
+    add(
+        "settings_schema",
+        settings_error is None,
+        str(settings_error) if settings_error else "ok",
+    )
     report["status"] = (
         "ok"
         if all(item["ok"] for item in report["checks"] if item["name"] in BLOCKING_CHECKS)
