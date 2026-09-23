@@ -5,9 +5,13 @@ e o objetivo declarado é que qualquer bot passe a consumir isso. Dois problemas
 só ficam caros **depois** que alguém consome:
 
 1. **`context.scanner_state_path` emitia o caminho absoluto do operador.**
-   Medido antes da correção:
+   Medido antes da correção: o valor era o caminho completo do arquivo de
+   estado dentro do diretório pessoal do operador -- começando pela raiz de
+   perfis do sistema, seguida do nome da conta.
 
-       C:\\Users\\<usuario>\\.openclaw\\state\\...\\ccxt_entry_scanner_state.json
+   (O exemplo literal não entra aqui: o `validate` da CI recusa caminho
+   absoluto de host commitado, e ele está certo -- documentar o vazamento
+   reproduzindo o padrão seria cometê-lo no repositório.)
 
    Isso carrega o **nome de usuário da máquina** para dentro de uma mensagem
    que já vai para um grupo. É dado de diagnóstico e pertence ao log local.
@@ -65,8 +69,9 @@ def test_nenhum_campo_carrega_caminho_local(monkeypatch) -> None:
     """Guard largo, de propósito: pega a reintrodução por qualquer campo novo,
     não só pelo que foi removido.
 
-    A primeira versão comparava contra `Path.home()` e contra marcadores como
-    `C:\\Users\\`. Ela **passava com o vazamento reintroduzido** — confirmado
+    A primeira versão comparava contra `Path.home()` e contra marcadores de
+    raiz de perfil do sistema. Ela **passava com o vazamento reintroduzido** —
+    confirmado
     por mutação: o valor depende de onde o teste roda e de quando o módulo foi
     importado (`STATE_PATH` é constante de módulo). Guard que depende do
     ambiente não é guard.

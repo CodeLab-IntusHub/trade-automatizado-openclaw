@@ -4,7 +4,7 @@
 
 ### Corrigido
 
-- **O payload do sinal deixa de emitir o caminho de arquivo do operador.** `context.scanner_state_path` carregava o caminho absoluto -- com o **nome de usuario da maquina** -- para dentro de uma mensagem que ja vai para um grupo, e que passaria a ir para qualquer bot que venha a consumir. Medido: `C:\Users\<usuario>\.openclaw\state\...`. E dado de diagnostico e pertence ao log local, nao ao sinal.
+- **O payload do sinal deixa de emitir o caminho de arquivo do operador.** `context.scanner_state_path` carregava o caminho absoluto -- com o **nome de usuario da maquina** -- para dentro de uma mensagem que ja vai para um grupo, e que passaria a ir para qualquer bot que venha a consumir. Medido: o valor era o caminho completo do arquivo de estado dentro do diretorio pessoal do operador, comecando pela raiz de perfis do sistema e pelo nome da conta. E dado de diagnostico e pertence ao log local, nao ao sinal.
 - **`raw_payload` deixa de ser passagem direta do dicionario interno.** Uma chave arbitraria plantada na entrada atravessava inteira para a saida. Nao e que houvesse segredo ali hoje -- e que nada impedia: a seguranca do campo dependia de ninguem nunca por nada sensivel no dict interno, o que nao e propriedade que alguem garanta. E congelava os internos no contrato, fazendo de toda mudanca interna uma quebra para quem consome. Agora ele carrega apenas os 14 campos declarados em `CAMPOS_PUBLICOS_DO_SINAL` -- que sao exatamente os que o produtor monta, e que ja saem como campo de primeira classe.
 - **Um teste que consagrava a passagem direta foi corrigido.** `test_unified_signal_publication.py` afirmava `structured["raw_payload"] == signal`, isto e, exigia que o dict interno atravessasse inteiro.
 
