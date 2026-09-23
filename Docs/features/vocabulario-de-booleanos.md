@@ -1,7 +1,11 @@
-# Vocabulário de booleanos
+# Vocabulário de configuração
 
-> Última atualização: 22 de setembro de 2026
-> Versão: 1.1.0
+> Última atualização: 23 de setembro de 2026
+> Versão: 1.2.0
+
+> O arquivo se chama `vocabulario-de-booleanos.md` por histórico: ele nasceu
+> cobrindo só os portões booleanos e cresceu para a família inteira (booleano,
+> número, direção). O nome fica para não quebrar os links existentes.
 
 ## Visão geral
 
@@ -131,6 +135,41 @@ O `ccxt_entry_scanner` tinha a própria cópia do helper, consultando as mesmas
 variáveis; ela passou a consumir o parser do `cli`. Dois leitores com dois
 vereditos para a mesma pergunta é o defeito de origem do sandbox.
 
+## O mesmo defeito em direção: `UNIQUE_TREND`
+
+`UNIQUE_TREND` restringe a direção das entradas, e **string vazia significa
+sem filtro** — é o que `decision.py:497` testa:
+
+```python
+if self.unique_trend:
+    if self.unique_trend == 'LONG' and not is_long: ...
+```
+
+O helper devolvia `""` para tudo que não fosse exatamente `LONG` ou `SHORT`:
+
+| Escrito | Efetivo | |
+|---|---|---|
+| `LONG` | `LONG` | |
+| `LNOG` | `""` | **filtro sumiu**, opera nos dois sentidos |
+| `LONGO` | `""` | filtro sumiu |
+| `comprado` | `""` | filtro sumiu |
+| `LONG,SHORT` | `""` | filtro sumiu |
+
+Aqui o vazio não é a ausência de um valor: **é um valor com significado**. Por
+isso resolver um valor irreconhecível para vazio não era "cair no default" —
+era apagar a restrição que o operador tinha escrito.
+
+`comprado` incomoda em particular: `_normalize_order_side_arg`, na mesma
+`cli.py`, já aceita `comprado`, `compra`, `vendido` e `venda` para o mesmo
+conceito. O projeto entendia a palavra no argumento e a descartava na variável
+de ambiente — o mesmo desencontro que `on`/`s`/`y` tinham entre o `sandbox` e
+os portões booleanos. As duas portas passaram a ler de `_DIRECOES`, uma
+definição só.
+
+`CERTAINTY` — o limiar que decide se a entrada acontece — já falhava fechado,
+mas com `ValueError` cru: traceback, sem nomear a variável, e esbarrando na
+mesma vírgula decimal.
+
 ## Limitação conhecida
 
 Os `_to_float` dos adapters (`kraken_integration`, `ccxt_cex`,
@@ -151,3 +190,4 @@ commit de uma correção de segurança só dificulta a revisão.
 |------|---------|
 | 22/09/2026 | Documento inicial: `coerce_bool` como definição única, os oito portões e o que ficou de fora |
 | 22/09/2026 | O mesmo defeito em número: percentual de risco deixa de cair no default, e a mensagem cita a vírgula decimal |
+| 23/09/2026 | O mesmo defeito em direção: `UNIQUE_TREND` inválido deixa de apagar o filtro; `_DIRECOES` unifica o vocabulário com o `--side` |

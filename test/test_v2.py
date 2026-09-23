@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT))
 
 import workspace.cli as cli
 import workspace.run as run_wrapper
+from workspace.config import ConfigError
 import workspace.core.setups as setups_module
 from workspace.core.delta_neutral import DeltaNeutralEngine, PairState
 from workspace.core.live_setups import ManagedSetupState, evaluate_setup_entry, evaluate_setup_exit
@@ -692,7 +693,15 @@ def test_cli_env_compatibility_helpers(monkeypatch):
     assert cli._load_certainty_env() == 75
     monkeypatch.setenv("CERTAINTY", "75%")
     assert cli._load_certainty_env() == 75
+    # Esta assercao dizia `== ""`: ou seja, consagrava o defeito. Vazio
+    # significa **sem filtro de direcao** (`decision.py:497`), entao aceitar
+    # que `true` -- que nao e direcao nenhuma -- resolva para vazio e afirmar
+    # que a restricao do operador deve sumir em silencio. Ver
+    # `test_filtros_de_entrada.py`.
     monkeypatch.setenv("UNIQUE_TREND", "true")
+    with pytest.raises(ConfigError):
+        cli._load_unique_trend_env()
+    monkeypatch.delenv("UNIQUE_TREND", raising=False)
     assert cli._load_unique_trend_env() == ""
     monkeypatch.setenv("UNIQUE_TREND", "short")
     assert cli._load_unique_trend_env() == "SHORT"
