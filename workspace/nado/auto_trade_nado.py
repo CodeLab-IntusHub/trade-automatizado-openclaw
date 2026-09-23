@@ -100,6 +100,17 @@ def _clean_literal_env(value: str | None) -> str | None:
 
 
 def _load_certainty_env(name: str = "CERTAINTY", default: int = 70) -> int:
+    """Limiar de entrada, com o vocabulario do `cli`.
+
+    Tinha a propria copia, lendo a mesma variavel: dois vereditos para a mesma
+    pergunta e o defeito de origem do sandbox.
+    """
+    from workspace.cli import _load_certainty_env as _certainty
+
+    return _certainty(name, default)
+
+
+def _load_certainty_env_legado(name: str = "CERTAINTY", default: int = 70) -> int:
     raw = _clean_literal_env(os.environ.get(name))
     if raw is None:
         return default
@@ -111,10 +122,15 @@ def _load_certainty_env(name: str = "CERTAINTY", default: int = 70) -> int:
 
 
 def _load_unique_trend_env(name: str = "UNIQUE_TREND") -> str:
-    raw = (_clean_literal_env(os.environ.get(name)) or "").upper()
-    if raw in {"LONG", "SHORT"}:
-        return raw
-    return ""
+    """Filtro de direcao, com o vocabulario do `cli`.
+
+    A copia que estava aqui devolvia `""` para todo valor irreconhecivel -- e
+    vazio significa **sem filtro**, entao a restricao de direcao que o operador
+    escreveu desaparecia sem nada dizer.
+    """
+    from workspace.cli import _load_unique_trend_env as _trend
+
+    return _trend(name)
 
 
 def _load_nado_owner_private_key() -> str | None:

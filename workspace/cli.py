@@ -424,21 +424,53 @@ def _load_int_env(name: str, default: int) -> int:
 
 
 def _load_certainty_env(name: str = "CERTAINTY", default: int = 70) -> int:
+    """Limiar que decide se a entrada acontece.
+
+    Ja falhava fechado, mas com `ValueError` cru: traceback, sem nomear a
+    variavel nem dizer o que se esperava dela. E `70,5` esbarrava na mesma
+    virgula decimal dos percentuais de risco.
+    """
     raw = _clean_literal_env(os.environ.get(name))
     if raw is None:
         return default
-    cleaned = raw.rstrip("%")
-    value = float(cleaned)
+    value = _numero(raw.rstrip("%").strip(), name, mostrar=repr(raw))
     if value <= 1:
         value *= 100
     return int(round(value))
 
 
+def _normaliza_direcao(raw: str | None, origem: str) -> str:
+    """`LONG`, `SHORT` ou `""` (sem filtro). Valor desconhecido levanta.
+
+    String vazia aqui **e um valor com significado** -- `decision.py` testa
+    `if self.unique_trend:` e trata vazio como "sem filtro" --, e nao a
+    ausencia de um. Por isso devolver `""` para todo valor irreconhecivel
+    apagava a restricao que o operador tinha escrito: ele restringia a direcao
+    e passava a operar nos dois sentidos, sem nada dizer.
+
+    O vocabulario e o mesmo de `_normalize_order_side_arg`, na mesma
+    `cli.py`: ela ja aceita `comprado`, `compra`, `vendido` e `venda`.
+    Entender a palavra num lugar e descarta-la no outro e o desencontro que
+    `on`/`s`/`y` tinham entre o sandbox e os portoes booleanos.
+    """
+    texto = _clean_literal_env(raw)
+    if texto is None:
+        return ""
+    chave = texto.strip().lower().replace("-", "_")
+    direcao = _DIRECOES.get(chave)
+    if direcao is None:
+        raise ConfigError(
+            f"direcao invalida para {origem}: {texto!r}. "
+            f"Use um de {sorted(_DIRECOES)}, ou deixe a variavel vazia para "
+            "nao filtrar direcao. Valor nao reconhecido nao vira 'sem filtro' "
+            "-- isso apagaria a restricao que voce escreveu."
+        )
+    # Maiusculo por contrato: `decision.py` compara com 'LONG'/'SHORT' literais.
+    return direcao.upper()
+
+
 def _load_unique_trend_env(name: str = "UNIQUE_TREND") -> str:
-    raw = (_clean_literal_env(os.environ.get(name)) or "").upper()
-    if raw in {"LONG", "SHORT"}:
-        return raw
-    return ""
+    return _normaliza_direcao(os.environ.get(name), name)
 
 
 def _first_env(*names: str) -> str | None:
@@ -458,16 +490,22 @@ def _normalize_execution_mode_arg(raw: str | None) -> str:
         raise SystemExit(str(exc)) from exc
 
 
+# Uma definicao para as duas portas: o `--side` e o `UNIQUE_TREND`. Duas
+# copias divergiriam, e foi exatamente a divergencia que deixou `comprado`
+# valendo no argumento e sendo descartado na variavel de ambiente.
+_DIRECOES = {
+    "long": "long",
+    "comprado": "long",
+    "compra": "long",
+    "short": "short",
+    "vendido": "short",
+    "venda": "short",
+}
+
+
 def _normalize_order_side_arg(raw: str | None) -> str:
     key = (raw or "long").strip().lower().replace("-", "_")
-    aliases = {
-        "long": "long",
-        "comprado": "long",
-        "compra": "long",
-        "short": "short",
-        "vendido": "short",
-        "venda": "short",
-    }
+    aliases = _DIRECOES
     normalized = aliases.get(key)
     if normalized is None:
         raise SystemExit(f"lado invalido: {raw}; use comprado/long ou vendido/short")
