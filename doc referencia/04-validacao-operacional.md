@@ -28,7 +28,7 @@ python3 workspace/run.py unwind
 
 ## Quando bloquear
 
-- linked signer ausente ou diferente do on-chain
+- linked signer configurado e diferente do on-chain, ou impossivel de consultar (ausente nao bloqueia: o trade assina com a owner key)
 - subconta Nado vazia ou invalida
 
 So com a validacao estrita da Kraken ligada (`KRAKEN_REQUIRE_SUBACCOUNT=true`):

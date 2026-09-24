@@ -21,5 +21,5 @@ Arquivos raiz relacionados:
 Convencoes:
 - datas absolutas para snapshots
 - segredos nunca aparecem aqui
-- na Nado, trade exige linked signer da subconta, sem fallback para a owner key salvo confirmacao explicita
+- na Nado, sem linked signer configurado o trade assina com a owner key; com linked signer configurado e invalido, bloqueia, e usar a owner key exige confirmacao explicita
 - na Kraken, subconta e recomendada e opcional; o usuario decide se liga a validacao estrita

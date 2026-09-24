@@ -2,19 +2,19 @@
 
 ## Objetivo
 
-Isolar o trade da conta principal. Na Nado o isolamento e obrigatorio por
-padrao; na Kraken Futures e recomendado e opcional — o usuario decide.
+Isolar o trade da conta principal. Na Nado o linked signer e recomendado; na
+Kraken Futures a subconta e recomendada e opcional — o usuario decide.
 
 ## Nado
 
 - owner signer continua existindo para montar o client
-- a execucao de trade depende de `NADO_LINKED_SIGNER_PRIVATE_KEY` (`NADO_REQUIRE_LINKED_SIGNER=true` e o default)
-- o linked signer configurado precisa bater com o linked signer on-chain da subconta
+- com `NADO_LINKED_SIGNER_PRIVATE_KEY` configurada, o trade assina com o linked signer, que precisa bater com o linked signer on-chain da subconta
+- **sem** `NADO_LINKED_SIGNER_PRIVATE_KEY`, o trade assina com a owner key — regra da skill (`workspace/cli.py`), mesmo com `NADO_REQUIRE_LINKED_SIGNER=true`
 - a subconta usada pelo bot e `NADO_SUBACCOUNT_NAME`, com `default_1` como exemplo operacional
 
 Consequencia:
 - consultas continuam disponiveis
-- trade falha fechado sem linked signer valido
+- trade falha fechado quando o linked signer configurado nao confere com o on-chain, ou nao pode ser consultado; usar a owner key nesse caso exige `NADO_ALLOW_OWNER_FALLBACK=true` e `DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK=true`
 
 ## Kraken Futures
 

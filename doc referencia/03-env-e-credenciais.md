@@ -16,7 +16,8 @@ Notas:
 - `NADO_PRIVATE_KEY` e alias legado
 - o valor canonico agora e `NADO_OWNER_PRIVATE_KEY`
 - `NADO_LINKED_SIGNER_PRIVATE_KEY` precisa ser o signer vinculado on-chain a `default_1`
-- fallback para owner key exige `NADO_ALLOW_OWNER_FALLBACK=true` e `DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK=true`
+- sem `NADO_LINKED_SIGNER_PRIVATE_KEY`, o trade assina com a owner key
+- com linked signer configurado mas invalido, fallback para a owner key exige `NADO_ALLOW_OWNER_FALLBACK=true` e `DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK=true`
 
 ## Variaveis Kraken
 

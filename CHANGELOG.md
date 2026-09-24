@@ -12,7 +12,7 @@
 
 ### Documentacao
 
-- **`doc referencia/` volta a valer** (ROADMAP 0.3). Congelada na v1.2.0 e linkada pelo `INSTALL.md`, a pasta tratava a subconta Kraken como obrigatoria -- "novas entradas so podem rodar com `KRAKEN_API_IS_SUBACCOUNT=true`" -- quando o codigo so exige isso com `KRAKEN_REQUIRE_SUBACCOUNT=true`, que e opcional e desligado por padrao. `01` e `04` passam a separar o padrao da validacao estrita; o `02`, registro da migracao de 22/04/2026, vai para `doc referencia/historico/` com aviso de que nao descreve a configuracao atual; o indice tinha os links para `README`, `INSTALL` e `SKILL` quebrados. Um teste passa a travar os links da pasta e a exigir que o indice liste cada arquivo, e os docs vivos da pasta entram no guard que proibe declarar sandbox por env.
+- **`doc referencia/` volta a valer** (ROADMAP 0.3). Congelada na v1.2.0 e linkada pelo `INSTALL.md`, a pasta tratava a subconta Kraken como obrigatoria -- "novas entradas so podem rodar com `KRAKEN_API_IS_SUBACCOUNT=true`" -- quando o codigo so exige isso com `KRAKEN_REQUIRE_SUBACCOUNT=true`, que e opcional e desligado por padrao. `01` e `04` passam a separar o padrao da validacao estrita, e `00`, `01`, `03` e `04` passam a dizer que, **sem** linked signer configurado, a Nado assina com a owner key -- o que o codigo faz desde antes; so o linked signer configurado e invalido bloqueia; o `02`, registro da migracao de 22/04/2026, vai para `doc referencia/historico/` com aviso de que nao descreve a configuracao atual; o indice tinha os links para `README`, `INSTALL` e `SKILL` quebrados. Um teste passa a travar os links da pasta e a exigir que o indice liste cada arquivo, e os docs vivos da pasta entram no guard que proibe declarar sandbox por env.
 
 ## v1.8.0 — 2026-09-24
 
