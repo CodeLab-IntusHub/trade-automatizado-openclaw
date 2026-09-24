@@ -19,7 +19,7 @@ já existe e funciona está em [`PROGRESS.md`](PROGRESS.md).
 | Execução (escanear, decidir, operar) | Já roda na máquina de cada operador, com as chaves dele | **Mantida** — cada bot faz tudo sozinho |
 | Distribuição de sinais | Uma instância transmite para um grupo | Cada bot publica, opcionalmente, num ecossistema compartilhado |
 | Instruções do agente (`SKILL.md`) | Manual de operação de uma instância específica | Instrução genérica, com preferências da instância em `settings` |
-| Dados compartilhados | Não existem | Supabase da IntusHub, com identidade e RLS por bot |
+| Dados compartilhados | Não existem | Banco da IntusHub, acessado por Edge Functions da plataforma, com identidade por bot |
 | Visualização | Dashboard HTML estático regenerado por loop | Painel `localhost`: trades, PnL, gráficos e o ecossistema |
 
 A execução descentraliza por completo. O ecossistema **é** um ponto
@@ -210,7 +210,18 @@ dados do bot, e os testes de segurança estão verdes.
 ## Fase 3 — Ecossistema no Supabase da IntusHub
 
 Bots publicam **setups, análises, validações e notícias macro**; outros bots
-consultam e, se o operador quiser, operam em cima.
+consultam e, se o operador quiser, operam em cima. Os agentes também
+**compartilham setups** entre si (passo 3.8) e alimentam uma **central de
+aprendizagem** (passo 3.9). A lista fica aberta: o que vier depois entra pelo
+mesmo caminho, com contrato próprio.
+
+**Onde cada parte mora.** Este repositório é satélite do `intushub-core`, o
+repositório de plataforma da IntusHub (ver [`CLAUDE.md`](../CLAUDE.md)). O
+schema, as funções (RPC), as Edge Functions e os testes de banco desta fase são
+**PR no planeta**. Aqui entram o cliente HTTP, o contrato do que a skill publica
+e os testes de que ela não emite nada fora dele
+([ADR 0006](decisions/0006-ecossistema-pela-plataforma.md)). Ordem de cada
+entrega: **expand no banco primeiro, contract no satélite depois.**
 
 O problema central desta fase **não é armazenar** — é **confiança**. Se um bot
 opera em cima do que outro publicou, uma publicação forjada ou só defeituosa
@@ -218,15 +229,17 @@ move o dinheiro de quem segue. Toda decisão desta fase responde a isso.
 
 ### 3.1 Identidade de bot
 
-- **Proposta:** uma conta Supabase Auth por bot — ver
-  [ADR 0004](decisions/0004-identidade-de-bot-supabase-auth.md).
-- **Passos:** como a conta é criada e ligada ao bot; onde vive a credencial
-  (ambiente ou gerenciador de segredos — **nunca** `settings.json`, pela regra
-  que já vale para todo segredo da skill).
+- **Proposta:** uma credencial por bot, emitida pela plataforma, verificada na
+  Edge Function e revogável individualmente. Ver
+  [ADR 0006](decisions/0006-ecossistema-pela-plataforma.md), que substitui a
+  conta Supabase Auth por bot do ADR 0004.
+- **Passos:** como a credencial é emitida, ligada ao bot e revogada; onde ela
+  vive (ambiente ou gerenciador de segredos — **nunca** `settings.json`, pela
+  regra que já vale para todo segredo da skill).
 - **Pronto quando:** um bot se autentica, e a credencial não aparece em nenhum
   arquivo versionado nem em log.
 
-### 3.2 Modelo de dados com RLS
+### 3.2 Modelo de dados
 
 O ecossistema nasce no schema Postgres **`trading`**, que já existe no Supabase
 da IntusHub — em vez de num schema novo. Ele pode ser **reformulado por
@@ -235,23 +248,26 @@ usa o mesmo nome.)
 
 - **Passos:**
   1. **Inventário antes de reformular.** O que existe hoje em `trading` —
-     tabelas, views, funções, gatilhos, políticas RLS — e **quem lê ou escreve
+     tabelas, views, funções, gatilhos, políticas — e **quem lê ou escreve
      nele**: a instância que está no ar, outros produtos da IntusHub, Edge
      Functions, dashboards. "Ninguém usa" se verifica no banco, não se presume:
      reformular um schema que tem consumidor apaga dado e quebra sem erro.
+     **Primeira leitura feita em 24/09/2026, registrada no planeta:** o schema
+     tem dados e não é exposto pela API, e nenhum repositório versionado
+     escreve nele. Quem gravou o que está lá ainda precisa ser identificado
+     antes do passo 2.
   2. **Destino dos dados que já estão lá:** migrar, arquivar ou descartar —
      decidido por tabela, antes da primeira migration destrutiva.
-  3. **Modelo novo:** tabelas de publicação por tipo, com `publisher_id` ligado
-     à identidade; RLS em toda tabela, para que cada bot só escreva como si
-     mesmo; migrations versionadas, testadas localmente com `supabase-local` e
+  3. **Modelo novo, no planeta:** tabelas de publicação por tipo, com
+     `publisher_id` ligado à identidade; acesso só por RPC, chamada pela Edge
+     Function; tabelas fechadas a acesso direto. Migrations no `intushub-core`,
      revisadas com o `database-reviewer`.
-  4. **Como os bots chegam ao schema.** Um schema fora de `public` só é
-     acessível pela API do Supabase se for incluído nos schemas expostos.
-     Decidir entre expor `trading` e dar acesso só por funções (RPC) ou Edge
-     Functions — a segunda restringe o que um bot consegue fazer diretamente.
+  4. **Como os bots chegam ao schema:** **decidido** — pela Edge Function, nunca
+     direto. `trading` continua fora dos schemas expostos pela API
+     ([ADR 0006](decisions/0006-ecossistema-pela-plataforma.md)).
 - **Pronto quando:** o inventário está registrado e aprovado antes de qualquer
-  migration destrutiva; e um teste **negativo** prova que o bot A não consegue
-  escrever como o bot B, nem alterar publicação alheia.
+  migration destrutiva; e um teste **negativo**, no planeta, prova que o bot A
+  não consegue escrever como o bot B, nem alterar publicação alheia.
 
 ### 3.3 Contrato de publicação v1
 
@@ -265,7 +281,7 @@ usa o mesmo nome.)
 
 ### 3.4 Autenticidade e integridade
 
-A RLS garante **quem escreveu**. Falta garantir que o conteúdo **não mudou** e
+A Edge Function garante **quem escreveu**. Falta garantir que o conteúdo **não mudou** e
 que não foi **reenviado** fora de hora.
 
 - **Passos:** integridade do conteúdo publicado; proteção contra reenvio (a
@@ -296,8 +312,41 @@ que não foi **reenviado** fora de hora.
   notícia é validada — ela não tem um preço de entrada para conferir, como um
   setup tem.
 
-**Critério de pronto da fase:** dois bots independentes trocam publicações; a
-RLS e a regra de validação estão provadas por testes negativos.
+### 3.8 Compartilhamento de setups entre agentes
+
+Um agente publica a **configuração** de um setup, e outro a importa para operar
+com ela.
+
+- **Base que já existe:** o `settings.json` com schema
+  ([`features/schema-do-settings.md`](features/schema-do-settings.md)) e o
+  `config-export` ([`features/config-export.md`](features/config-export.md)),
+  que já monta a configuração de um setup e avisa o que não deve sair da máquina.
+- **Passos:** o formato publicado é o do `settings`, restrito a um setup;
+  importar valida contra o schema e recusa chave desconhecida; **nada** de
+  segredo ou caminho local no que é publicado (teste, como no contrato do
+  sinal); o setup importado entra **desligado** até o operador ativar.
+- **Pronto quando:** um setup exportado por um bot é importado por outro e
+  produz a mesma configuração, e um teste prova que a publicação não carrega
+  segredo.
+
+### 3.9 Central de aprendizagem dos agentes
+
+Os agentes aprendem com o resultado uns dos outros: que setup funcionou, em que
+mercado, em que timeframe.
+
+- **Depende de** 3.5 (validações) e da Fase 5 (telemetria opt-in): o
+  aprendizado se alimenta de resultado, e resultado de operador é dado
+  financeiro dele.
+- **Decidir no início do passo:** o que é agregado e o que é individual; como um
+  resultado ruim publicado de propósito é neutralizado (o mesmo problema de
+  confiança da fase inteira); e se a central só **informa** o operador ou também
+  **ajusta** configuração — ajustar sozinho é operar com dinheiro alheio, e
+  começa desligado.
+- **Pronto quando:** o operador vê, no painel, o desempenho agregado de um setup
+  entre os bots que aceitaram compartilhar, sem identificar nenhum deles.
+
+**Critério de pronto da fase:** dois bots independentes trocam publicações; o
+isolamento por bot e a regra de validação estão provadas por testes negativos.
 
 ---
 
@@ -305,12 +354,12 @@ RLS e a regra de validação estão provadas por testes negativos.
 
 Depende das Fases 2 e 3.
 
-- **4.1** O servidor local lê o Supabase. **A chave fica no processo local,
-  nunca na página.**
+- **4.1** O servidor local chama as Edge Functions do ecossistema. **A
+  credencial do bot fica no processo local, nunca na página.**
 - **4.2** Aba do ecossistema: publicações recentes, validações, reputação de
   quem publica, e o que o próprio bot publicou.
-- **Pronto quando:** a aba funciona, e um teste prova que nenhuma credencial do
-  Supabase chega ao HTML.
+- **Pronto quando:** a aba funciona, e um teste prova que nenhuma credencial
+  chega ao HTML.
 
 ---
 
@@ -328,7 +377,8 @@ como exceção controlada, não como "enviar tudo".
   operador (LGPD).
 - **5.3** Nunca: segredo, caminho de arquivo local, identificador pessoal.
   Agregar sempre que o dado individual não for necessário.
-- **5.4** Escrita no Supabase com RLS: cada bot só grava a própria telemetria.
+- **5.4** Escrita por Edge Function da plataforma: cada bot só grava a própria
+  telemetria.
 - **Pronto quando:** teste prova que, com a telemetria desligada, nada sai; e
   que, ligada, só sai o que está na lista.
 
@@ -366,3 +416,4 @@ risco e a que mais se beneficia de um `premortem` antes de começar.
 | 24/09/2026 | Plano inicial: execução descentralizada, skill genérica, painel local, ecossistema no Supabase e telemetria opt-in |
 | 24/09/2026 | Passo 0.1 concluído |
 | 24/09/2026 | Passo 3.2: o ecossistema nasce no schema `trading` existente, reformulável; inventário de uso antes de qualquer migration destrutiva |
+| 24/09/2026 | Fase 3 pela plataforma: repo é satélite do `intushub-core`, acesso por Edge Function (ADR 0006); passos 3.8 (compartilhamento de setups) e 3.9 (central de aprendizagem) |

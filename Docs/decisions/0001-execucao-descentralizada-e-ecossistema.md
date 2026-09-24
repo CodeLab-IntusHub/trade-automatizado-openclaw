@@ -34,7 +34,9 @@ era central era a **topologia** (um transmissor, muitos receptores) e as
 
 **Opção 4**, com o ecossistema no **Supabase da IntusHub**, no schema Postgres
 `trading` que já existe lá — reformulável por completo (ver o passo 3.2 do
-[ROADMAP](../ROADMAP.md)).
+[ROADMAP](../ROADMAP.md)). O acesso é por **Edge Functions da plataforma**, e
+o banco, as funções e os endpoints vivem no repositório de plataforma, não
+aqui ([ADR 0006](0006-ecossistema-pela-plataforma.md)).
 
 A execução descentraliza por completo: nenhum bot depende de outro para operar,
 e as chaves de cada operador nunca saem da máquina dele. O ecossistema **é** um
@@ -46,7 +48,7 @@ conteúdo compartilhado.
 
 - **Confiança vira o problema central.** Se um bot opera em cima do que outro
   publicou, uma publicação forjada ou defeituosa move o dinheiro de quem segue.
-  Identidade, RLS, integridade e validação entram antes de qualquer consumo
+  Identidade, isolamento por bot, integridade e validação entram antes de qualquer consumo
   automático ([ROADMAP, Fase 3](../ROADMAP.md)).
 - **O `SKILL.md` precisa deixar de ser o manual de uma instância** antes de
   qualquer outra coisa ([ROADMAP, Fase 1](../ROADMAP.md)).
@@ -62,3 +64,4 @@ conteúdo compartilhado.
 |------|---------|
 | 24/09/2026 | Decisão registrada |
 | 24/09/2026 | Local do ecossistema: schema `trading` existente, reformulável |
+| 24/09/2026 | Acesso pela plataforma (ADR 0006); escopo inclui compartilhamento de setups e central de aprendizagem |

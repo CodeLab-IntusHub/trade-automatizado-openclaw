@@ -1,7 +1,11 @@
 # ADR 0004 — Identidade de bot via Supabase Auth
 
 > Data: 24 de setembro de 2026
-> Status: **Proposta** — a confirmar no início da Fase 3 do [ROADMAP](../ROADMAP.md)
+> Status: **Substituída** pelo [ADR 0006](0006-ecossistema-pela-plataforma.md)
+>
+> Escrito antes de conferir como a IntusHub organiza o banco compartilhado:
+> o acesso da plataforma passa por Edge Function, não por usuário autenticado
+> no banco. O raciocínio abaixo fica como registro.
 
 ## Contexto
 
@@ -49,3 +53,4 @@ não que o conteúdo continua o mesmo.
 | Data | Mudança |
 |------|---------|
 | 24/09/2026 | Proposta registrada |
+| 24/09/2026 | Substituída pelo ADR 0006 |

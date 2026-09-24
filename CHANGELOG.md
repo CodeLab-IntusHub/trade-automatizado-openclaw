@@ -9,6 +9,10 @@
 
 ### Documentacao
 
+- **O repositorio passa a ser satelite do `intushub-core`**, o repositorio de plataforma da IntusHub. Novo `CLAUDE.md` com a posicao na constelacao: toda DDL, Edge Function e politica do banco compartilhado vive no planeta; aqui fica o cliente HTTP e o contrato do que a skill publica. Varredura de DDL e Edge Function: limpo.
+- **ADR 0006 substitui o ADR 0004.** O ecossistema e acessado por Edge Functions da plataforma, e nao por uma conta Supabase Auth por bot com RLS -- o modelo do 0004 abriria um segundo caminho de acesso ao banco, paralelo ao da plataforma, e exigiria expor o schema `trading`.
+- **ROADMAP, Fase 3:** o trabalho de banco e PR no planeta (expand no banco primeiro, contract no satelite depois); o passo 3.2 registra a primeira leitura do inventario e decide o acesso; novos passos 3.8 (compartilhamento de setups entre agentes, sobre o `settings` e o `config-export`) e 3.9 (central de aprendizagem dos agentes). Fases 4 e 5 passam a falar com as Edge Functions.
+
 - O ecossistema passa a ter lugar definido: o schema Postgres `trading` que ja existe no Supabase da IntusHub, reformulavel por completo. O passo 3.2 do `Docs/ROADMAP.md` comeca por um **inventario** do que ha nele e de quem le ou escreve -- verificado no banco, nao presumido -- antes de qualquer migration destrutiva.
 
 ### Alterado
