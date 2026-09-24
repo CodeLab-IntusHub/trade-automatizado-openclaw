@@ -2,6 +2,11 @@
 
 ## Nao publicado
 
+### Corrigido
+
+- **O pacote `.skill` passa a conter so o que o git rastreia.** `build.py` montava o pacote com `ROOT.rglob("*")` menos uma lista fixa de pastas -- o criterio era **o que esta no disco**, nao o que esta no repositorio. Medido numa maquina de desenvolvimento: de 239 arquivos que iriam no pacote, **104 estavam fora do git** -- 74 do `.ua/` (o grafo do codigo e o inventario de variaveis de ambiente de uma auditoria) e os caches do mypy e do ruff. Um `settings.local.json` deixado na raiz iria junto, para o bot de quem instalasse a skill. Agora o pacote sai do `git ls-files` (135 arquivos na mesma maquina), e fora de um repositorio git o build recusa em vez de adivinhar.
+- `CLAUDE.md` fica fora do pacote: e instrucao de desenvolvimento do repositorio, descreve a organizacao, e nao pertence ao produto entregue.
+
 ### Documentacao
 
 - O ecossistema passa a ter lugar definido: o schema Postgres `trading` que ja existe no Supabase da IntusHub, reformulavel por completo. O passo 3.2 do `Docs/ROADMAP.md` comeca por um **inventario** do que ha nele e de quem le ou escreve -- verificado no banco, nao presumido -- antes de qualquer migration destrutiva.
