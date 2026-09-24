@@ -1,7 +1,7 @@
 # Proteção de ordens (SL/TP)
 
-> Última atualização: 14 de setembro de 2026
-> Versão: 1.0.0
+> Última atualização: 24 de setembro de 2026
+> Versão: 1.1.0
 
 ## Visão geral
 
@@ -66,6 +66,28 @@ No `setup-live`, a falha também limpa a referência da ordem cancelada do estad
 id que não existe mais e levantaria `OrderNotFound` **por cima** do erro real,
 escondendo que a posição está desprotegida.
 
+### Modo de stop por alvo, lido do estado
+
+O `setup-live` pode mover o stop de uma posição aberta conforme os alvos são
+atingidos: `breakeven_on_tp1` leva o stop à entrada depois do primeiro alvo, e
+`ladder` o sobe em escada. O modo escolhido é gravado no estado da posição e
+relido a cada ciclo por `_target_stop_mode_from_state`.
+
+Quando o valor gravado não é reconhecido, o ciclo usa `off` — **e avisa**,
+nomeando o símbolo, o setup e o valor recusado. `off` não deixa a posição sem
+stop: o stop atual continua onde está. O que se perde é a **melhoria** que o
+operador pediu.
+
+Duas escolhas deliberadas:
+
+- **Não levanta erro.** O loop gerencia várias posições; derrubá-lo por causa
+  do estado de uma só deixaria as outras sem gestão.
+- **Avisa.** Antes, o valor irreconhecível caía em `off` em silêncio. Isso não
+  acontece dentro de uma mesma versão — o valor é validado na entrada do
+  comando —, mas acontece entre versões, porque o arquivo de estado sobrevive
+  à atualização: um nome de modo removido ou renomeado desligaria o trailing
+  de toda posição aberta sem ninguém saber. E acontece com estado editado à mão.
+
 ## Limitações conhecidas
 
 - **Nado:** a resposta do SDK não é validada. O formato não está documentado no
@@ -90,3 +112,4 @@ nesse flag recusaria venues que funcionam. O que funciona é validar a resposta.
 | Data | Mudança |
 |------|---------|
 | 14/09/2026 | Documento inicial, cobrindo PRs #4, #5 e #8 |
+| 24/09/2026 | Modo de stop por alvo lido do estado: aviso quando o valor não é reconhecido (PR #22) |

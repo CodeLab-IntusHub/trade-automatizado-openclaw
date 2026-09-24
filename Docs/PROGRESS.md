@@ -1,10 +1,11 @@
 # Progresso
 
-> Última atualização: 23 de setembro de 2026
+> Última atualização: 24 de setembro de 2026
 > Versão da skill: 1.6.0
 
-Estado do **produto** — o que existe e funciona. Roadmap e pendências de
-trabalho não ficam aqui.
+Estado do **produto** — o que existe e funciona. O que vem depois está no
+[ROADMAP](ROADMAP.md); o porquê das decisões de arquitetura, em
+[decisions/](decisions/).
 
 ## Índice de documentação
 
@@ -16,6 +17,7 @@ trabalho não ficam aqui.
 | [Vocabulário de configuração](features/vocabulario-de-booleanos.md) | Booleano, número e direção: valor irreconhecível recusado em vez de adivinhado |
 | [Schema do settings](features/schema-do-settings.md) | Chave desconhecida derruba o comando em vez de ser ignorada |
 | [config-export](features/config-export.md) | Emite o `settings.json` equivalente ao ambiente atual, e o que ele não cobre |
+| [Contrato do sinal](features/contrato-do-sinal.md) | Registro estruturado de cada sinal: campos, fronteira pública e campos de legado |
 
 ## Venues
 
@@ -53,6 +55,18 @@ Chave **desconhecida** no settings derruba o comando em vez de ser ignorada: um
 typo no nome fazia a chave não ser lida e o valor efetivo virar o default — que
 para `sandbox`, fora da família kraken, é produção. Ver
 [Schema do settings](features/schema-do-settings.md).
+
+## Sinais e marca
+
+Cada sinal produz o **texto** entregue a pessoas (Discord, WhatsApp) e um
+**registro estruturado** gravado no outbox local, que é o formato que o
+ecossistema vai publicar. O registro só leva campos declarados — ver
+[Contrato do sinal](features/contrato-do-sinal.md).
+
+O produto se chama **IntusCripto**. O nome anterior, Aspira, permanece de
+propósito em três pontos que espelham estado fora do repositório (arquivos de
+estado na máquina do operador, nomes no TradingView e o campo `schema` do
+sinal) — ver o [ADR 0005](decisions/0005-rebrand-intuscripto.md).
 
 ## Plataforma
 

@@ -64,3 +64,10 @@ bot ficaria de pé sem abrir nada.
 Segredo nunca entra no settings. O arquivo declara apenas o *nome* da variável
 de ambiente: `{"env": ["KRAKEN_API_KEY", "CEX_API_KEY"]}`. Valor literal é
 recusado — `settings.json` é versionado.
+
+## Changelog
+
+| Data | Mudança |
+|------|---------|
+| 14/09/2026 | Documento inicial: `settings.json`, precedência e parâmetros por setup (PRs #7 e #9) |
+| 24/09/2026 | Seção de changelog adicionada |

@@ -1,0 +1,358 @@
+# Roadmap
+
+> Última atualização: 24 de setembro de 2026
+> Versão do produto na criação deste plano: 1.6.0
+
+Plano de produto do IntusCripto: de uma instância central que transmite sinais
+para um grupo, para **uma skill que cada bot OpenClaw executa sozinho**, com um
+ecossistema compartilhado onde os bots publicam e consultam conteúdo, e um
+painel local para o operador acompanhar tudo.
+
+Este documento diz **o que** será feito e **em que ordem**. O **porquê** de
+cada escolha de arquitetura está nos ADRs em [`decisions/`](decisions/). O que
+já existe e funciona está em [`PROGRESS.md`](PROGRESS.md).
+
+## Direção
+
+| Camada | Hoje | Destino |
+|---|---|---|
+| Execução (escanear, decidir, operar) | Já roda na máquina de cada operador, com as chaves dele | **Mantida** — cada bot faz tudo sozinho |
+| Distribuição de sinais | Uma instância transmite para um grupo | Cada bot publica, opcionalmente, num ecossistema compartilhado |
+| Instruções do agente (`SKILL.md`) | Manual de operação de uma instância específica | Instrução genérica, com preferências da instância em `settings` |
+| Dados compartilhados | Não existem | Supabase da IntusHub, com identidade e RLS por bot |
+| Visualização | Dashboard HTML estático regenerado por loop | Painel `localhost`: trades, PnL, gráficos e o ecossistema |
+
+A execução descentraliza por completo. O ecossistema **é** um ponto
+compartilhado — de dados, não de operação — e isso é escolha consciente,
+registrada no [ADR 0001](decisions/0001-execucao-descentralizada-e-ecossistema.md).
+
+## Como seguir este plano
+
+Cada passo abaixo vira **uma PR**, na ordem. O método que se provou nas fases
+anteriores continua valendo:
+
+1. **Medir antes de corrigir.** Reproduzir o defeito, ou medir o estado atual,
+   por execução — não por leitura.
+2. **Teste primeiro** (vermelho → verde → refatorar).
+3. **Mutação** em toda decisão de dinheiro, proteção ou segurança: um teste que
+   não falha quando o defeito volta não defende nada.
+4. **`/code-review`** antes de mergear.
+5. **Doc de feature** em [`features/`](features/) antes de considerar a feature
+   pronta, e o `CHANGELOG` atualizado na mesma PR.
+6. Fatiar por **invariante** e por **direção de consequência** (dinheiro e
+   proteção primeiro), nunca por arquivo.
+
+Cada passo traz um **critério de pronto**. Um passo só está feito quando o
+critério está verificado — não quando o código foi escrito.
+
+---
+
+## Fase 0 — Fechamentos que destravam o resto
+
+Itens pequenos, herdados das entregas anteriores.
+
+### 0.1 Fechar o legado do contrato do sinal
+
+O payload do sinal emite `schema` com o nome antigo e `schema_canonico` com o
+novo, e mantém `raw_payload` limitado — tudo para não quebrar um consumidor que
+já estava lendo. Ver [Contrato do sinal](features/contrato-do-sinal.md).
+
+- **Depende de:** conferir se algo lê o outbox local
+  (`trading-signal-outbox.jsonl`) casando por `schema` ou lendo `raw_payload`.
+  A mensagem que chega ao Discord é o texto renderizado e **não** carrega este
+  payload — então o consumidor a conferir é quem lê o arquivo, não o grupo.
+- **Passos:** inverter `schema` ↔ `schema_canonico`; remover o campo de legado;
+  remover `raw_payload` (é redundante com os campos do topo); atualizar
+  `test_payload_do_sinal.py` e `test_rebrand_intuscripto.py`.
+- **Pronto quando:** o payload não tem mais campo de legado, e os testes que
+  travavam a convivência foram trocados por testes do contrato final.
+- **Alternativa:** absorver este passo na Fase 3.3, como parte da v1 do
+  contrato de publicação.
+
+### 0.2 Badge do renderer lê a marca da configuração
+
+`workspace/render_trade_chart.js` tem a marca escrita no HTML, em vez de ler
+`SETUP_NOTIFY_BRAND` — contraria a regra de nenhum parâmetro fixo no código.
+
+- **Pronto quando:** não há literal de marca no renderer, e um teste prova que
+  a marca configurada aparece na imagem gerada.
+
+### 0.3 `doc referencia/`
+
+Congelado na v1.2.0 e ainda linkado pelo `INSTALL.md`. Descreve um modelo de
+configuração que já não vale (variáveis `*_SANDBOX` em vez de `settings.json`).
+
+- **Passos:** decidir, por arquivo, entre atualizar e mover para arquivo
+  histórico; corrigir os links.
+- **Pronto quando:** nenhum documento linkado pelo `README`/`INSTALL` prescreve
+  configuração que o código não usa mais.
+
+---
+
+## Fase 1 — Skill genérica: qualquer bot instala e opera
+
+**Por que é a primeira:** o `SKILL.md` é o que o agente de cada bot lê, e hoje
+ele é o manual de uma instância específica — "quando o owner pedir", "no fluxo
+Hyperliquid top 50", "default operacional recente: US$1.000 por cenário",
+"scripts que ficam no workspace". Um bot que instala a skill recebe a instrução
+de agir como aquela instância. Nenhuma outra fase faz sentido enquanto isso não
+mudar.
+
+### 1.1 Inventário do que é de uma instância só
+
+- **Passos:** classificar cada trecho do `SKILL.md` em três grupos — **regra
+  geral** (fica), **preferência de instância** (vira configuração), **histórico**
+  (vai para o `OPENCLAW-SOURCE.md` ou sai).
+- **Pronto quando:** a classificação está registrada na própria PR, trecho a
+  trecho, com a linha de origem.
+
+### 1.2 Preferências de instância viram configuração
+
+Exemplos: capital de simulação padrão dos backtests, universo de ativos
+auditado, padrão visual do relatório de backtest.
+
+- **Passos:** cada preferência ganha chave em `settings.schema.json` e exemplo
+  em `settings.example.json`, com o valor atual como default — ninguém que já
+  opera percebe diferença.
+- **Pronto quando:** o `SKILL.md` referencia a chave, não o valor; o schema
+  aceita a chave; teste cobre o default.
+
+### 1.3 Scripts que "ficam no workspace"
+
+O `SKILL.md` manda reutilizar scripts que não estão neste repositório, e
+documentos do pacote apontam para arquivos que não existem nele:
+
+| Referência | Citada em |
+|---|---|
+| Scripts do "dashboard v3" de backtest ("ficam no workspace") | `SKILL.md`, seção de visualização de backtests |
+| `doc referencia/05-entrega-discord-zeus.md` | `SKILL.md` (duas vezes) e `README.md` |
+| `map/discord-zeus-delivery.md` | `README.md` |
+| `examples/discord-zeus/README.md` | `README.md` |
+
+- **Passos:** para cada item, trazer para o repositório (se for genérico) ou
+  remover a instrução e o link (se for da instância).
+- **Pronto quando:** toda instrução do `SKILL.md` e todo link do `README` apontam
+  para algo que existe no pacote `.skill` — há teste de link quebrado.
+
+### 1.4 `SKILL.md` reescrito como instrução genérica
+
+- **Pronto quando:** o `SKILL.md` não cita operador específico, data de decisão
+  de instância nem arquivo fora do pacote; um teste de guarda impede a volta.
+
+### 1.5 Primeira execução sem pressupor centro
+
+O onboarding (`first_run_setup.py`, questionário em `references/`) não pode
+pressupor grupo de Discord nem canal central: entrega de mensagem é opcional e
+aponta para o operador.
+
+- **Pronto quando:** um bot OpenClaw limpo instala a skill, passa por
+  `setup-check`/`doctor` e roda `setup-live --simular` sem configurar Discord.
+
+**Critério de pronto da fase:** instalar a skill num bot limpo e operar sem
+herdar nada da instância original.
+
+---
+
+## Fase 2 — Painel local do próprio bot
+
+Pode andar em paralelo com a Fase 1. Não depende do ecossistema.
+
+**Estado atual:** o dashboard estático já mostra exposição real, trades
+monitorados, win rate, PnL não realizado e filtros, com atualização a cada 60 s.
+**Não tem nenhum gráfico**, o histórico de trades fechados e o PnL realizado são
+fracos, e ele é um arquivo regenerado por loop — não um servidor. Desenho
+proposto no [ADR 0003](decisions/0003-painel-localhost-como-app-local.md).
+
+### 2.1 Servidor local mínimo
+
+- **Passos:** servidor que escuta **só em `127.0.0.1`**, porta configurável em
+  `settings`, só leitura, rejeitando requisição com cabeçalho `Host` diferente de
+  `localhost`/`127.0.0.1` (defesa contra DNS rebinding). Novo comando no
+  `run.py`.
+- **Decidir no início do passo:** biblioteca padrão ou framework — a skill evita
+  dependência nova sem motivo (ver o `settings.schema.json`, que dispensou
+  `jsonschema`).
+- **Pronto quando:** existe teste que falha se o servidor escutar em outra
+  interface, e teste que falha se aceitar `Host` estranho.
+
+### 2.2 Camada de dados em JSON
+
+- **Passos:** extrair a coleta que `workspace/trade_dashboard.py` já faz para
+  funções reutilizáveis, **sem duplicar** — o dashboard estático e o painel
+  passam a ler da mesma fonte. Expor: exposição real, trades monitorados, trades
+  fechados, PnL realizado e não realizado.
+- **Pronto quando:** o dashboard estático continua passando no seu e2e, e o
+  painel entrega os mesmos números por outra porta.
+
+### 2.3 Histórico de fechados e PnL realizado
+
+Hoje é o ponto mais fraco.
+
+- **Passos:** definir a fonte da verdade (estado do `setup-live` mais os
+  preenchimentos da venue) e persistir localmente o fechamento de cada trade.
+- **Pronto quando:** o PnL realizado de um trade fechado bate com o que a venue
+  reporta, com teste.
+
+### 2.4 Página com gráficos
+
+- **Passos:** tabelas de abertos e fechados; curva de patrimônio; PnL por setup
+  e por período; gráfico do trade com entrada, stop e alvos. UI com o
+  `impeccable`; cores de ganho e perda que não dependam só de vermelho/verde.
+- **Pronto quando:** e2e com Playwright (a base já existe em `tests/e2e/`)
+  cobre carga, filtros e gráficos sem erro de console.
+
+### 2.5 Segurança do painel
+
+- **Regras:** sem ações na primeira versão — um botão "fechar posição" numa
+  página local pode ser acionado por qualquer site aberto no mesmo navegador;
+  nenhum segredo no HTML; `Content-Security-Policy` restritiva.
+- **Pronto quando:** cada regra tem teste que falha se ela for removida.
+
+### 2.6 Convivência e depreciação do dashboard estático
+
+- **Pronto quando:** o painel cobre tudo o que o estático mostra, e o estático é
+  marcado como depreciado no `CHANGELOG`, sem ser removido na mesma versão.
+
+**Critério de pronto da fase:** um comando abre o painel no navegador com os
+dados do bot, e os testes de segurança estão verdes.
+
+---
+
+## Fase 3 — Ecossistema no Supabase da IntusHub
+
+Bots publicam **setups, análises, validações e notícias macro**; outros bots
+consultam e, se o operador quiser, operam em cima.
+
+O problema central desta fase **não é armazenar** — é **confiança**. Se um bot
+opera em cima do que outro publicou, uma publicação forjada ou só defeituosa
+move o dinheiro de quem segue. Toda decisão desta fase responde a isso.
+
+### 3.1 Identidade de bot
+
+- **Proposta:** uma conta Supabase Auth por bot — ver
+  [ADR 0004](decisions/0004-identidade-de-bot-supabase-auth.md).
+- **Passos:** como a conta é criada e ligada ao bot; onde vive a credencial
+  (ambiente ou gerenciador de segredos — **nunca** `settings.json`, pela regra
+  que já vale para todo segredo da skill).
+- **Pronto quando:** um bot se autentica, e a credencial não aparece em nenhum
+  arquivo versionado nem em log.
+
+### 3.2 Modelo de dados com RLS
+
+- **Passos:** tabelas de publicação por tipo, com `publisher_id` ligado à
+  identidade; políticas RLS para que cada bot só escreva como si mesmo;
+  migrations versionadas, testadas localmente com `supabase-local` e revisadas
+  com o `database-reviewer`.
+- **Pronto quando:** teste **negativo** prova que o bot A não consegue escrever
+  como o bot B, nem alterar publicação alheia.
+
+### 3.3 Contrato de publicação v1
+
+- **Passos:** schema versionado para cada tipo (setup, análise, validação,
+  notícia); documento em `features/`; política de compatibilidade — adicionar
+  campo é versão menor, remover ou mudar significado é versão maior com período
+  de convivência. O contrato do sinal atual é o ponto de partida (ver passo 0.1).
+- **Pronto quando:** existe teste que falha se o produtor emitir campo fora do
+  contrato — o mesmo mecanismo de `CAMPOS_PUBLICOS_DO_SINAL`.
+
+### 3.4 Autenticidade e integridade
+
+A RLS garante **quem escreveu**. Falta garantir que o conteúdo **não mudou** e
+que não foi **reenviado** fora de hora.
+
+- **Passos:** integridade do conteúdo publicado; proteção contra reenvio (a
+  `idempotency_key` do sinal já existe e é o começo); expiração de publicação de
+  setup.
+- **Pronto quando:** publicação alterada depois de gravada, ou reenviada, é
+  rejeitada pelo consumidor — com teste.
+
+### 3.5 Validações como mecanismo de confiança
+
+- **Proposta:** uma validação é um bot atestando uma publicação de outro, e a
+  reputação de quem publica deriva das validações recebidas.
+- **Regra:** por padrão, nenhum bot opera em cima de publicação não validada.
+- **Pronto quando:** a regra é aplicada no consumidor, com teste que falha se
+  uma publicação sem validação levar a uma ordem.
+
+### 3.6 Consumir e publicar
+
+- **Passos:** o bot lê publicações; operar em cima delas é **opt-in**, com
+  limites definidos pelo operador (tamanho máximo, publicadores confiáveis).
+  Publicar os próprios setups também é opt-in.
+- **Pronto quando:** dois bots, cada um com a sua conta, publicam e consomem; o
+  que ultrapassa os limites do operador é recusado, com teste.
+
+### 3.7 Notícias macroeconômicas
+
+- **Decidir no início do passo:** de onde vêm, quem pode publicar e como uma
+  notícia é validada — ela não tem um preço de entrada para conferir, como um
+  setup tem.
+
+**Critério de pronto da fase:** dois bots independentes trocam publicações; a
+RLS e a regra de validação estão provadas por testes negativos.
+
+---
+
+## Fase 4 — O painel ganha o ecossistema
+
+Depende das Fases 2 e 3.
+
+- **4.1** O servidor local lê o Supabase. **A chave fica no processo local,
+  nunca na página.**
+- **4.2** Aba do ecossistema: publicações recentes, validações, reputação de
+  quem publica, e o que o próprio bot publicou.
+- **Pronto quando:** a aba funciona, e um teste prova que nenhuma credencial do
+  Supabase chega ao HTML.
+
+---
+
+## Fase 5 — Telemetria
+
+Depende da Fase 3.
+
+A telemetria envolve o dado financeiro de cada operador saindo da máquina dele —
+a mesma questão que levou a descartar o Sentry
+([ADR 0002](decisions/0002-sentry-nao-se-aplica.md)). Por isso ela é desenhada
+como exceção controlada, não como "enviar tudo".
+
+- **5.1** Lista **fechada** de campos: o que não está na lista não sai.
+- **5.2** **Opt-in**, desligada por padrão, com consentimento explícito do
+  operador (LGPD).
+- **5.3** Nunca: segredo, caminho de arquivo local, identificador pessoal.
+  Agregar sempre que o dado individual não for necessário.
+- **5.4** Escrita no Supabase com RLS: cada bot só grava a própria telemetria.
+- **Pronto quando:** teste prova que, com a telemetria desligada, nada sai; e
+  que, ligada, só sai o que está na lista.
+
+---
+
+## Trilha contínua — dívida estrutural
+
+Não bloqueia as fases, mas cada item tem um gatilho natural.
+
+| Item | Situação | Quando atacar |
+|---|---|---|
+| Piso de cobertura | ~42%, reporta sem bloquear | Antes da Fase 3 — contrato público precisa de proteção contra regressão. Piso no nível atual, com catraca |
+| Log estruturado | Não existe; 87 `except` não registram nada | Junto da Fase 2 — o painel precisa de eventos confiáveis para mostrar |
+| `workspace/cli.py` (8.594 linhas) | Monolito | Com propósito: extrair a emissão de sinal na Fase 3, a camada de dados na Fase 2. Nunca como projeto isolado |
+| Helpers de ambiente restantes | Os de direção de dinheiro e proteção já foram fechados | Baixa prioridade |
+| `_to_float` dos adapters | Resposta de corretora ilegível vira default | Decisão própria: é dado externo, não configuração do operador |
+
+## Ordem e dependências
+
+```
+Fase 0 ──┐
+         ├──> Fase 1 ─────────────┐
+         └──> Fase 2 (paralela) ──┼──> Fase 4
+                                  │
+              Fase 3 ─────────────┴──> Fase 5
+```
+
+A Fase 2 é a entrega mais visível e não depende de nada. A Fase 3 é a de maior
+risco e a que mais se beneficia de um `premortem` antes de começar.
+
+## Changelog
+
+| Data | Mudança |
+|------|---------|
+| 24/09/2026 | Plano inicial: execução descentralizada, skill genérica, painel local, ecossistema no Supabase e telemetria opt-in |
