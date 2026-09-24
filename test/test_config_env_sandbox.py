@@ -34,7 +34,10 @@ DOCS_DE_OPERADOR = (
     "INSTALL.md",
     "references/onboarding-questionario.md",
     "references/onboarding-detalhado.md",
+    "doc referencia/00-indice.md",
+    "doc referencia/01-modelo-subconta-only.md",
     "doc referencia/03-env-e-credenciais.md",
+    "doc referencia/04-validacao-operacional.md",
 )
 
 # Atribuicao com valor: `KRAKEN_SANDBOX=false`. Citar o nome da variavel para

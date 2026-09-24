@@ -1,5 +1,10 @@
 # Migracao Do Estado Atual
 
+> **Arquivo historico.** Registro da migracao de 22/04/2026 para o modelo
+> subconta-only. Nao descreve a configuracao atual: hoje a subconta Kraken e
+> opcional e o sandbox de cada venue vem do `settings.json`. Ver
+> [03-env-e-credenciais.md](../03-env-e-credenciais.md).
+
 ## Snapshot conhecido em 22/04/2026
 
 O ambiente anterior ainda refletia:

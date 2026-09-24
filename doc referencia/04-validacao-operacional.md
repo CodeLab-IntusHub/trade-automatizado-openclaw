@@ -21,15 +21,18 @@ python3 workspace/run.py unwind
 ## O que deve acontecer
 
 - Nado mostra subconta e linked signer como contexto de trade
-- Kraken mostra `safe` ou `unsafe`
-- `open` falha fechado se a subconta nao estiver realmente isolada
+- Kraken mostra `safe` ou `unsafe` (sem validacao estrita, `safe` com o motivo "regra de subconta nao esta habilitada")
+- com `KRAKEN_REQUIRE_SUBACCOUNT=true`, `open` falha fechado se a subconta nao estiver realmente isolada
 - `status` mostra notional solicitado vs efetivo e o contexto salvo
 - `unwind` fecha as duas pernas apenas no mesmo contexto que abriu
 
 ## Quando bloquear
 
-- linked signer ausente ou diferente do on-chain
+- linked signer configurado e diferente do on-chain, ou impossivel de consultar (ausente nao bloqueia: o trade assina com a owner key)
 - subconta Nado vazia ou invalida
+
+So com a validacao estrita da Kraken ligada (`KRAKEN_REQUIRE_SUBACCOUNT=true`):
+
 - `KRAKEN_API_IS_SUBACCOUNT=false`
 - metadata Kraken indisponivel
 - deteccao de conta master na Kraken Futures

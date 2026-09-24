@@ -66,15 +66,14 @@ renderer pelo `node` — o HTML que o screenshot fotografa — e trava a marca
 configurada, a ausência de badge sem marca, o escape e a falta de literal de
 marca no arquivo.
 
-### 0.3 `doc referencia/`
+### 0.3 `doc referencia/` — **concluído em 24/09/2026**
 
-Congelado na v1.2.0 e ainda linkado pelo `INSTALL.md`. Descreve um modelo de
-configuração que já não vale (variáveis `*_SANDBOX` em vez de `settings.json`).
-
-- **Passos:** decidir, por arquivo, entre atualizar e mover para arquivo
-  histórico; corrigir os links.
-- **Pronto quando:** nenhum documento linkado pelo `README`/`INSTALL` prescreve
-  configuração que o código não usa mais.
+O sandbox já tinha sido corrigido na fase 4; o que restava era a subconta
+Kraken descrita como obrigatória, quando o código só a exige com
+`KRAKEN_REQUIRE_SUBACCOUNT=true`. `01` e `04` foram atualizados, o `02`
+(migração de 22/04/2026) foi para `doc referencia/historico/`, e os links do
+índice foram corrigidos. `test/test_doc_referencia.py` trava os links da pasta.
+O `05-entrega-discord-zeus.md`, citado mas ausente, é do passo 1.3.
 
 ---
 

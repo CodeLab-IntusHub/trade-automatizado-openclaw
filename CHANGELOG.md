@@ -10,6 +10,10 @@
 
 - **O badge do renderer le a marca da configuracao** (ROADMAP 0.2). A marca vai escapada para o HTML. O `html()` do renderer passa a ser exportado e o Playwright so e carregado no modo de linha de comando, o que permite testar o badge com `node`, sem navegador: um teste prova que a marca configurada aparece no HTML fotografado, que marca vazia nao gera badge, e que nenhuma marca fica escrita no renderer.
 
+### Documentacao
+
+- **`doc referencia/` volta a valer** (ROADMAP 0.3). Congelada na v1.2.0 e linkada pelo `INSTALL.md`, a pasta tratava a subconta Kraken como obrigatoria -- "novas entradas so podem rodar com `KRAKEN_API_IS_SUBACCOUNT=true`" -- quando o codigo so exige isso com `KRAKEN_REQUIRE_SUBACCOUNT=true`, que e opcional e desligado por padrao. `01` e `04` passam a separar o padrao da validacao estrita, e `00`, `01`, `03` e `04` passam a dizer que, **sem** linked signer configurado, a Nado assina com a owner key -- o que o codigo faz desde antes; so o linked signer configurado e invalido bloqueia; o `02`, registro da migracao de 22/04/2026, vai para `doc referencia/historico/` com aviso de que nao descreve a configuracao atual; o indice tinha os links para `README`, `INSTALL` e `SKILL` quebrados. Um teste passa a travar os links da pasta e a exigir que o indice liste cada arquivo, e os docs vivos da pasta entram no guard que proibe declarar sandbox por env.
+
 ## v1.8.0 — 2026-09-24
 
 Contrato do sinal fechado e pacote limpo. O registro estruturado de cada sinal
