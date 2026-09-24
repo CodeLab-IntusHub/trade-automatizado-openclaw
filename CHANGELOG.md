@@ -1,6 +1,23 @@
 # Changelog
 
-## Nao publicado
+## v1.8.0 — 2026-09-24
+
+Contrato do sinal fechado e pacote limpo. O registro estruturado de cada sinal
+perde os campos de convivencia -- nada lia o outbox -- e passa a ter o conjunto
+de chaves travado por teste; o `.skill` passa a conter so o que o git rastreia.
+Do lado do plano, o repositorio vira satelite do repositorio de plataforma da
+IntusHub, e o ecossistema passa a ser acessado por endpoints da plataforma (ADR
+0006). As secoes do changelog seguem, a partir desta versao e retroativamente
+ate a v1.5.0, uma ordem fixa: mudanca de comportamento primeiro.
+
+### Mudanca de comportamento (atencao ao atualizar)
+
+- O registro estruturado no outbox muda de forma: `schema` troca de valor, e `schema_canonico` e `raw_payload` deixam de existir. Nada le esse arquivo hoje; se voce passou a ler depois desta versao, leia pelos campos do topo.
+
+### Alterado
+
+- **Contrato do sinal fechado.** Confirmou-se que nada le o outbox local (`trading-signal-outbox.jsonl`), entao os campos de convivencia deixados pela v1.7.0 nao protegiam ninguem: `schema` passa a ser `intuscripto.trading.signal_call.v1`, e `schema_canonico` e `raw_payload` saem. Sem `raw_payload` nao sobra passagem direta do dicionario interno -- todo campo e montado explicitamente.
+- **O conjunto exato de chaves do registro fica travado por teste**, por igualdade (nem a mais nem a menos), no topo e no `context`. A lista mora no teste, e nao no modulo: se vivesse no codigo, acrescentar um campo seria so acrescentar na lista, e o teste concordaria. Isso substitui `CAMPOS_PUBLICOS_DO_SINAL`, que so existia para filtrar o `raw_payload`.
 
 ### Corrigido
 
@@ -17,21 +34,18 @@
 
 - O ecossistema passa a ter lugar definido: o schema Postgres `trading` que ja existe no Supabase da IntusHub, reformulavel por completo. O passo 3.2 do `Docs/ROADMAP.md` comeca por um **inventario** do que ha nele e de quem le ou escreve -- verificado no banco, nao presumido -- antes de qualquer migration destrutiva.
 
-### Alterado
-
-- **Contrato do sinal fechado.** Confirmou-se que nada le o outbox local (`trading-signal-outbox.jsonl`), entao os campos de convivencia deixados pela v1.7.0 nao protegiam ninguem: `schema` passa a ser `intuscripto.trading.signal_call.v1`, e `schema_canonico` e `raw_payload` saem. Sem `raw_payload` nao sobra passagem direta do dicionario interno -- todo campo e montado explicitamente.
-- **O conjunto exato de chaves do registro fica travado por teste**, por igualdade (nem a mais nem a menos), no topo e no `context`. A lista mora no teste, e nao no modulo: se vivesse no codigo, acrescentar um campo seria so acrescentar na lista, e o teste concordaria. Isso substitui `CAMPOS_PUBLICOS_DO_SINAL`, que so existia para filtrar o `raw_payload`.
-
-### Mudanca de comportamento (atencao ao atualizar)
-
-- O registro estruturado no outbox muda de forma: `schema` troca de valor, e `schema_canonico` e `raw_payload` deixam de existir. Nada le esse arquivo hoje; se voce passou a ler depois desta versao, leia pelos campos do topo.
-
 ## v1.7.0 — 2026-09-24
 
 Preparacao para virar produto. A marca passa a ser IntusCripto, o registro
 estruturado de cada sinal -- o formato que o ecossistema vai publicar -- deixa
 de levar o que nao deveria, e o plano do produto fica escrito (`Docs/ROADMAP.md`
 e `Docs/decisions/`).
+
+### Mudanca de comportamento (atencao ao atualizar)
+
+- **O badge do grafico enviado ao Discord muda de `ASPIRA TRADE` para `INTUSCRIPTO`.** Ele e escrito no renderer, nao lido da configuracao, entao muda para todo mundo que atualizar -- inclusive quem mantem `SETUP_NOTIFY_BRAND` antigo no `.env`. O texto da mensagem, que le `SETUP_NOTIFY_BRAND`, so muda para quem trocar a variavel.
+- **O registro estruturado do sinal no outbox (`trading-signal-outbox.jsonl`) mudou de forma.** `context.scanner_state_path` saiu; `raw_payload` passa a trazer so os campos de `CAMPOS_PUBLICOS_DO_SINAL`; entra `schema_canonico`. O campo `schema` **nao** mudou. Se algo le esse arquivo, confira se dependia do que saiu.
+- O `bootstrap` passa a instalar o `setuptools` sem teto. Quem usa a Nado continua precisando do `requirements-nado.txt`, que agora traz o `setuptools<81` que o SDK exige.
 
 ### Alterado
 
@@ -62,12 +76,6 @@ e `Docs/decisions/`).
 - A arvore de estrutura do `README` foi atualizada; ela nao mostrava `Docs/`, `references/`, `settings.schema.json` nem `workspace/venues/`.
 - **Correcao:** textos desta versao afirmavam que o payload do sinal "ja ia para um grupo". Nao ia: ele e gravado no outbox local; o grupo recebe o texto renderizado, sem esse payload. O vazamento de caminho corrigido existia -- chegava a qualquer leitor do outbox e chegaria ao ecossistema --, mas nao ao grupo.
 
-### Mudanca de comportamento (atencao ao atualizar)
-
-- **O badge do grafico enviado ao Discord muda de `ASPIRA TRADE` para `INTUSCRIPTO`.** Ele e escrito no renderer, nao lido da configuracao, entao muda para todo mundo que atualizar -- inclusive quem mantem `SETUP_NOTIFY_BRAND` antigo no `.env`. O texto da mensagem, que le `SETUP_NOTIFY_BRAND`, so muda para quem trocar a variavel.
-- **O registro estruturado do sinal no outbox (`trading-signal-outbox.jsonl`) mudou de forma.** `context.scanner_state_path` saiu; `raw_payload` passa a trazer so os campos de `CAMPOS_PUBLICOS_DO_SINAL`; entra `schema_canonico`. O campo `schema` **nao** mudou. Se algo le esse arquivo, confira se dependia do que saiu.
-- O `bootstrap` passa a instalar o `setuptools` sem teto. Quem usa a Nado continua precisando do `requirements-nado.txt`, que agora traz o `setuptools<81` que o SDK exige.
-
 ### Nao coberto por esta versao
 
 - `raw_payload` **continua existindo**, limitado, para nao quebrar quem ja le dele. Ele e redundante com os campos do topo e sai numa release futura, junto com a inversao do `schema`/`schema_canonico`, quando o consumidor estiver conferido -- uma confirmacao fecha as duas.
@@ -81,6 +89,17 @@ escreveu era descartado em silencio e substituido por um default -- e em
 todas elas o default decidia dinheiro ou protecao. O padrao e o mesmo do
 `CEX_SANDBOX=ture` que abriu esta fase.
 
+### Mudanca de comportamento (atencao ao atualizar)
+
+Sao **duas**, e as duas na mesma direcao: valor irreconhecivel agora derruba o comando em vez de virar o default. Em ambos os casos, se voce tem hoje um valor fora do vocabulario, ele **ja nao estava valendo** -- a diferenca e que agora voce fica sabendo.
+
+- **Percentual fora do vocabulario derruba o comando** em vez de cair no default. Ausente ou em branco continua caindo no default -- nao declarar segue sendo diferente de declarar errado. Confira `PROTECTIVE_STOP_LOSS_PCT`, `PROTECTIVE_TAKE_PROFIT_PCT`, `MAX_PAIR_LOSS_PCT` e `MARGIN_USD` no seu `.env`: se algum usa virgula decimal, ele **ja nao estava valendo** -- a diferenca e que agora voce fica sabendo.
+- **Direcao fora do vocabulario derruba o comando** em vez de virar "sem filtro". Ausente ou em branco continua significando sem filtro. Se voce tem `UNIQUE_TREND` com um valor que nao seja `long`/`comprado`/`compra`/`short`/`vendido`/`venda`, ele **ja nao estava filtrando nada** -- a diferenca e que agora voce fica sabendo.
+
+### Removido
+
+- Os dois PRDs em HTML da raiz (`PRD.html` e `trade-automatizado-openclaw-prd.html`), copias byte a byte um do outro. Nenhum documento versionado os referenciava.
+
 ### Corrigido
 
 - **Percentual de risco invalido deixa de virar o default em silencio.** `_pct_from_env` e `_notice_pct_from_env` faziam `except (TypeError, ValueError): return default`, e o que elas alimentam e **stop loss e take profit** (`PROTECTIVE_STOP_LOSS_PCT`, `MAX_PAIR_LOSS_PCT`, `SETUP_NOTIFY_STOP_LOSS_PCT`). Com `default=0.03`, medido: `2,5` virava `0.030` -- um stop 20% mais largo que o pretendido, calado. **A virgula decimal e a escrita natural em portugues**, entao este nao e um typo improvavel: e a forma como muita gente escreve numero. Mesmo formato de defeito do `CEX_SANDBOX=ture` e do `NADO_REQUIRE_LINKED_SIGNER=on`.
@@ -93,22 +112,18 @@ todas elas o default decidia dinheiro ou protecao. O padrao e o mesmo do
 - **As copias da Nado consomem os mesmos helpers.** `nado/auto_trade_nado.py` tinha a propria versao dos dois, lendo as mesmas variaveis -- dois vereditos para a mesma pergunta.
 - **Um teste que consagrava o defeito foi corrigido.** `test_v2.py` afirmava `UNIQUE_TREND=true` -> `""`, ou seja, exigia que um valor que nao e direcao nenhuma apagasse a restricao em silencio.
 
-### Removido
-
-- Os dois PRDs em HTML da raiz (`PRD.html` e `trade-automatizado-openclaw-prd.html`), copias byte a byte um do outro. Nenhum documento versionado os referenciava.
-
-### Mudanca de comportamento (atencao ao atualizar)
-
-Sao **duas**, e as duas na mesma direcao: valor irreconhecivel agora derruba o comando em vez de virar o default. Em ambos os casos, se voce tem hoje um valor fora do vocabulario, ele **ja nao estava valendo** -- a diferenca e que agora voce fica sabendo.
-
-- **Percentual fora do vocabulario derruba o comando** em vez de cair no default. Ausente ou em branco continua caindo no default -- nao declarar segue sendo diferente de declarar errado. Confira `PROTECTIVE_STOP_LOSS_PCT`, `PROTECTIVE_TAKE_PROFIT_PCT`, `MAX_PAIR_LOSS_PCT` e `MARGIN_USD` no seu `.env`: se algum usa virgula decimal, ele **ja nao estava valendo** -- a diferenca e que agora voce fica sabendo.
-- **Direcao fora do vocabulario derruba o comando** em vez de virar "sem filtro". Ausente ou em branco continua significando sem filtro. Se voce tem `UNIQUE_TREND` com um valor que nao seja `long`/`comprado`/`compra`/`short`/`vendido`/`venda`, ele **ja nao estava filtrando nada** -- a diferenca e que agora voce fica sabendo.
-
 ### Nao coberto por esta versao
 
 - Os `_to_float` dos adapters (`kraken_integration`, `ccxt_cex`, `hyperliquid_dex`) tambem caem no default em silencio, mas parseiam **resposta de corretora**, nao config do operador. Dado externo com default e outra decisao, e misturar as duas na mesma mudanca so dificultaria a revisao.
 
 ## v1.5.0 — 2026-09-22
+
+### Mudanca de comportamento (atencao ao atualizar)
+
+Esta versao tem **duas** mudancas que podem derrubar um comando que hoje roda. As duas sao na mesma direcao: valor que antes era adivinhado em silencio agora e recusado. Confira o seu `.env` e o seu `settings.json` antes de atualizar.
+
+- **Chave desconhecida em `settings.json` ou `settings.local.json` derruba o comando** no boot e marca `attention` no `doctor`. Se voce mantinha chaves proprias no arquivo -- anotacao, campo de outra ferramenta, resto de experimento --, prefixe com `_comentario` (aceito em qualquer nivel) ou remova. A direcao cara desta mudanca e recusar config legitima, e ha duas defesas contra isso na suite: o `settings.example.json` tem que passar pelo schema, e um espiao em `Settings._require` registra toda chave que os getters de setup pedem e exige que o schema aceite cada uma.
+- **Valor fora do vocabulario nos oito portoes agora derruba o comando** em vez de virar `False`. Ausente ou vazio continua devolvendo o default -- nao declarar segue sendo diferente de declarar errado --, e comentario inline (`false  # legado`) continua sendo cortado antes da leitura. Confira os valores de `NADO_REQUIRE_LINKED_SIGNER`, `KRAKEN_API_IS_SUBACCOUNT`, `KRAKEN_REQUIRE_SUBACCOUNT`, `KRAKEN_ALLOW_MAIN_ACCOUNT`, `NADO_ALLOW_OWNER_FALLBACK`, `DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK`, `SETUP_NOTIFY_MONITORED_ON_START` e `SETUP_NOTIFY_MONITORED_FORCE` no seu `.env`: o vocabulario aceito e `1/true/yes/sim/on/y/s` e `0/false/no/nao/nao/off/n`. `ConfigError` e um `RuntimeError`, entao o comando termina com a mensagem, nao com traceback.
 
 ### Adicionado
 
@@ -126,13 +141,6 @@ Sao **duas**, e as duas na mesma direcao: valor irreconhecivel agora derruba o c
 - **Os oito portoes booleanos que sobraram ganham vocabulario com os dois lados.** `_load_bool_env` era `raw.lower() in {"1","true","yes","sim"}`: todo o resto caia no `else` implicito e virava `False`. Em `NADO_REQUIRE_LINKED_SIGNER`, cujo default e `True`, isso **desligava a protecao** -- e aqui nao ha o consolo de o default ser o lado seguro, como havia no sandbox. Medido: `ture`, `tru`, `verdadeiro` e tambem `on`, `s` e `y` resolviam `False`. Os tres ultimos sao o caso que mais incomoda, porque sao **validos** no vocabulario que o `sandbox` usa: quem aprendeu a escrever `CEX_SANDBOX=on` desligava a verificacao de linked signer sem nada dizer.
 - **Quatro copias do vocabulario viraram uma.** `Settings.get_bool` passou a delegar para `config.coerce_bool`, e os leitores que nao carregam `Settings` consomem a mesma funcao: `cli._load_bool_env`, `nado/auto_trade_nado._env_bool`, `nado/example._env_bool` e `venues/hyperliquid_dex._to_bool`. Corrigir so o `cli` repetiria o defeito de origem do sandbox -- `NADO_REQUIRE_LINKED_SIGNER` e lido em tres lugares, e nos tres o default e `True`.
 - **`hyperliquid_dex._to_bool` era um quinto leitor de `sandbox`**, a jusante do resolvedor e com default `False` -- producao. Hoje o resolvedor entrega um `bool` de verdade e a recoercao e inofensiva, mas um valor irreconhecivel chegando por qualquer caminho resolvia para producao em silencio.
-
-### Mudanca de comportamento (atencao ao atualizar)
-
-Esta versao tem **duas** mudancas que podem derrubar um comando que hoje roda. As duas sao na mesma direcao: valor que antes era adivinhado em silencio agora e recusado. Confira o seu `.env` e o seu `settings.json` antes de atualizar.
-
-- **Chave desconhecida em `settings.json` ou `settings.local.json` derruba o comando** no boot e marca `attention` no `doctor`. Se voce mantinha chaves proprias no arquivo -- anotacao, campo de outra ferramenta, resto de experimento --, prefixe com `_comentario` (aceito em qualquer nivel) ou remova. A direcao cara desta mudanca e recusar config legitima, e ha duas defesas contra isso na suite: o `settings.example.json` tem que passar pelo schema, e um espiao em `Settings._require` registra toda chave que os getters de setup pedem e exige que o schema aceite cada uma.
-- **Valor fora do vocabulario nos oito portoes agora derruba o comando** em vez de virar `False`. Ausente ou vazio continua devolvendo o default -- nao declarar segue sendo diferente de declarar errado --, e comentario inline (`false  # legado`) continua sendo cortado antes da leitura. Confira os valores de `NADO_REQUIRE_LINKED_SIGNER`, `KRAKEN_API_IS_SUBACCOUNT`, `KRAKEN_REQUIRE_SUBACCOUNT`, `KRAKEN_ALLOW_MAIN_ACCOUNT`, `NADO_ALLOW_OWNER_FALLBACK`, `DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK`, `SETUP_NOTIFY_MONITORED_ON_START` e `SETUP_NOTIFY_MONITORED_FORCE` no seu `.env`: o vocabulario aceito e `1/true/yes/sim/on/y/s` e `0/false/no/nao/nao/off/n`. `ConfigError` e um `RuntimeError`, entao o comando termina com a mensagem, nao com traceback.
 
 ### Nao coberto por esta versao
 
