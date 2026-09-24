@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 import zipfile
 from pathlib import Path
@@ -30,6 +31,55 @@ REQUIRED_FILES = ["SKILL.md", "skill.json", "README.md", "LICENSE"]
 REQUIRED_DIRS = ["workspace", "resources"]
 EXCLUDE = {"__pycache__", ".git", ".venv", "venv", "dist", "node_modules", ".pytest_cache", "playwright-report", "test-results", ".playwright", "blob-report"}
 EXCLUDE_FILES = {".env", "state.json"}
+
+# Instrucao de desenvolvimento do repositorio: descreve a organizacao e o
+# trabalho, nao o produto. Nao vai para o bot de quem instala a skill.
+EXCLUDE_FROM_PACKAGE = {"CLAUDE.md"}
+
+
+def arquivos_do_pacote() -> list[str]:
+    """Caminhos relativos que entram no `.skill` -- so o que o git rastreia.
+
+    O criterio anterior era `ROOT.rglob("*")` menos uma lista fixa de pastas:
+    **o que esta no disco**, nao o que esta no repositorio. Medido em
+    24/09/2026 numa maquina de desenvolvimento: de 239 arquivos que iriam no
+    pacote, 104 estavam fora do git -- o grafo do codigo e o inventario de
+    variaveis de ambiente de uma auditoria (`.ua/`), e os caches do mypy e do
+    ruff. Um `settings.local.json` deixado na raiz iria junto.
+
+    Fora de um repositorio git nao ha como saber o que e do produto, entao o
+    build recusa em vez de adivinhar -- adivinhar e o defeito que isto corrige.
+    """
+    saida = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=False
+    )
+    if saida.returncode != 0:
+        raise SystemExit(
+            "build.py precisa rodar dentro do repositorio git: o pacote e montado "
+            "a partir dos arquivos rastreados, para nao levar nada que esteja so "
+            "no disco desta maquina."
+        )
+    arquivos = []
+    for rel in saida.stdout.decode("utf-8").split("\0"):
+        if not rel:
+            continue
+        if not (ROOT / rel).is_file():  # rastreado mas apagado no disco
+            continue
+        if entra_no_pacote(rel):
+            arquivos.append(rel)
+    return sorted(arquivos)
+
+
+def entra_no_pacote(rel: str) -> bool:
+    """Filtro puro sobre um caminho relativo -- testavel sem depender do que
+    existe no repositorio em um dado momento."""
+    partes = rel.split("/")
+    nome = partes[-1]
+    if any(parte in EXCLUDE for parte in partes):
+        return False
+    if nome in EXCLUDE_FILES or nome in EXCLUDE_FROM_PACKAGE:
+        return False
+    return not rel.startswith("dist/")
 
 
 def validate() -> dict:
@@ -82,20 +132,8 @@ def build(manifest: dict) -> Path:
 
     added = 0
     with zipfile.ZipFile(out_file, "w", zipfile.ZIP_DEFLATED) as zf:
-        for path in ROOT.rglob("*"):
-            if any(part in EXCLUDE for part in path.parts):
-                continue
-            if path.is_dir():
-                continue
-            if path.name in EXCLUDE_FILES:
-                continue
-            if path == out_file:
-                continue
-            # Relative path from skill root
-            rel = path.relative_to(ROOT).as_posix()
-            if rel.startswith("dist/"):
-                continue
-            zf.write(path, rel)
+        for rel in arquivos_do_pacote():
+            zf.write(ROOT / rel, rel)
             added += 1
 
     size_kb = out_file.stat().st_size / 1024
