@@ -33,7 +33,7 @@ próprio operador.
    Edge Functions) é PR no `intushub-core`. Aqui entra só o cliente HTTP que
    chama esses endpoints. Ordem: **expand no banco primeiro, contract no
    satélite depois**, porque mergear código que chama um endpoint inexistente
-   quebra quem atualizar a skill.
+   deixa sem ecossistema quem atualizar a skill.
 
 **Varredura de DDL e Edge Function (24/09/2026): limpo.** Nenhuma pasta
 `supabase/`, `migrations/` ou `functions/`, nenhum `.sql`, nenhuma DDL em

@@ -62,8 +62,8 @@ pode servir às duas coisas.
 
 - **O trabalho de banco da Fase 3 é PR no planeta.** Aqui só entram o cliente e
   o contrato. Ordem: **expand no banco primeiro, contract no satélite depois.**
-  Uma versão da skill que chama um endpoint que ainda não existe quebra o bot de
-  quem atualizar.
+  Uma versão da skill que chama um endpoint que ainda não existe deixa sem
+  ecossistema quem atualizar — publicar e consumir falham, operar não.
 - **A credencial do bot continua segredo:** vive no ambiente ou no gerenciador
   de segredos, nunca no `settings.json`. A credencial de serviço do banco
   **nunca** chega a um bot, em forma nenhuma.
@@ -73,7 +73,8 @@ pode servir às duas coisas.
 - **Indisponibilidade da plataforma não para o bot.** O
   [ADR 0001](0001-execucao-descentralizada-e-ecossistema.md) já exige isso: o
   ecossistema é centro **de dados**, não **de operação**. O cliente HTTP da
-  skill falha fechado para publicar e consumir, e aberto para operar.
+  skill **deve** falhar fechado para publicar e consumir, sem nunca impedir a
+  operação — requisito do passo 3.6, com teste.
 - **Pergunta em aberto, herdada da plataforma:** os bots do ecossistema são de
   operadores **externos** à IntusHub, clientes do produto. Se o banco
   compartilhado da plataforma é o lugar certo para os dados deles, ou se o
