@@ -2,6 +2,10 @@
 
 ## Nao publicado
 
+### Documentacao
+
+- O ecossistema passa a ter lugar definido: o schema Postgres `trading` que ja existe no Supabase da IntusHub, reformulavel por completo. O passo 3.2 do `Docs/ROADMAP.md` comeca por um **inventario** do que ha nele e de quem le ou escreve -- verificado no banco, nao presumido -- antes de qualquer migration destrutiva.
+
 ### Alterado
 
 - **Contrato do sinal fechado.** Confirmou-se que nada le o outbox local (`trading-signal-outbox.jsonl`), entao os campos de convivencia deixados pela v1.7.0 nao protegiam ninguem: `schema` passa a ser `intuscripto.trading.signal_call.v1`, e `schema_canonico` e `raw_payload` saem. Sem `raw_payload` nao sobra passagem direta do dicionario interno -- todo campo e montado explicitamente.

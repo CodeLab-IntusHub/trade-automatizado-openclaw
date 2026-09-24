@@ -32,7 +32,9 @@ era central era a **topologia** (um transmissor, muitos receptores) e as
 
 ## Decisão
 
-**Opção 4**, com o ecossistema no **Supabase da IntusHub**.
+**Opção 4**, com o ecossistema no **Supabase da IntusHub**, no schema Postgres
+`trading` que já existe lá — reformulável por completo (ver o passo 3.2 do
+[ROADMAP](../ROADMAP.md)).
 
 A execução descentraliza por completo: nenhum bot depende de outro para operar,
 e as chaves de cada operador nunca saem da máquina dele. O ecossistema **é** um
@@ -59,3 +61,4 @@ conteúdo compartilhado.
 | Data | Mudança |
 |------|---------|
 | 24/09/2026 | Decisão registrada |
+| 24/09/2026 | Local do ecossistema: schema `trading` existente, reformulável |
