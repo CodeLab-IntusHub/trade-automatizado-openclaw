@@ -228,12 +228,30 @@ move o dinheiro de quem segue. Toda decisão desta fase responde a isso.
 
 ### 3.2 Modelo de dados com RLS
 
-- **Passos:** tabelas de publicação por tipo, com `publisher_id` ligado à
-  identidade; políticas RLS para que cada bot só escreva como si mesmo;
-  migrations versionadas, testadas localmente com `supabase-local` e revisadas
-  com o `database-reviewer`.
-- **Pronto quando:** teste **negativo** prova que o bot A não consegue escrever
-  como o bot B, nem alterar publicação alheia.
+O ecossistema nasce no schema Postgres **`trading`**, que já existe no Supabase
+da IntusHub — em vez de num schema novo. Ele pode ser **reformulado por
+completo**. (O identificador do sinal, `intuscripto.trading.signal_call.v1`, já
+usa o mesmo nome.)
+
+- **Passos:**
+  1. **Inventário antes de reformular.** O que existe hoje em `trading` —
+     tabelas, views, funções, gatilhos, políticas RLS — e **quem lê ou escreve
+     nele**: a instância que está no ar, outros produtos da IntusHub, Edge
+     Functions, dashboards. "Ninguém usa" se verifica no banco, não se presume:
+     reformular um schema que tem consumidor apaga dado e quebra sem erro.
+  2. **Destino dos dados que já estão lá:** migrar, arquivar ou descartar —
+     decidido por tabela, antes da primeira migration destrutiva.
+  3. **Modelo novo:** tabelas de publicação por tipo, com `publisher_id` ligado
+     à identidade; RLS em toda tabela, para que cada bot só escreva como si
+     mesmo; migrations versionadas, testadas localmente com `supabase-local` e
+     revisadas com o `database-reviewer`.
+  4. **Como os bots chegam ao schema.** Um schema fora de `public` só é
+     acessível pela API do Supabase se for incluído nos schemas expostos.
+     Decidir entre expor `trading` e dar acesso só por funções (RPC) ou Edge
+     Functions — a segunda restringe o que um bot consegue fazer diretamente.
+- **Pronto quando:** o inventário está registrado e aprovado antes de qualquer
+  migration destrutiva; e um teste **negativo** prova que o bot A não consegue
+  escrever como o bot B, nem alterar publicação alheia.
 
 ### 3.3 Contrato de publicação v1
 
@@ -347,3 +365,4 @@ risco e a que mais se beneficia de um `premortem` antes de começar.
 |------|---------|
 | 24/09/2026 | Plano inicial: execução descentralizada, skill genérica, painel local, ecossistema no Supabase e telemetria opt-in |
 | 24/09/2026 | Passo 0.1 concluído |
+| 24/09/2026 | Passo 3.2: o ecossistema nasce no schema `trading` existente, reformulável; inventário de uso antes de qualquer migration destrutiva |
