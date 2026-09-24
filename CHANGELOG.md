@@ -9,6 +9,8 @@
 
 ### Documentacao
 
+- **ROADMAP ganha o portao da Fase 3 e as etapas em ordem.** Nenhum passo do ecossistema comeca antes de: piso de cobertura com catraca, escritor atual do schema `trading` identificado, decisao da plataforma sobre onde vivem os dados de operadores externos, e `premortem`. Os passos viram etapas A-H com dependencias explicitas; a central de aprendizagem (3.9) passa a depender da telemetria.
+- `PROGRESS.md` registra o conteudo do pacote e o lugar do produto na IntusHub (satelite, sem integracao com o banco ainda); o indice deixa de citar campos de legado do contrato do sinal, removidos na #28.
 - **O repositorio passa a ser satelite do `intushub-core`**, o repositorio de plataforma da IntusHub. Novo `CLAUDE.md` com a posicao na constelacao: toda DDL, Edge Function e politica do banco compartilhado vive no planeta; aqui fica o cliente HTTP e o contrato do que a skill publica. Varredura de DDL e Edge Function: limpo.
 - **ADR 0006 substitui o ADR 0004.** O ecossistema e acessado por Edge Functions da plataforma, e nao por uma conta Supabase Auth por bot com RLS -- o modelo do 0004 abriria um segundo caminho de acesso ao banco, paralelo ao da plataforma, e exigiria expor o schema `trading`.
 - **ROADMAP, Fase 3:** o trabalho de banco e PR no planeta (expand no banco primeiro, contract no satelite depois); o passo 3.2 registra a primeira leitura do inventario e decide o acesso; novos passos 3.8 (compartilhamento de setups entre agentes, sobre o `settings` e o `config-export`) e 3.9 (central de aprendizagem dos agentes). Fases 4 e 5 passam a falar com as Edge Functions.

@@ -17,7 +17,7 @@ Estado do **produto** — o que existe e funciona. O que vem depois está no
 | [Vocabulário de configuração](features/vocabulario-de-booleanos.md) | Booleano, número e direção: valor irreconhecível recusado em vez de adivinhado |
 | [Schema do settings](features/schema-do-settings.md) | Chave desconhecida derruba o comando em vez de ser ignorada |
 | [config-export](features/config-export.md) | Emite o `settings.json` equivalente ao ambiente atual, e o que ele não cobre |
-| [Contrato do sinal](features/contrato-do-sinal.md) | Registro estruturado de cada sinal: campos, fronteira pública e campos de legado |
+| [Contrato do sinal](features/contrato-do-sinal.md) | Registro estruturado de cada sinal: o conjunto exato de campos, travado por teste |
 
 ## Venues
 
@@ -67,6 +67,21 @@ O produto se chama **IntusCripto**. O nome anterior, Aspira, permanece de
 propósito em dois pontos que espelham estado fora do repositório (arquivos de
 estado na máquina do operador e nomes no TradingView) — ver o
 [ADR 0005](decisions/0005-rebrand-intuscripto.md).
+
+## Pacote
+
+O `.skill` que cada operador instala contém **só arquivos rastreados pelo git**
+(`build.py`), sem instruções de desenvolvimento (`CLAUDE.md`). O que estiver
+apenas no disco de quem empacota — caches, artefatos de auditoria, um
+`settings.local.json` — não entra.
+
+## Lugar na IntusHub
+
+Este repositório é **satélite** do repositório de plataforma da IntusHub (ver
+[`CLAUDE.md`](../CLAUDE.md)). Hoje a skill **não tem nenhuma integração** com o
+banco compartilhado: não há DDL, Edge Function nem código que fale com ele. O
+ecossistema da Fase 3 chega por endpoints da plataforma
+([ADR 0006](decisions/0006-ecossistema-pela-plataforma.md)).
 
 ## Plataforma
 
