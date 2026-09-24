@@ -1,5 +1,15 @@
 # Changelog
 
+## Nao publicado
+
+### Mudanca de comportamento (atencao ao atualizar)
+
+- O badge da imagem gerada pelo `render_trade_chart.js` passa a mostrar `SETUP_NOTIFY_BRAND`, e nao mais o texto fixo `INTUSCRIPTO`. Com a variavel vazia ou ausente, a imagem sai **sem badge** -- a mesma regra que o texto do sinal ja seguia. Quem usa o `.env.example` nao percebe diferenca: ele traz `SETUP_NOTIFY_BRAND=INTUSCRIPTO`.
+
+### Corrigido
+
+- **O badge do renderer le a marca da configuracao** (ROADMAP 0.2). A marca vai escapada para o HTML. O `html()` do renderer passa a ser exportado e o Playwright so e carregado no modo de linha de comando, o que permite testar o badge com `node`, sem navegador: um teste prova que a marca configurada aparece no HTML fotografado, que marca vazia nao gera badge, e que nenhuma marca fica escrita no renderer.
+
 ## v1.8.0 — 2026-09-24
 
 Contrato do sinal fechado e pacote limpo. O registro estruturado de cada sinal

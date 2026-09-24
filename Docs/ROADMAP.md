@@ -58,13 +58,13 @@ Confirmou-se que nada lê o outbox local. `schema` passou a ter o nome atual, e
 registro ficou travado por teste. Ver
 [Contrato do sinal](features/contrato-do-sinal.md).
 
-### 0.2 Badge do renderer lê a marca da configuração
+### 0.2 Badge do renderer lê a marca da configuração — **concluído em 24/09/2026**
 
-`workspace/render_trade_chart.js` tem a marca escrita no HTML, em vez de ler
-`SETUP_NOTIFY_BRAND` — contraria a regra de nenhum parâmetro fixo no código.
-
-- **Pronto quando:** não há literal de marca no renderer, e um teste prova que
-  a marca configurada aparece na imagem gerada.
+O badge de `workspace/render_trade_chart.js` passou a mostrar
+`SETUP_NOTIFY_BRAND`; vazia, a imagem sai sem badge. O teste roda o `html()` do
+renderer pelo `node` — o HTML que o screenshot fotografa — e trava a marca
+configurada, a ausência de badge sem marca, o escape e a falta de literal de
+marca no arquivo.
 
 ### 0.3 `doc referencia/`
 
