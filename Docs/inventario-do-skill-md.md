@@ -57,7 +57,7 @@ Além do grupo, duas marcas que não dependem dele:
 | 234 | **valores** das allowlists padrão por setup | I | os valores vivem no código (`cli.py`, `_quote_pairs`); repetidos aqui, derivam. Referenciar a fonte, não copiar a lista |
 | 235–237 | allowlist própria por setup novo; sinal explícito; `asset-scan` | G | |
 | 238 | guardrail cross da Nado; "para contas pequenas, prefira 8 slots" | G | recomendação com motivo, não preferência de instância |
-| 239 | notificação de entrada; "Discord direto no **padrão Zeus**" | G + H | "padrão Zeus" é nome histórico |
+| 239 | notificação de entrada; "Discord direto no **padrao Zeus**" | G + H | "padrão Zeus" é nome histórico |
 | 240, 242–244 | parâmetros dos setups (ATR, RSI, EMA, alvos, timeout) e "prefira esta variante para live" | I | parâmetros de setup são configuração (`settings.json`, ver `Docs/features/configuracao-de-setups.md`); o texto deve apontar a chave, não fixar o valor |
 | 241 | "`grid`, `hybrid` e `hybrid-15m` foram removidos/desativados" | H | |
 | 245 | `delta-neutral`/`funding-arb` dependem de spread real | G | |
@@ -65,11 +65,11 @@ Além do grupo, duas marcas que não dependem dele:
 | 254–259 | exemplos | G | |
 | 263 | "use `doc referencia/05-entrega-discord-zeus.md` apenas como histórico de migração. Zeus não é marca…" | H + **1.3** | arquivo ausente do pacote |
 | 265–267 | token do bot, canal de teste, permissões | G | |
-| 268 | "Formato correto do **IntusCripto**: uma única mensagem com texto + imagem, sem embed. Use `SETUP_NOTIFY_DISCORD_NATIVE_EMBED=false`, `SETUP_NOTIFY_BRAND=INTUSCRIPTO`, `SETUP_NOTIFY_DISCORD_BOX=false`" | I + **⚠** | formato e marca da entrega são escolha de quem opera — já são variáveis; o texto deve descrever as opções, não impor a da instância. Contradiz a linha 39 |
+| 268 | "Formato correto do **IntusCripto**: uma única mensagem com texto + imagem anexada, sem card/embed nativo. Use `SETUP_NOTIFY_DISCORD_NATIVE_EMBED=false`, `SETUP_NOTIFY_BRAND=INTUSCRIPTO` e `SETUP_NOTIFY_DISCORD_BOX=false`." | I + **⚠** | formato e marca da entrega são escolha de quem opera — já são variáveis; o texto deve descrever as opções, não impor a da instância. Contradiz a linha 39 |
 | 269–272 | menção de cargo, validação antes de canal público, `setup-live` como fluxo oficial | G | |
 | 276–284 | fonte da verdade para presença/ausência de sinal | G | |
 | 286 | "No fluxo **Hyperliquid top 50**, auditar via Hyperliquid…" | I | fluxo de uma instância; a regra geral já está em 278–284 |
-| 290 | "Quando o **owner** pedir backtest, usar o **dashboard HTML v3** auditado **definido em 2026-07-21**" | I + H | preferência de instância com data de decisão |
+| 290 | "Quando o **owner** pedir backtest, usar como padrão o **dashboard HTML v3** auditado **definido em 2026-07-21**" | I + H | preferência de instância com data de decisão |
 | 292–301 | requisitos do relatório de backtest (filtros, colunas, glossário, QA em navegador) | I | "padrão visual do relatório de backtest", citado no ROADMAP 1.2 |
 | 299 | "default operacional recente: **US$1.000** por cenário" | I | capital de simulação padrão, citado no ROADMAP 1.2 |
 | 303 | "Scripts atuais do padrão ficam **no workspace**" | **1.3** | fora do pacote |
