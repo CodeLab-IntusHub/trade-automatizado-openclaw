@@ -42,10 +42,6 @@ def test_structured_call_is_stable_source_for_both_channels():
     assert structured["symbol"] == "WLDUSDC"
     assert structured["setup_slug"] == "institutional-strict"
     assert structured["side"] == "LONG"
-    # Esta assercao dizia `== signal`: consagrava a passagem direta do dict
-    # interno para o payload publico. Ver `test_payload_do_sinal.py`.
-    assert set(structured["raw_payload"]) <= set(signal)
-    assert all(structured["raw_payload"][k] == signal[k] for k in structured["raw_payload"])
 
     assert "WLD" in discord_message
     assert "WLD" in whatsapp_message

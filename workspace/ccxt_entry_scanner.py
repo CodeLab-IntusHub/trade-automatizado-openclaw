@@ -657,31 +657,15 @@ def _signal_idempotency_key(signal: dict[str, Any]) -> str:
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
 
 
-# Fronteira do que o dict interno pode levar para o payload publico.
+# O registro estruturado de cada sinal: o contrato que o ecossistema vai
+# publicar. Todo campo e montado explicitamente -- nao ha passagem direta do
+# dict interno. O conjunto exato de chaves esta travado em
+# `test/test_payload_do_sinal.py`, e um campo novo so entra por decisao
+# (atualizando o teste e `Docs/features/contrato-do-sinal.md` junto).
 #
-# `raw_payload` era `signal` inteiro -- passagem direta. O que entrasse no dict
-# interno ia para o registro estruturado do outbox local
-# (`trading-signal-outbox.jsonl`) e sairia para qualquer bot que venha a
-# consumir. A mensagem do Discord e o texto renderizado, e nao carrega este
-# payload. Nao e que houvesse segredo ali hoje: e que nada impedia, porque a
-# seguranca do campo dependia de ninguem nunca por nada sensivel no dict.
-#
-# Sao os 14 campos que o produtor real monta (`_scan`, mais abaixo), e todos ja
-# saem como campo de primeira classe no payload. O campo fica -- limitado --
-# para nao quebrar quem ja le dele; sai numa release futura, junto com a
-# inversao do `schema`, quando o consumidor estiver conferido.
-CAMPOS_PUBLICOS_DO_SINAL = (
-    "exchange", "symbol", "setup", "side", "timeframe", "reason",
-    "entry_price", "stop_price", "take_profit", "targets",
-    "leverage", "risk_profile", "created_at", "bar_at",
-)
-
-
-def _payload_publico(signal: dict[str, Any]) -> dict[str, Any]:
-    """So os campos declarados, na ordem declarada."""
-    return {campo: signal[campo] for campo in CAMPOS_PUBLICOS_DO_SINAL if campo in signal}
-
-
+# Historico: ate 24/09/2026 existiam `raw_payload` (o dict interno inteiro, e
+# depois filtrado) e `schema_canonico` (o nome novo, ao lado do antigo em
+# `schema`). Os dois sairam quando se confirmou que nada le o outbox.
 def _structured_signal_call(signal: dict[str, Any]) -> dict[str, Any]:
     targets = _ensure_four_targets(list(signal.get("targets") or []))
     created_at = float(signal.get("created_at") or time.time())
@@ -689,18 +673,7 @@ def _structured_signal_call(signal: dict[str, Any]) -> dict[str, Any]:
     setup = str(signal.get("setup") or "")
     side = str(signal.get("side") or "").upper()
     return {
-        # O produto virou IntusCripto, mas este campo e **contrato de fio**: ha
-        # um pipeline no ar consumindo estes sinais e nao foi possivel confirmar
-        # que nada casa por esta string. Trocar o valor de `schema` quebraria
-        # esse consumidor em silencio -- nao levanta excecao, so para de casar,
-        # e sinal que nao casa e sinal que nao chega.
-        #
-        # Por isso o nome novo entra **ao lado**, no campo canonico, e o antigo
-        # permanece onde o consumidor existente ja le. Quando estiver conferido
-        # que nada le o outbox casando por esta string: `schema` passa a ter o
-        # nome novo e `schema_canonico` sai.
-        "schema": "aspira.trading.signal_call.v1",
-        "schema_canonico": "intuscripto.trading.signal_call.v1",
+        "schema": "intuscripto.trading.signal_call.v1",
         "idempotency_key": _signal_idempotency_key(signal),
         "source": "unified_scanner",
         "called_at": _utc_iso(created_at),
@@ -729,7 +702,6 @@ def _structured_signal_call(signal: dict[str, Any]) -> dict[str, Any]:
             # registro estruturado do outbox, e iria para qualquer bot que venha
             # a consumir. E dado de diagnostico e pertence ao log local.
         },
-        "raw_payload": _payload_publico(signal),
     }
 
 

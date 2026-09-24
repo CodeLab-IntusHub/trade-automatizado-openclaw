@@ -51,23 +51,12 @@ critério está verificado — não quando o código foi escrito.
 
 Itens pequenos, herdados das entregas anteriores.
 
-### 0.1 Fechar o legado do contrato do sinal
+### 0.1 Fechar o legado do contrato do sinal — **concluído em 24/09/2026**
 
-O payload do sinal emite `schema` com o nome antigo e `schema_canonico` com o
-novo, e mantém `raw_payload` limitado — tudo para não quebrar um consumidor que
-já estava lendo. Ver [Contrato do sinal](features/contrato-do-sinal.md).
-
-- **Depende de:** conferir se algo lê o outbox local
-  (`trading-signal-outbox.jsonl`) casando por `schema` ou lendo `raw_payload`.
-  A mensagem que chega ao Discord é o texto renderizado e **não** carrega este
-  payload — então o consumidor a conferir é quem lê o arquivo, não o grupo.
-- **Passos:** inverter `schema` ↔ `schema_canonico`; remover o campo de legado;
-  remover `raw_payload` (é redundante com os campos do topo); atualizar
-  `test_payload_do_sinal.py` e `test_rebrand_intuscripto.py`.
-- **Pronto quando:** o payload não tem mais campo de legado, e os testes que
-  travavam a convivência foram trocados por testes do contrato final.
-- **Alternativa:** absorver este passo na Fase 3.3, como parte da v1 do
-  contrato de publicação.
+Confirmou-se que nada lê o outbox local. `schema` passou a ter o nome atual, e
+`schema_canonico` e `raw_payload` saíram. O conjunto exato de chaves do
+registro ficou travado por teste. Ver
+[Contrato do sinal](features/contrato-do-sinal.md).
 
 ### 0.2 Badge do renderer lê a marca da configuração
 
@@ -253,7 +242,8 @@ move o dinheiro de quem segue. Toda decisão desta fase responde a isso.
   campo é versão menor, remover ou mudar significado é versão maior com período
   de convivência. O contrato do sinal atual é o ponto de partida (ver passo 0.1).
 - **Pronto quando:** existe teste que falha se o produtor emitir campo fora do
-  contrato — o mesmo mecanismo de `CAMPOS_PUBLICOS_DO_SINAL`.
+  contrato — o mesmo mecanismo que já trava o registro do sinal
+  (`test/test_payload_do_sinal.py`).
 
 ### 3.4 Autenticidade e integridade
 
@@ -356,3 +346,4 @@ risco e a que mais se beneficia de um `premortem` antes de começar.
 | Data | Mudança |
 |------|---------|
 | 24/09/2026 | Plano inicial: execução descentralizada, skill genérica, painel local, ecossistema no Supabase e telemetria opt-in |
+| 24/09/2026 | Passo 0.1 concluído |

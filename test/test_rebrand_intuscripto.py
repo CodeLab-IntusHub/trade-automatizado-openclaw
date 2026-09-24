@@ -1,7 +1,7 @@
 """O rebrand Aspira -> IntusCripto, e as três coisas que ele não pode arrastar.
 
 "Aspira" era o nome do OpenClaw onde esta skill foi desenvolvida; o produto
-hoje é IntusCripto. Renomear é legítimo — mas três superfícies com `aspira` no
+hoje é IntusCripto. Renomear é legítimo — mas duas superfícies com `aspira` no
 nome **espelham estado que vive fora deste repositório**, e renomeá-las aqui
 troca uma inconsistência cosmética por uma quebra silenciosa:
 
@@ -12,10 +12,12 @@ troca uma inconsistência cosmética por uma quebra silenciosa:
    conta TradingView, e o renderer casa por string
    (`tradingview_sandbox_render.js:145` derruba o render quando o `pine_title`
    não está no layout).
-3. **O schema do sinal** é contrato de fio, com um pipeline no ar consumindo.
+Havia uma terceira — o campo `schema` do sinal, preservado enquanto não se
+sabia se algo lia o outbox. Em 24/09/2026 o autor confirmou que nada lê, e ele
+passou a ter o nome novo; o teste abaixo agora trava o nome **novo**.
 
-Estes testes existem porque as três são invisíveis: nada falha na suíte se
-alguém "terminar o rebrand" e arrastar as três junto.
+Estes testes existem porque as duas são invisíveis: nada falha na suíte se
+alguém "terminar o rebrand" e arrastar as duas junto.
 """
 
 from __future__ import annotations
@@ -62,19 +64,16 @@ def test_campos_que_espelham_o_tradingview_seguem_no_nome_antigo() -> None:
     )
 
 
-def test_schema_do_sinal_preserva_o_nome_que_o_consumidor_le() -> None:
-    """Trocar o valor de `schema` quebraria em silêncio quem já casa por ele.
-
-    O nome novo entra ao lado, em `schema_canonico`. A inversão (e a remoção do
-    legado) acontece quando o pipeline que consome estiver conferido.
-    """
+def test_schema_do_sinal_usa_o_nome_novo() -> None:
+    """A terceira superficie, fechada quando se confirmou que nada le o outbox.
+    Nao sobra campo de convivencia com o nome antigo."""
     from workspace.ccxt_entry_scanner import _structured_signal_call
 
     payload = _structured_signal_call(
         {"symbol": "ETH/USDT", "setup": "grid", "side": "long", "targets": [1, 2, 3, 4]}
     )
-    assert payload["schema"] == "aspira.trading.signal_call.v1"
-    assert payload["schema_canonico"] == "intuscripto.trading.signal_call.v1"
+    assert payload["schema"] == "intuscripto.trading.signal_call.v1"
+    assert "schema_canonico" not in payload
 
 
 def test_os_pine_foram_renomeados_e_nao_sobrou_orfao() -> None:
