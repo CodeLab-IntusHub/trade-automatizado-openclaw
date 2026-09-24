@@ -403,11 +403,39 @@ Fase 0 ──┐
          ├──> Fase 1 ─────────────┐
          └──> Fase 2 (paralela) ──┼──> Fase 4
                                   │
-              Fase 3 ─────────────┴──> Fase 5
+   Portão ──> Fase 3 (3.1–3.8) ───┴──> Fase 5 ──> 3.9
 ```
 
 A Fase 2 é a entrega mais visível e não depende de nada. A Fase 3 é a de maior
-risco e a que mais se beneficia de um `premortem` antes de começar.
+risco, e por isso tem um **portão** antes do primeiro passo.
+
+### Portão da Fase 3
+
+Nenhum passo da Fase 3 começa antes de:
+
+1. **Piso de cobertura com catraca** (trilha contínua): contrato público
+   precisa de proteção contra regressão.
+2. **Escritor atual do schema `trading` identificado** (passo 3.2, item 1): o
+   schema tem dados e nenhum repositório versionado escreve nele.
+3. **Decisão da plataforma sobre onde vivem os dados de operadores externos**
+   ([ADR 0006](decisions/0006-ecossistema-pela-plataforma.md), pergunta em
+   aberto): banco compartilhado da IntusHub ou projeto próprio do produto.
+4. **`premortem`** da fase, com o resultado registrado.
+
+Os itens 2 e 3 são decididos **fora** deste repositório, na plataforma.
+
+### Etapas, em ordem
+
+| Etapa | Passos | Depende de |
+|---|---|---|
+| A — fechamentos pequenos | 0.2, 0.3 | — |
+| B — skill genérica | 1.1 → 1.5 | A; o 1.3 exige decidir item a item o que falta no pacote |
+| C — painel local | 2.1 → 2.6 | nada; corre em paralelo com B |
+| D — portão | os quatro itens acima | — ; pode começar já, em paralelo |
+| E — ecossistema | 3.1 → 3.8 (3.8 depois de 3.3 e 3.4) | D |
+| F — painel com ecossistema | 4.1, 4.2 | C e E |
+| G — telemetria | 5.1 → 5.4 | E |
+| H — central de aprendizagem | 3.9 | 3.5 e G |
 
 ## Changelog
 
@@ -416,4 +444,5 @@ risco e a que mais se beneficia de um `premortem` antes de começar.
 | 24/09/2026 | Plano inicial: execução descentralizada, skill genérica, painel local, ecossistema no Supabase e telemetria opt-in |
 | 24/09/2026 | Passo 0.1 concluído |
 | 24/09/2026 | Passo 3.2: o ecossistema nasce no schema `trading` existente, reformulável; inventário de uso antes de qualquer migration destrutiva |
+| 24/09/2026 | Portão da Fase 3 e etapas A–H em "Ordem e dependências"; 3.9 passa a depender da Fase 5 |
 | 24/09/2026 | Fase 3 pela plataforma: repo é satélite do `intushub-core`, acesso por Edge Function (ADR 0006); passos 3.8 (compartilhamento de setups) e 3.9 (central de aprendizagem) |

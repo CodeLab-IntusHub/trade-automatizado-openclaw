@@ -46,7 +46,8 @@ trade-automatizado-openclaw/
 ├── LICENSE
 ├── settings.example.json    # exemplo de configuração por arquivo
 ├── settings.schema.json     # vocabulário aceito no settings
-├── build.py                 # empacota o .skill
+├── build.py                 # empacota o .skill (só arquivos rastreados pelo git)
+├── CLAUDE.md                # instruções de desenvolvimento; fora do pacote
 ├── Docs/
 │   ├── PROGRESS.md          # o que existe e funciona
 │   ├── ROADMAP.md           # o que vem depois, passo a passo
