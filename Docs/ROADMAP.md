@@ -86,7 +86,11 @@ Hyperliquid top 50", "default operacional recente: US$1.000 por cenário",
 de agir como aquela instância. Nenhuma outra fase faz sentido enquanto isso não
 mudar.
 
-### 1.1 Inventário do que é de uma instância só
+### 1.1 Inventário do que é de uma instância só — **concluído em 24/09/2026**
+
+Registrado em [`inventario-do-skill-md.md`](inventario-do-skill-md.md): cada
+trecho com a linha de origem e o grupo, mais as referências de fora do pacote
+(1.3) e duas contradições internas a decidir antes do 1.4.
 
 - **Passos:** classificar cada trecho do `SKILL.md` em três grupos — **regra
   geral** (fica), **preferência de instância** (vira configuração), **histórico**
