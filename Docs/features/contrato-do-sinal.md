@@ -1,7 +1,7 @@
 # Contrato do sinal
 
 > Última atualização: 24 de setembro de 2026
-> Versão: 1.0.0
+> Versão: 1.1.0
 
 ## Visão geral
 
@@ -22,7 +22,6 @@ desde já: o que entra nele fica difícil de tirar depois que existe consumidor.
 |---|---|---|
 | Produtor do sinal | `workspace/ccxt_entry_scanner.py` (varredura) | Monta o dicionário interno do sinal |
 | Payload estruturado | `_structured_signal_call` | Converte o dicionário interno no registro público |
-| Fronteira pública | `CAMPOS_PUBLICOS_DO_SINAL`, `_payload_publico` | Lista do que pode atravessar em `raw_payload` |
 | Outbox | `_append_outbox_record` | Grava cada evento como uma linha JSON |
 
 Cada sinal gera dois eventos no outbox: `signal_detected` (antes da entrega) e
@@ -32,8 +31,7 @@ Cada sinal gera dois eventos no outbox: `signal_detected` (antes da entrega) e
 
 | Campo | Origem | Observação |
 |---|---|---|
-| `schema` | fixo | `aspira.trading.signal_call.v1` — nome **antigo**, mantido por compatibilidade |
-| `schema_canonico` | fixo | `intuscripto.trading.signal_call.v1` — nome **atual** |
+| `schema` | fixo | `intuscripto.trading.signal_call.v1` |
 | `idempotency_key` | derivado do sinal | Identifica o sinal de forma estável; base da proteção contra reenvio |
 | `source` | fixo | `unified_scanner` |
 | `called_at`, `bar_at` | sinal | Quando o sinal foi emitido; qual candle o gerou |
@@ -44,50 +42,46 @@ Cada sinal gera dois eventos no outbox: `signal_detected` (antes da entrega) e
 | `thesis` | sinal | Justificativa do setup |
 | `leverage`, `risk_profile` | sinal | |
 | `context` | sinal | `exchange`, `raw_symbol`, `take_profit`, `margin_mode` |
-| `raw_payload` | sinal, **filtrado** | Só os campos de `CAMPOS_PUBLICOS_DO_SINAL` — ver abaixo |
 
-### A fronteira pública
+### Todo campo é explícito
 
-O produtor monta 14 campos, e **todos já saem como campo de primeira classe**
-na tabela acima. `raw_payload` é, portanto, redundante — ele existe porque
-havia consumidores lendo dele.
+Cada campo da tabela é montado um a um em `_structured_signal_call`. Não existe
+campo que carregue o dicionário interno do sinal, então nada que entre nele
+atravessa para o registro por acidente.
 
-Até a v1.6.0 ele era o dicionário interno **inteiro**, passado direto. Qualquer
-chave que entrasse no dicionário interno atravessava para o registro — não
-porque houvesse segredo ali, mas porque nada impedia. Desde então ele carrega
-só os campos declarados em `CAMPOS_PUBLICOS_DO_SINAL`.
+**O contrato está travado num teste.** O conjunto **exato** de chaves — do
+topo e do `context` — está declarado em `test/test_payload_do_sinal.py`, e a
+comparação é por igualdade: um campo a menos quebra quem consome, e um campo a
+mais é o caminho por onde o dicionário interno voltaria a vazar. A lista mora
+no teste, e não no módulo, de propósito: se vivesse no código, acrescentar um
+campo seria só acrescentar na lista, e o teste concordaria.
 
-**Adicionar um campo ao contrato é uma decisão**, não um efeito colateral: a
-lista está no código e é repetida num teste, e mudar uma sem a outra quebra a
-suíte.
+**Adicionar um campo ao contrato é uma decisão:** atualizar o teste e este
+documento na mesma PR.
 
-### O que foi removido, e por quê
+## Histórico
 
-`context.scanner_state_path` emitia o **caminho absoluto do arquivo de estado**
-na máquina do operador — que inclui o nome de usuário dele. Qualquer leitor do
-outbox recebia isso, e o ecossistema receberia. É informação de diagnóstico, e
-pertence ao log local.
+Até a v1.6.0, o registro tinha um campo `raw_payload` com o dicionário interno
+**inteiro**. Qualquer chave que entrasse nele atravessava — não porque
+houvesse segredo ali, mas porque nada impedia. E `context.scanner_state_path`
+emitia o caminho absoluto do arquivo de estado na máquina do operador, com o
+nome de usuário dele.
 
-## Campos de legado
+Na v1.7.0 o caminho saiu, e `raw_payload` passou a ser filtrado. O rebrand
+deixou `schema` com o nome antigo (`aspira.trading.signal_call.v1`) e pôs o
+atual ao lado, em `schema_canonico`, para não quebrar em silêncio um eventual
+leitor do outbox que comparasse por esse texto.
 
-Dois campos existem só por compatibilidade, e saem juntos no passo 0.1 do
-[ROADMAP](../ROADMAP.md):
-
-- **`schema`** guarda o nome antigo porque um leitor do outbox pode estar
-  comparando por esse texto — e uma comparação que deixa de bater não levanta
-  erro, só faz o sinal deixar de ser reconhecido. Ao fechar, `schema` passa a
-  ter o nome atual e `schema_canonico` sai.
-- **`raw_payload`** sai por inteiro.
-
-Antes de fechar, é preciso conferir se algo lê o outbox dependendo de um dos
-dois. A mensagem do Discord **não** é um consumidor deste payload.
+Em 24/09/2026 confirmou-se que **nada lê o outbox**. A convivência não
+protegia ninguém e só deixava dois nomes para a mesma coisa: `schema` passou a
+ter o nome atual, e `schema_canonico` e `raw_payload` saíram.
 
 ## Testes
 
 | Arquivo | Garante |
 |---|---|
-| `test/test_payload_do_sinal.py` | Nenhum caminho local sai; chave desconhecida não atravessa; `raw_payload` limitado; a lista pública não declara campo que o produtor não monta |
-| `test/test_rebrand_intuscripto.py` | `schema` com o nome antigo e `schema_canonico` com o novo, enquanto durar a convivência |
+| `test/test_payload_do_sinal.py` | O conjunto exato de chaves do contrato; `schema` com o nome atual e sem campo de convivência; nenhum caminho local sai; chave desconhecida não atravessa |
+| `test/test_rebrand_intuscripto.py` | O `schema` usa o nome novo |
 | `test/test_unified_signal_publication.py` | O caminho de publicação unificado |
 
 O teste de "nenhum caminho local sai" **injeta** um caminho reconhecível no
@@ -100,3 +94,4 @@ vazamento reintroduzido — o resultado dependia de onde o teste rodava.
 | Data | Mudança |
 |------|---------|
 | 24/09/2026 | Documento inicial: os dois produtos do sinal, o payload, a fronteira pública e os campos de legado |
+| 24/09/2026 | Contrato fechado: `schema` com o nome atual, sem `schema_canonico` nem `raw_payload`; o conjunto de chaves passa a ser travado por teste |

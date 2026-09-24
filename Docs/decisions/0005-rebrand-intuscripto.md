@@ -28,14 +28,14 @@ exibida (`SETUP_NOTIFY_BRAND` e afins).
 |---|---|
 | Arquivos de estado do scanner em `~/.openclaw/state/` | Já existem na máquina de quem opera. Renomear faria o scanner não achar o estado anterior e recomeçar do zero, sem erro. Nome de arquivo interno não é superfície de marca |
 | `pine_title`, `layout_name`, `tradingview_actual_layout_name` | Nomeiam layouts e estudos que existem na conta TradingView, e o renderer compara por texto — renomear aqui sem renomear lá quebra a renderização |
-| Campo `schema` do sinal | Contrato com consumidor em funcionamento. O nome novo entrou ao lado, em `schema_canonico` |
+| Campo `schema` do sinal | Podia haver leitor do outbox comparando por esse texto. O nome novo entrou ao lado, em `schema_canonico` — **fechado em 24/09/2026**: confirmou-se que nada lê o outbox, e `schema` passou a ter o nome novo |
 
 ## Consequências
 
 - **Republicar um estudo Pine com o nome novo exige atualizar o `pine_title` no
   mesmo commit** — as duas pontas do mesmo nome. Está escrito no checklist da
   pasta `references/pine-setups/`.
-- **Fechar o legado do `schema`** é o passo 0.1 do [ROADMAP](../ROADMAP.md).
+- O legado do `schema` foi fechado no passo 0.1 do [ROADMAP](../ROADMAP.md), em 24/09/2026. Seguem preservadas as duas primeiras superfícies.
 - Registro histórico de proveniência (`OPENCLAW-SOURCE.md`) mantém "Aspira": é
   história correta, não marca em uso.
 - **Lição registrada:** encontrar um nome em uso no código responde "onde ele
@@ -47,3 +47,4 @@ exibida (`SETUP_NOTIFY_BRAND` e afins).
 | Data | Mudança |
 |------|---------|
 | 23/09/2026 | Decisão registrada |
+| 24/09/2026 | Terceira superfície (campo `schema`) fechada: nada lê o outbox |

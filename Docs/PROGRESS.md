@@ -60,13 +60,13 @@ para `sandbox`, fora da família kraken, é produção. Ver
 
 Cada sinal produz o **texto** entregue a pessoas (Discord, WhatsApp) e um
 **registro estruturado** gravado no outbox local, que é o formato que o
-ecossistema vai publicar. O registro só leva campos declarados — ver
-[Contrato do sinal](features/contrato-do-sinal.md).
+ecossistema vai publicar. Todo campo do registro é explícito, e o conjunto de
+chaves é travado por teste — ver [Contrato do sinal](features/contrato-do-sinal.md).
 
 O produto se chama **IntusCripto**. O nome anterior, Aspira, permanece de
-propósito em três pontos que espelham estado fora do repositório (arquivos de
-estado na máquina do operador, nomes no TradingView e o campo `schema` do
-sinal) — ver o [ADR 0005](decisions/0005-rebrand-intuscripto.md).
+propósito em dois pontos que espelham estado fora do repositório (arquivos de
+estado na máquina do operador e nomes no TradingView) — ver o
+[ADR 0005](decisions/0005-rebrand-intuscripto.md).
 
 ## Plataforma
 

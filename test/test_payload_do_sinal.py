@@ -29,6 +29,13 @@ só ficam caros **depois** que alguém consome:
 O produtor real (`ccxt_entry_scanner.py:1321`) monta 14 campos, e **todos já
 saem como campos de primeira classe** no payload estruturado. `raw_payload`,
 portanto, era duplicação com risco embutido.
+
+Em 24/09/2026 o autor confirmou que **nada lê o outbox**, e os campos de
+convivência saíram: `schema` passou a ter o nome atual, e `schema_canonico` e
+`raw_payload` deixaram de existir. Sem `raw_payload` não sobra passagem direta
+nenhuma — todo campo é montado explicitamente —, e a fronteira passou a ser o
+**próprio contrato**: o conjunto exato de chaves está declarado neste arquivo,
+e um campo novo quebra a suíte até o contrato ser atualizado de propósito.
 """
 
 from __future__ import annotations
@@ -40,14 +47,19 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# Os 14 campos que o produtor real monta (`ccxt_entry_scanner.py:1321`).
-# Mudar esta lista é mudar o contrato, e por isso ela mora num teste: a
-# alteração exige uma decisão explícita, não um efeito colateral.
-CAMPOS_DO_PRODUTOR = {
-    "exchange", "symbol", "setup", "side", "timeframe", "reason",
-    "entry_price", "stop_price", "take_profit", "targets",
-    "leverage", "risk_profile", "created_at", "bar_at",
+# O contrato do registro estruturado: o conjunto **exato** de chaves.
+#
+# Mora no teste, e nao no codigo, de proposito: se a lista vivesse no modulo,
+# acrescentar um campo seria so acrescentar na lista, e o teste concordaria. Aqui
+# um campo novo quebra a suite ate alguem decidir que ele entra no contrato --
+# e atualizar `Docs/features/contrato-do-sinal.md` junto.
+CAMPOS_DO_CONTRATO = {
+    "schema", "idempotency_key", "source", "called_at", "bar_at",
+    "asset_text", "setup_text", "setup_slug", "pair", "symbol", "venue",
+    "side", "timeframe", "entry", "initial_stop", "targets", "thesis",
+    "leverage", "risk_profile", "context",
 }
+CAMPOS_DO_CONTEXTO = {"exchange", "raw_symbol", "take_profit", "margin_mode"}
 
 
 def _sinal(**extra):
@@ -107,24 +119,31 @@ def test_chave_desconhecida_nao_atravessa() -> None:
     assert "nao-deveria-sair" not in json.dumps(payload, default=str)
 
 
-def test_raw_payload_e_limitado_aos_campos_declarados() -> None:
-    """Mantido para não quebrar quem já lê dele, mas com fronteira."""
+def test_contrato_tem_exatamente_os_campos_declarados() -> None:
+    """Nem campo a mais nem a menos -- no topo e no `context`.
+
+    Igualdade, e nao subconjunto: um campo a menos quebra quem consome, e um
+    campo a mais e o caminho pelo qual o dict interno voltaria a vazar.
+    """
     from workspace.ccxt_entry_scanner import _structured_signal_call
 
-    payload = _structured_signal_call(_sinal(campo_novo_interno=1))
-    assert set(payload["raw_payload"]) <= CAMPOS_DO_PRODUTOR
-    assert "campo_novo_interno" not in payload["raw_payload"]
-
-
-def test_a_lista_declarada_nao_tem_campo_fantasma() -> None:
-    """Campo na allowlist que o produtor não emite é promessa que o contrato
-    não cumpre — consumidor esperando e recebendo `None` para sempre."""
-    from workspace.ccxt_entry_scanner import CAMPOS_PUBLICOS_DO_SINAL
-
-    assert set(CAMPOS_PUBLICOS_DO_SINAL) <= CAMPOS_DO_PRODUTOR, (
-        "a allowlist declara campo que o produtor real não monta: "
-        f"{set(CAMPOS_PUBLICOS_DO_SINAL) - CAMPOS_DO_PRODUTOR}"
+    payload = _structured_signal_call(_sinal())
+    assert set(payload) == CAMPOS_DO_CONTRATO, (
+        f"a mais: {set(payload) - CAMPOS_DO_CONTRATO} | "
+        f"a menos: {CAMPOS_DO_CONTRATO - set(payload)}"
     )
+    assert set(payload["context"]) == CAMPOS_DO_CONTEXTO
+
+
+def test_schema_e_o_nome_atual_e_nao_ha_campo_de_legado() -> None:
+    """Fechado em 24/09/2026: nada le o outbox, entao a convivencia nao
+    protegia ninguem e so deixava dois nomes para a mesma coisa."""
+    from workspace.ccxt_entry_scanner import _structured_signal_call
+
+    payload = _structured_signal_call(_sinal())
+    assert payload["schema"] == "intuscripto.trading.signal_call.v1"
+    assert "schema_canonico" not in payload
+    assert "raw_payload" not in payload
 
 
 def test_os_campos_de_primeira_classe_continuam_valendo() -> None:

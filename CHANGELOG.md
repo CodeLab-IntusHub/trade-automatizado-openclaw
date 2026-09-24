@@ -1,5 +1,16 @@
 # Changelog
 
+## Nao publicado
+
+### Alterado
+
+- **Contrato do sinal fechado.** Confirmou-se que nada le o outbox local (`trading-signal-outbox.jsonl`), entao os campos de convivencia deixados pela v1.7.0 nao protegiam ninguem: `schema` passa a ser `intuscripto.trading.signal_call.v1`, e `schema_canonico` e `raw_payload` saem. Sem `raw_payload` nao sobra passagem direta do dicionario interno -- todo campo e montado explicitamente.
+- **O conjunto exato de chaves do registro fica travado por teste**, por igualdade (nem a mais nem a menos), no topo e no `context`. A lista mora no teste, e nao no modulo: se vivesse no codigo, acrescentar um campo seria so acrescentar na lista, e o teste concordaria. Isso substitui `CAMPOS_PUBLICOS_DO_SINAL`, que so existia para filtrar o `raw_payload`.
+
+### Mudanca de comportamento (atencao ao atualizar)
+
+- O registro estruturado no outbox muda de forma: `schema` troca de valor, e `schema_canonico` e `raw_payload` deixam de existir. Nada le esse arquivo hoje; se voce passou a ler depois desta versao, leia pelos campos do topo.
+
 ## v1.7.0 — 2026-09-24
 
 Preparacao para virar produto. A marca passa a ser IntusCripto, o registro
