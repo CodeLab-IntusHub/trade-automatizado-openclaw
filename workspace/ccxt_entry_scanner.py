@@ -660,8 +660,10 @@ def _signal_idempotency_key(signal: dict[str, Any]) -> str:
 # Fronteira do que o dict interno pode levar para o payload publico.
 #
 # `raw_payload` era `signal` inteiro -- passagem direta. O que entrasse no dict
-# interno saia para o grupo do Discord e sairia para qualquer bot que venha a
-# consumir. Nao e que houvesse segredo ali hoje: e que nada impedia, porque a
+# interno ia para o registro estruturado do outbox local
+# (`trading-signal-outbox.jsonl`) e sairia para qualquer bot que venha a
+# consumir. A mensagem do Discord e o texto renderizado, e nao carrega este
+# payload. Nao e que houvesse segredo ali hoje: e que nada impedia, porque a
 # seguranca do campo dependia de ninguem nunca por nada sensivel no dict.
 #
 # Sao os 14 campos que o produtor real monta (`_scan`, mais abaixo), e todos ja
@@ -694,8 +696,9 @@ def _structured_signal_call(signal: dict[str, Any]) -> dict[str, Any]:
         # e sinal que nao casa e sinal que nao chega.
         #
         # Por isso o nome novo entra **ao lado**, no campo canonico, e o antigo
-        # permanece onde o consumidor existente ja le. Inverter os dois (e
-        # remover `schema_legado`) quando o pipeline do grupo estiver conferido.
+        # permanece onde o consumidor existente ja le. Quando estiver conferido
+        # que nada le o outbox casando por esta string: `schema` passa a ter o
+        # nome novo e `schema_canonico` sai.
         "schema": "aspira.trading.signal_call.v1",
         "schema_canonico": "intuscripto.trading.signal_call.v1",
         "idempotency_key": _signal_idempotency_key(signal),
@@ -722,8 +725,8 @@ def _structured_signal_call(signal: dict[str, Any]) -> dict[str, Any]:
             "take_profit": signal.get("take_profit"),
             "margin_mode": signal.get("margin_mode") or "",
             # `scanner_state_path` saiu daqui: ele emitia o caminho absoluto do
-            # operador -- com o nome de usuario da maquina -- para dentro de uma
-            # mensagem que vai para um grupo, e iria para qualquer bot que venha
+            # operador -- com o nome de usuario da maquina -- para dentro do
+            # registro estruturado do outbox, e iria para qualquer bot que venha
             # a consumir. E dado de diagnostico e pertence ao log local.
         },
         "raw_payload": _payload_publico(signal),

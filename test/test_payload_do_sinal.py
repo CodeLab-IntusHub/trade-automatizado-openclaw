@@ -1,7 +1,9 @@
 """O payload do sinal é o contrato que vai virar público.
 
-`_structured_signal_call` monta o que sai do scanner para o grupo do Discord —
-e o objetivo declarado é que qualquer bot passe a consumir isso. Dois problemas
+`_structured_signal_call` monta o registro estruturado de cada sinal, gravado
+no outbox local (`trading-signal-outbox.jsonl`) — e o objetivo declarado é que
+qualquer bot passe a consumir isso. (A mensagem do Discord é outra coisa: o
+texto renderizado, sem este payload.) Dois problemas
 só ficam caros **depois** que alguém consome:
 
 1. **`context.scanner_state_path` emitia o caminho absoluto do operador.**
@@ -13,8 +15,9 @@ só ficam caros **depois** que alguém consome:
    absoluto de host commitado, e ele está certo -- documentar o vazamento
    reproduzindo o padrão seria cometê-lo no repositório.)
 
-   Isso carrega o **nome de usuário da máquina** para dentro de uma mensagem
-   que já vai para um grupo. É dado de diagnóstico e pertence ao log local.
+   Isso carrega o **nome de usuário da máquina** para o registro que qualquer
+   leitor do outbox recebe — e que o ecossistema receberia. É dado de
+   diagnóstico e pertence ao log local.
 
 2. **`raw_payload` era passagem direta do dicionário interno.** Uma chave
    arbitrária plantada na entrada atravessava inteira. Não é que hoje vaze

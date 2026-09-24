@@ -2,9 +2,19 @@
 
 ## Nao publicado
 
+### Documentacao
+
+- **`Docs/ROADMAP.md`**: o plano do produto, passo a passo -- skill generica que qualquer bot OpenClaw instala, painel `localhost` do proprio bot, ecossistema no Supabase da IntusHub (publicacao de setups, analises, validacoes e noticias, com identidade e RLS por bot) e telemetria opt-in. Cada passo tem criterio de pronto.
+- **`Docs/decisions/`**: cinco ADRs -- execucao descentralizada com ecossistema de dados compartilhado; Sentry nao se aplica a skill; painel como app local novo (proposta); identidade de bot via Supabase Auth (proposta); rebrand com superficies preservadas.
+- **`Docs/features/contrato-do-sinal.md`**: o registro estruturado de cada sinal -- campos, fronteira publica e campos de legado. Documenta tambem que ele vai para o **outbox local**, e nao para o Discord, que recebe o texto renderizado.
+- `Docs/features/protecao-de-ordens.md` ganha o modo de stop por alvo lido do estado.
+- `RELEASE_NOTES.md` passa a ser rotulado como arquivo historico: ele parou na v1.1.22, mas guarda as versoes v1.1.0 a v1.1.16, que nao existem no `CHANGELOG`. Apaga-lo perderia historico.
+- A arvore de estrutura do `README` foi atualizada; ela nao mostrava `Docs/`, `references/`, `settings.schema.json` nem `workspace/venues/`.
+- **Correcao:** textos desta versao afirmavam que o payload do sinal "ja ia para um grupo". Nao ia: ele e gravado no outbox local; o grupo recebe o texto renderizado, sem esse payload. O vazamento de caminho corrigido existia -- chegava a qualquer leitor do outbox e chegaria ao ecossistema --, mas nao ao grupo.
+
 ### Corrigido
 
-- **O payload do sinal deixa de emitir o caminho de arquivo do operador.** `context.scanner_state_path` carregava o caminho absoluto -- com o **nome de usuario da maquina** -- para dentro de uma mensagem que ja vai para um grupo, e que passaria a ir para qualquer bot que venha a consumir. Medido: o valor era o caminho completo do arquivo de estado dentro do diretorio pessoal do operador, comecando pela raiz de perfis do sistema e pelo nome da conta. E dado de diagnostico e pertence ao log local, nao ao sinal.
+- **O payload do sinal deixa de emitir o caminho de arquivo do operador.** `context.scanner_state_path` carregava o caminho absoluto -- com o **nome de usuario da maquina** -- para dentro do registro estruturado do sinal, gravado no outbox local (`trading-signal-outbox.jsonl`) -- o que qualquer leitor desse arquivo recebe, e o que passaria a ir para o ecossistema de bots. A mensagem do Discord e o texto renderizado e nao carregava esse campo. Medido: o valor era o caminho completo do arquivo de estado dentro do diretorio pessoal do operador, comecando pela raiz de perfis do sistema e pelo nome da conta. E dado de diagnostico e pertence ao log local, nao ao sinal.
 - **`raw_payload` deixa de ser passagem direta do dicionario interno.** Uma chave arbitraria plantada na entrada atravessava inteira para a saida. Nao e que houvesse segredo ali hoje -- e que nada impedia: a seguranca do campo dependia de ninguem nunca por nada sensivel no dict interno, o que nao e propriedade que alguem garanta. E congelava os internos no contrato, fazendo de toda mudanca interna uma quebra para quem consome. Agora ele carrega apenas os 14 campos declarados em `CAMPOS_PUBLICOS_DO_SINAL` -- que sao exatamente os que o produtor monta, e que ja saem como campo de primeira classe.
 - **Um teste que consagrava a passagem direta foi corrigido.** `test_unified_signal_publication.py` afirmava `structured["raw_payload"] == signal`, isto e, exigia que o dict interno atravessasse inteiro.
 
@@ -18,7 +28,7 @@
 - **Tres superficies seguem com `aspira` de proposito**, porque espelham estado que vive fora deste repositorio e renomea-las trocaria uma inconsistencia cosmetica por uma quebra silenciosa:
   - **Caminhos de estado** (`~/.openclaw/state/aspira-trading-whatsapp-scanner*`): ja existem na maquina de quem opera. Renomear faz o scanner nao achar o estado anterior e recomecar do zero, sem erro nenhum. Nome de arquivo interno nao e superficie de marca.
   - **`pine_title`, `layout_name` e `tradingview_actual_layout_name`** do `tradingview-managed-layouts.json`: nomeiam layouts e estudos que existem na conta TradingView, e o renderer casa por string -- `tradingview_sandbox_render.js:145` derruba o render quando o `pine_title` nao esta no layout. Os `.pine` ja trazem o nome novo (valido a partir da proxima publicacao); ao republicar, atualizar o `pine_title` no mesmo commit. O acoplamento esta escrito no checklist.
-  - **O campo `schema` do sinal**: e contrato de fio, com pipeline no ar consumindo. O nome novo entra **ao lado**, em `schema_canonico`; o campo `schema` preserva `aspira.trading.signal_call.v1` para nao quebrar em silencio quem ja casa por ele. Inverter os dois e remover o legado quando o consumidor estiver conferido.
+  - **O campo `schema` do sinal**: e contrato de fio: vai para o outbox local, e nao foi confirmado se algo le esse arquivo casando por ele. O nome novo entra **ao lado**, em `schema_canonico`; o campo `schema` preserva `aspira.trading.signal_call.v1` para nao quebrar em silencio quem ja casa por ele. Inverter os dois e remover o legado quando o consumidor estiver conferido.
 - Ha teste para as tres: sem eles nada na suite falharia se um proximo rebrand as arrastasse junto.
 
 ### Nao coberto por esta mudanca

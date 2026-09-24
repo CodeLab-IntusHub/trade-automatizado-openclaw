@@ -1,3 +1,14 @@
+# Notas de release — arquivo histórico (v1.1.x)
+
+> **Este arquivo não é mais atualizado.** O histórico de versões vive no
+> [`CHANGELOG.md`](CHANGELOG.md), que é a fonte da verdade desde a v1.2.0.
+>
+> Ele é mantido porque guarda o registro das versões **v1.1.0 a v1.1.16**, que
+> não existem no `CHANGELOG`. As versões v1.1.18 em diante aparecem nos dois
+> lugares; em caso de divergência, vale o `CHANGELOG`.
+
+---
+
 ## v1.1.22 — 2026-06-16
 
 > Bump: PATCH

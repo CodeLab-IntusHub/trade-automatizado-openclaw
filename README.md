@@ -38,23 +38,39 @@ Esta skill pode operar capital real se configurada para live trading. Por isso:
 
 ```text
 trade-automatizado-openclaw/
-├── SKILL.md
-├── skill.json
+├── SKILL.md                 # instruções que o agente do bot lê
+├── skill.json               # manifesto OpenClaw
 ├── README.md
 ├── CHANGELOG.md
-├── LICENSE
 ├── INSTALL.md
+├── LICENSE
+├── settings.example.json    # exemplo de configuração por arquivo
+├── settings.schema.json     # vocabulário aceito no settings
+├── build.py                 # empacota o .skill
+├── Docs/
+│   ├── PROGRESS.md          # o que existe e funciona
+│   ├── ROADMAP.md           # o que vem depois, passo a passo
+│   ├── decisions/           # ADRs: o porquê das decisões
+│   └── features/            # uma página por feature
+├── references/              # onboarding e setups Pine
 ├── resources/
-├── doc referencia/
-├── test/
+├── doc referencia/          # material de referência antigo
+├── test/                    # suíte pytest
+├── tests/e2e/               # Playwright
 └── workspace/
-    ├── run.py              # entrada OpenClaw recomendada
-    ├── cli.py              # motor original preservado
+    ├── run.py               # entrada OpenClaw recomendada
+    ├── cli.py               # motor original preservado
+    ├── config.py            # fonte única de configuração
     ├── requirements.txt
     ├── core/
+    ├── venues/              # adapters e resolvedor de sandbox
     ├── kraken/
     └── nado/
 ```
+
+A documentação técnica fica em [`Docs/`](Docs/): o estado do produto em
+[`PROGRESS.md`](Docs/PROGRESS.md), o plano em [`ROADMAP.md`](Docs/ROADMAP.md) e
+as decisões de arquitetura em [`Docs/decisions/`](Docs/decisions/).
 
 ## Pré-requisitos
 
