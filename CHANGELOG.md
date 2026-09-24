@@ -14,6 +14,8 @@
 
 - **`doc referencia/` volta a valer** (ROADMAP 0.3). Congelada na v1.2.0 e linkada pelo `INSTALL.md`, a pasta tratava a subconta Kraken como obrigatoria -- "novas entradas so podem rodar com `KRAKEN_API_IS_SUBACCOUNT=true`" -- quando o codigo so exige isso com `KRAKEN_REQUIRE_SUBACCOUNT=true`, que e opcional e desligado por padrao. `01` e `04` passam a separar o padrao da validacao estrita, e `00`, `01`, `03` e `04` passam a dizer que, **sem** linked signer configurado, a Nado assina com a owner key -- o que o codigo faz desde antes; so o linked signer configurado e invalido bloqueia; o `02`, registro da migracao de 22/04/2026, vai para `doc referencia/historico/` com aviso de que nao descreve a configuracao atual; o indice tinha os links para `README`, `INSTALL` e `SKILL` quebrados. Um teste passa a travar os links da pasta e a exigir que o indice liste cada arquivo, e os docs vivos da pasta entram no guard que proibe declarar sandbox por env.
 
+- **Inventario do `SKILL.md`** (ROADMAP 1.1), em `Docs/inventario-do-skill-md.md`: cada trecho classificado como regra geral, preferencia de instancia ou historico, com a linha de origem. Aponta as tres referencias a arquivos fora do pacote e duas contradicoes internas -- "embed nativo por padrao" contra "sem embed", e o fallback automatico para a owner key da Nado contra `NADO_REQUIRE_LINKED_SIGNER=true` (o codigo segue o primeiro: sem linked signer, assina com a owner key).
+
 ## v1.8.0 — 2026-09-24
 
 Contrato do sinal fechado e pacote limpo. O registro estruturado de cada sinal
