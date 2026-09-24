@@ -1,6 +1,30 @@
 # Changelog
 
-## Nao publicado
+## v1.7.0 — 2026-09-24
+
+Preparacao para virar produto. A marca passa a ser IntusCripto, o registro
+estruturado de cada sinal -- o formato que o ecossistema vai publicar -- deixa
+de levar o que nao deveria, e o plano do produto fica escrito (`Docs/ROADMAP.md`
+e `Docs/decisions/`).
+
+### Alterado
+
+- **Rebrand Aspira -> IntusCripto.** "Aspira" era o nome do OpenClaw onde esta skill foi desenvolvida; o produto hoje e IntusCripto. Renomeados: os 13 `.pine` (arquivo e nome do estudo), o `mapping.json`, o README e o checklist da pasta, os ids de DOM e globais do HTML gerado, o boundary MIME, os comentarios editoriais, e a marca exibida (`SETUP_NOTIFY_BRAND` e `SETUP_NOTIFY_DISCORD_EMBED_AUTHOR` no `.env.example`, mais o badge do `render_trade_chart.js`).
+- **Tres superficies seguem com `aspira` de proposito**, porque espelham estado que vive fora deste repositorio e renomea-las trocaria uma inconsistencia cosmetica por uma quebra silenciosa:
+  - **Caminhos de estado** (`~/.openclaw/state/aspira-trading-whatsapp-scanner*`): ja existem na maquina de quem opera. Renomear faz o scanner nao achar o estado anterior e recomecar do zero, sem erro nenhum. Nome de arquivo interno nao e superficie de marca.
+  - **`pine_title`, `layout_name` e `tradingview_actual_layout_name`** do `tradingview-managed-layouts.json`: nomeiam layouts e estudos que existem na conta TradingView, e o renderer casa por string -- `tradingview_sandbox_render.js:145` derruba o render quando o `pine_title` nao esta no layout. Os `.pine` ja trazem o nome novo (valido a partir da proxima publicacao); ao republicar, atualizar o `pine_title` no mesmo commit. O acoplamento esta escrito no checklist.
+  - **O campo `schema` do sinal**: e contrato de fio: vai para o outbox local, e nao foi confirmado se algo le esse arquivo casando por ele. O nome novo entra **ao lado**, em `schema_canonico`; o campo `schema` preserva `aspira.trading.signal_call.v1` para nao quebrar em silencio quem ja casa por ele. Inverter os dois e remover o legado quando o consumidor estiver conferido.
+- Ha teste para as tres: sem eles nada na suite falharia se um proximo rebrand as arrastasse junto.
+- **`setuptools<81` sai do `requirements.txt` base e vai para o `requirements-nado.txt`.** A restricao existe por causa do `eth-keyfile`, que ainda importa `pkg_resources` (removido no setuptools 81) e **so vem com o SDK da Nado**. No base ela limitava o `setuptools` de toda instalacao por uma dependencia que a maioria nao instala -- inclusive no `bootstrap`, que instalava `setuptools<81` para todo mundo. O `pip` reaplica a restricao quando o extra da Nado e instalado.
+- **`python-dotenv` 1.0.1 -> 1.2.3.** O projeto usa apenas `load_dotenv`, a parte mais estavel da API; a suite passa integralmente com a versao nova, local e na CI (ubuntu x windows, 3.12 e 3.13).
+
+### Corrigido
+
+- **O payload do sinal deixa de emitir o caminho de arquivo do operador.** `context.scanner_state_path` carregava o caminho absoluto -- com o **nome de usuario da maquina** -- para dentro do registro estruturado do sinal, gravado no outbox local (`trading-signal-outbox.jsonl`) -- o que qualquer leitor desse arquivo recebe, e o que passaria a ir para o ecossistema de bots. A mensagem do Discord e o texto renderizado e nao carregava esse campo. Medido: o valor era o caminho completo do arquivo de estado dentro do diretorio pessoal do operador, comecando pela raiz de perfis do sistema e pelo nome da conta. E dado de diagnostico e pertence ao log local, nao ao sinal.
+- **`raw_payload` deixa de ser passagem direta do dicionario interno.** Uma chave arbitraria plantada na entrada atravessava inteira para a saida. Nao e que houvesse segredo ali hoje -- e que nada impedia: a seguranca do campo dependia de ninguem nunca por nada sensivel no dict interno, o que nao e propriedade que alguem garanta. E congelava os internos no contrato, fazendo de toda mudanca interna uma quebra para quem consome. Agora ele carrega apenas os 14 campos declarados em `CAMPOS_PUBLICOS_DO_SINAL` -- que sao exatamente os que o produtor monta, e que ja saem como campo de primeira classe.
+- **Um teste que consagrava a passagem direta foi corrigido.** `test_unified_signal_publication.py` afirmava `structured["raw_payload"] == signal`, isto e, exigia que o dict interno atravessasse inteiro.
+- **Modo de stop por alvo irreconhecivel no estado deixa de desligar o trailing em silencio.** `_target_stop_mode_from_state` devolvia `off` para qualquer valor fora do vocabulario, sem dizer nada. `off` **nao** deixa a posicao sem stop -- o stop inicial continua onde foi colocado --, mas desliga a melhoria: com `breakeven_on_tp1` ou `ladder` o stop deveria subir depois de um alvo atingido, e passava a nao subir. O operador pede a melhoria e ela silenciosamente nao acontece. Dentro de uma mesma versao isso nao ocorre (o valor e normalizado na entrada do comando, que levanta); ocorre **entre versoes**, porque o arquivo de estado sobrevive ao upgrade e um alias removido apagaria o trailing de toda posicao aberta, e com estado editado a mao.
+- Ele **continua** devolvendo `off` em vez de levantar, de proposito: o loop gerencia varias posicoes, e derruba-lo por causa do estado de uma so deixaria as outras sem gestao. `off` e a acao conservadora quando nao da para interpretar o valor; o que faltava era dizer que foi isso que aconteceu, nomeando o simbolo, o setup e o valor recusado.
 
 ### Documentacao
 
@@ -12,39 +36,17 @@
 - A arvore de estrutura do `README` foi atualizada; ela nao mostrava `Docs/`, `references/`, `settings.schema.json` nem `workspace/venues/`.
 - **Correcao:** textos desta versao afirmavam que o payload do sinal "ja ia para um grupo". Nao ia: ele e gravado no outbox local; o grupo recebe o texto renderizado, sem esse payload. O vazamento de caminho corrigido existia -- chegava a qualquer leitor do outbox e chegaria ao ecossistema --, mas nao ao grupo.
 
-### Corrigido
+### Mudanca de comportamento (atencao ao atualizar)
 
-- **O payload do sinal deixa de emitir o caminho de arquivo do operador.** `context.scanner_state_path` carregava o caminho absoluto -- com o **nome de usuario da maquina** -- para dentro do registro estruturado do sinal, gravado no outbox local (`trading-signal-outbox.jsonl`) -- o que qualquer leitor desse arquivo recebe, e o que passaria a ir para o ecossistema de bots. A mensagem do Discord e o texto renderizado e nao carregava esse campo. Medido: o valor era o caminho completo do arquivo de estado dentro do diretorio pessoal do operador, comecando pela raiz de perfis do sistema e pelo nome da conta. E dado de diagnostico e pertence ao log local, nao ao sinal.
-- **`raw_payload` deixa de ser passagem direta do dicionario interno.** Uma chave arbitraria plantada na entrada atravessava inteira para a saida. Nao e que houvesse segredo ali hoje -- e que nada impedia: a seguranca do campo dependia de ninguem nunca por nada sensivel no dict interno, o que nao e propriedade que alguem garanta. E congelava os internos no contrato, fazendo de toda mudanca interna uma quebra para quem consome. Agora ele carrega apenas os 14 campos declarados em `CAMPOS_PUBLICOS_DO_SINAL` -- que sao exatamente os que o produtor monta, e que ja saem como campo de primeira classe.
-- **Um teste que consagrava a passagem direta foi corrigido.** `test_unified_signal_publication.py` afirmava `structured["raw_payload"] == signal`, isto e, exigia que o dict interno atravessasse inteiro.
+- **O badge do grafico enviado ao Discord muda de `ASPIRA TRADE` para `INTUSCRIPTO`.** Ele e escrito no renderer, nao lido da configuracao, entao muda para todo mundo que atualizar -- inclusive quem mantem `SETUP_NOTIFY_BRAND` antigo no `.env`. O texto da mensagem, que le `SETUP_NOTIFY_BRAND`, so muda para quem trocar a variavel.
+- **O registro estruturado do sinal no outbox (`trading-signal-outbox.jsonl`) mudou de forma.** `context.scanner_state_path` saiu; `raw_payload` passa a trazer so os campos de `CAMPOS_PUBLICOS_DO_SINAL`; entra `schema_canonico`. O campo `schema` **nao** mudou. Se algo le esse arquivo, confira se dependia do que saiu.
+- O `bootstrap` passa a instalar o `setuptools` sem teto. Quem usa a Nado continua precisando do `requirements-nado.txt`, que agora traz o `setuptools<81` que o SDK exige.
 
-### Nao coberto por esta mudanca
+### Nao coberto por esta versao
 
 - `raw_payload` **continua existindo**, limitado, para nao quebrar quem ja le dele. Ele e redundante com os campos do topo e sai numa release futura, junto com a inversao do `schema`/`schema_canonico`, quando o consumidor estiver conferido -- uma confirmacao fecha as duas.
-
-### Alterado
-
-- **Rebrand Aspira -> IntusCripto.** "Aspira" era o nome do OpenClaw onde esta skill foi desenvolvida; o produto hoje e IntusCripto. Renomeados: os 13 `.pine` (arquivo e nome do estudo), o `mapping.json`, o README e o checklist da pasta, os ids de DOM e globais do HTML gerado, o boundary MIME, os comentarios editoriais, e a marca exibida (`SETUP_NOTIFY_BRAND` e `SETUP_NOTIFY_DISCORD_EMBED_AUTHOR` no `.env.example`, mais o badge do `render_trade_chart.js`).
-- **Tres superficies seguem com `aspira` de proposito**, porque espelham estado que vive fora deste repositorio e renomea-las trocaria uma inconsistencia cosmetica por uma quebra silenciosa:
-  - **Caminhos de estado** (`~/.openclaw/state/aspira-trading-whatsapp-scanner*`): ja existem na maquina de quem opera. Renomear faz o scanner nao achar o estado anterior e recomecar do zero, sem erro nenhum. Nome de arquivo interno nao e superficie de marca.
-  - **`pine_title`, `layout_name` e `tradingview_actual_layout_name`** do `tradingview-managed-layouts.json`: nomeiam layouts e estudos que existem na conta TradingView, e o renderer casa por string -- `tradingview_sandbox_render.js:145` derruba o render quando o `pine_title` nao esta no layout. Os `.pine` ja trazem o nome novo (valido a partir da proxima publicacao); ao republicar, atualizar o `pine_title` no mesmo commit. O acoplamento esta escrito no checklist.
-  - **O campo `schema` do sinal**: e contrato de fio: vai para o outbox local, e nao foi confirmado se algo le esse arquivo casando por ele. O nome novo entra **ao lado**, em `schema_canonico`; o campo `schema` preserva `aspira.trading.signal_call.v1` para nao quebrar em silencio quem ja casa por ele. Inverter os dois e remover o legado quando o consumidor estiver conferido.
-- Ha teste para as tres: sem eles nada na suite falharia se um proximo rebrand as arrastasse junto.
-
-### Nao coberto por esta mudanca
-
 - O badge do `render_trade_chart.js` continua **hardcoded** em vez de ler `SETUP_NOTIFY_BRAND` -- contraria a regra de nao hardcodear config, mas ligar env naquele renderer e outra mudanca, com teste proprio.
 - `OPENCLAW-SOURCE.md` e a regra anti-legado do `SKILL.md` mantem "Aspira": sao registro historico correto de proveniencia, nao marca em uso.
-
-### Alterado
-
-- **`setuptools<81` sai do `requirements.txt` base e vai para o `requirements-nado.txt`.** A restricao existe por causa do `eth-keyfile`, que ainda importa `pkg_resources` (removido no setuptools 81) e **so vem com o SDK da Nado**. No base ela limitava o `setuptools` de toda instalacao por uma dependencia que a maioria nao instala -- inclusive no `bootstrap`, que instalava `setuptools<81` para todo mundo. O `pip` reaplica a restricao quando o extra da Nado e instalado.
-- **`python-dotenv` 1.0.1 -> 1.2.3.** O projeto usa apenas `load_dotenv`, a parte mais estavel da API; a suite passa integralmente com a versao nova, local e na CI (ubuntu x windows, 3.12 e 3.13).
-
-### Corrigido
-
-- **Modo de stop por alvo irreconhecivel no estado deixa de desligar o trailing em silencio.** `_target_stop_mode_from_state` devolvia `off` para qualquer valor fora do vocabulario, sem dizer nada. `off` **nao** deixa a posicao sem stop -- o stop inicial continua onde foi colocado --, mas desliga a melhoria: com `breakeven_on_tp1` ou `ladder` o stop deveria subir depois de um alvo atingido, e passava a nao subir. O operador pede a melhoria e ela silenciosamente nao acontece. Dentro de uma mesma versao isso nao ocorre (o valor e normalizado na entrada do comando, que levanta); ocorre **entre versoes**, porque o arquivo de estado sobrevive ao upgrade e um alias removido apagaria o trailing de toda posicao aberta, e com estado editado a mao.
-- Ele **continua** devolvendo `off` em vez de levantar, de proposito: o loop gerencia varias posicoes, e derruba-lo por causa do estado de uma so deixaria as outras sem gestao. `off` e a acao conservadora quando nao da para interpretar o valor; o que faltava era dizer que foi isso que aconteceu, nomeando o simbolo, o setup e o valor recusado.
 
 ## v1.6.0 — 2026-09-23
 

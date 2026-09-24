@@ -1,6 +1,6 @@
 {
   "name": "trade-automatizado-openclaw",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Skill OpenClaw para setups delta-neutros e ordens solo em DEX/CEX configuráveis, com wizard por corretora, defaults Nado DEX/Kraken CEX, CEX genérica via CCXT, Hyperliquid DEX builtin, stop por alvo configuravel e DEX custom por adapter Python, margin sizing, guardrails, bootstrap seguro e dashboard HTML local do usuário.",
   "author": "CodeLab-IntusHub",
   "license": "Proprietary",
@@ -343,7 +343,7 @@
         "discord_delivery",
         "next_safe_step"
       ],
-      "release": "1.6.0",
+      "release": "1.7.0",
       "nado_subaccount_name_prompt": "only_if_custom_or_diagnostics_fail",
       "subaccount_required_by_default": false,
       "subaccount_user_decides": true,
