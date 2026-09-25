@@ -184,7 +184,7 @@ com aprovação** (recomendado) e **real autônomo**.
      **1Password** para os segredos. **Feito em 25/09/2026:** o onboarding
      pergunta o modo (`autonomy_mode`, análise até o operador escolher).
   2. O `doctor` verifica, onde a venue expõe, se a API key pode sacar, e
-     reprova se puder; onde não expõe, diz que não conseguiu verificar.
+     avisa se puder; onde não expõe, diz que não conseguiu verificar.
      **Feito em 25/09/2026 para CEX** (Binance, Bybit e OKX expõem; as demais
      ficam "não verificado"). Por decisão do autor no mesmo dia, é **aviso**;
      `BLOQUEAR_SAQUE=sim` o torna bloqueio (doctor e comando de trade). Falta DEX: API wallet da Hyperliquid não saca,
