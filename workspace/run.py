@@ -25,7 +25,7 @@ if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 from workspace.venues import venue_summary  # noqa: E402
 from workspace.venues.sandbox import resolve_sandbox, sandbox_settings_keys  # noqa: E402
-from workspace.venues.config import selected_venues  # noqa: E402
+from workspace.venues.config import mensagem_de_modo_nao_escolhido, modos_compativeis, selected_venues  # noqa: E402
 from workspace.config import ConfigError, load_settings  # noqa: E402
 from workspace.settings_schema import validar_settings  # noqa: E402
 _logger = logging.getLogger(__name__)
@@ -522,6 +522,44 @@ def _ensure_venv_ready() -> dict[str, object]:
     return {"attempted": True, "status": boot.get("status", "unknown"), "result": boot, "dependencies": deps}
 
 
+def _modo_de_execucao_do_env() -> str:
+    """O modo que o operador declarou, cru. Vazio quando nao declarou -- sem padrao."""
+    return _clean_env_value(
+        os.environ.get("EXECUTION_MODE")
+        or os.environ.get("DEFAULT_EXECUTION_MODE")
+        or os.environ.get("TRADE_EXECUTION_MODE")
+        or ""
+    )
+
+
+# Modo normalizado (vocabulario de `normalize_execution_mode`) -> o que ele exige.
+_MODO_EXIGE = {"hedged": ("DEX", "CEX"), "nado_only": ("DEX",), "kraken_only": ("CEX",)}
+
+
+def _check_modo_de_execucao() -> tuple[bool, str]:
+    """Modo escolhido e compativel com as venues escolhidas.
+
+    Nao bloqueia o `doctor`: leitura e diagnostico rodam sem modo. Quem abre
+    ordem sem modo para no proprio comando.
+    """
+    from workspace.core.setups import normalize_execution_mode
+
+    selecao = selected_venues()
+    cru = _modo_de_execucao_do_env()
+    if not cru:
+        return False, mensagem_de_modo_nao_escolhido(selecao)
+    try:
+        modo = normalize_execution_mode(cru)
+    except ValueError as exc:
+        return False, str(exc)
+    tem = {"DEX": bool(selecao.dex_id), "CEX": bool(selecao.cex_id)}
+    faltam = [lado for lado in _MODO_EXIGE.get(modo, ()) if not tem[lado]]
+    if faltam:
+        opcoes = " | ".join(modos_compativeis(selecao)) or "nenhum"
+        return False, f"EXECUTION_MODE={cru} exige {' e '.join(faltam)} escolhida; com as venues atuais: {opcoes}"
+    return True, f"EXECUTION_MODE={cru}"
+
+
 def _sandbox_do_relatorio(kind: str, venue_id: str) -> str | None:
     """Sandbox para o relatorio: `"true"`, `"false"` ou `None` se ilegivel.
 
@@ -625,9 +663,8 @@ def setup_check() -> dict[str, object]:
             "cex_market_type": _clean_env_value(os.environ.get("CEX_MARKET_TYPE") or os.environ.get("CEX_DEFAULT_TYPE") or ""),
             "require_linked_signer": _clean_env_value(os.environ.get("NADO_REQUIRE_LINKED_SIGNER") or "true"),
             "require_kraken_subaccount": "false",
-            "execution_mode": _clean_env_value(
-                os.environ.get("EXECUTION_MODE") or os.environ.get("DEFAULT_EXECUTION_MODE") or "hedged"
-            ),
+            # Sem modo padrao: vazio diz "nao escolhido", e o `doctor` avisa.
+            "execution_mode": _modo_de_execucao_do_env(),
             "margin_mode": _clean_env_value(os.environ.get("MARGIN_MODE") or os.environ.get("DEFAULT_MARGIN_MODE") or "cross"),
             "nado_margin_mode": _clean_env_value(os.environ.get("NADO_MARGIN_MODE") or os.environ.get("DEX_MARGIN_MODE") or ""),
             "kraken_margin_mode": _clean_env_value(os.environ.get("KRAKEN_MARGIN_MODE") or os.environ.get("CEX_MARGIN_MODE") or ""),
@@ -686,6 +723,8 @@ def doctor() -> dict[str, object]:
         f"DEX={dex_id or '-'} CEX={cex_id or '-'}" if (dex_id or cex_id)
         else "nenhuma venue escolhida: defina DEX_ID e/ou CEX_ID (nao ha venue padrao)",
     )
+    modo_ok, modo_detalhe = _check_modo_de_execucao()
+    add("modo_execucao", modo_ok, modo_detalhe)
     dex_env = venues.get("dex_required_env", {}) if isinstance(venues.get("dex_required_env"), dict) else {}
     if cex_id:
         add(

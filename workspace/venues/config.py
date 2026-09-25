@@ -102,6 +102,32 @@ def selected_venues() -> VenueSelection:
     return VenueSelection(dex_id=dex_id.lower(), cex_id=cex_id.lower())
 
 
+def modos_compativeis(selection: VenueSelection) -> list[str]:
+    """Modos de execucao que as venues escolhidas permitem, para **sugerir**.
+
+    Nao ha modo padrao: o operador escolhe. Esta lista so alimenta a mensagem
+    de quem ainda nao escolheu e o diagnostico de modo incompativel -- nunca
+    decide o modo, porque acrescentar uma chave mudaria o modo sozinho.
+    """
+    modos = []
+    if selection.dex_id and selection.cex_id:
+        modos.append("hedged")
+    if selection.dex_id:
+        modos.append("dex_only")
+    if selection.cex_id:
+        modos.append("cex_only")
+    return modos
+
+
+def mensagem_de_modo_nao_escolhido(selection: VenueSelection) -> str:
+    opcoes = modos_compativeis(selection)
+    sugestao = " | ".join(opcoes) if opcoes else "escolha antes DEX_ID e/ou CEX_ID"
+    return (
+        "Nenhum modo de execucao escolhido, e nao ha modo padrao. Defina "
+        f"EXECUTION_MODE (ou --execution-mode): {sugestao}."
+    )
+
+
 def cex_env_names(cex_id: str) -> dict[str, list[str]]:
     prefix = _prefix(cex_id)
     names = {

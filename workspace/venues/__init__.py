@@ -5,6 +5,8 @@ from .config import (
     dex_adapter_spec,
     dex_config,
     dex_env_names,
+    mensagem_de_modo_nao_escolhido,
+    modos_compativeis,
     selected_venues,
     venue_summary,
 )
@@ -16,6 +18,8 @@ __all__ = [
     "dex_adapter_spec",
     "dex_config",
     "dex_env_names",
+    "mensagem_de_modo_nao_escolhido",
+    "modos_compativeis",
     "selected_venues",
     "venue_summary",
 ]

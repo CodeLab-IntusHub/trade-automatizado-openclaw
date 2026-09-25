@@ -176,6 +176,7 @@ from workspace.venues import (  # noqa: E402
     cex_credentials,
     dex_adapter_spec,
     dex_config,
+    mensagem_de_modo_nao_escolhido,
     selected_venues,
     venue_summary,
 )
@@ -6621,8 +6622,10 @@ def cmd_open(args: argparse.Namespace) -> None:
     execution_mode = (
         _normalize_execution_mode_arg(getattr(args, "execution_mode", None))
         or _default_execution_mode_from_env()
-        or EXECUTION_MODE_HEDGED
     )
+    if not execution_mode:
+        # Nao ha modo padrao: `hedged` implicito abria as duas pernas sem pedido.
+        raise SystemExit(mensagem_de_modo_nao_escolhido(selected_venues()))
     margin_mode = (
         _normalize_margin_mode_arg(getattr(args, "margin_mode", None))
         or _default_margin_mode_from_env()
@@ -7956,6 +7959,9 @@ def cmd_setup_live(args: argparse.Namespace) -> None:
         setup_keys = [setup_key for setup_key in setup_keys if not is_hedged_only_setup(setup_key)]
         if not setup_keys:
             raise SystemExit("nenhum setup restante aceita o execution-mode solicitado")
+    # `hedged` aqui nao e padrao do operador: sem modo, ou o setup e hedgeado por
+    # natureza (delta-neutral, funding-arb), ou e dry-run so de analise -- o live
+    # direcional sem modo ja parou acima.
     readiness_execution_mode = requested_execution_mode or EXECUTION_MODE_HEDGED
     analysis_only_dry_run = args.dry_run and has_directional and not requested_execution_mode
     iteration = 0

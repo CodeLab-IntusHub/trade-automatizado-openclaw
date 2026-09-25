@@ -157,12 +157,14 @@ escolhe onde opera, e a Nado não é obrigatória. Até a v1.8.0, `DEX_ID` e
   Para só DEX de fato, a DEX precisa virar fonte de dados — a Hyperliquid
   expõe candles pelo CCXT, a Nado não — ou o operador escolhe a fonte de
   dados à parte da venue de execução.
-- **Falta:** o modo de execução padrão ainda é `hedged` (`run.py`, `cli.py`),
-  que exige as duas pontas; e cerca de 40 trechos de documentação (`README`,
+- **Modo de execução — feito em 25/09/2026:** também sem padrão, por decisão do
+  autor. `abrir` sem modo para e sugere os modos compatíveis com as venues;
+  o modo não é deduzido pelas credenciais; o `doctor` avisa modo ausente ou
+  incompatível (`modo_execucao`). Teste em `test/test_modo_sem_padrao.py`.
+- **Falta:** cerca de 40 trechos de documentação (`README`,
   `INSTALL`, `references/`, `skill.json`, resto do `SKILL.md`) ainda falam em
   "padrão Nado/Kraken".
-- **Pronto quando:** nenhum doc de operador elege venue, e o modo de execução
-  também é escolha do operador ou decorre das venues escolhidas.
+- **Pronto quando:** nenhum doc de operador elege venue nem modo de execução.
 
 **Critério de pronto da fase:** instalar a skill num bot limpo e operar sem
 herdar nada da instância original.
