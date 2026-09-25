@@ -166,6 +166,29 @@ escolhe onde opera, e a Nado não é obrigatória. Até a v1.8.0, `DEX_ID` e
   "padrão Nado/Kraken".
 - **Pronto quando:** nenhum doc de operador elege venue nem modo de execução.
 
+### 1.7 Autonomia do agente, com as travas no lugar certo
+
+Decidido no [ADR 0007](decisions/0007-autonomia-do-agente.md): as travas da
+skill são instrução ao agente, não fechadura, e as que valem ficam na exchange
+e na aprovação de execução do OpenClaw. Modos: **análise** (padrão), **real
+com aprovação** (recomendado) e **real autônomo**.
+
+- **Passos:**
+  1. Onboarding e `SKILL.md` descrevem os três modos e o que prende cada um;
+     a configuração de aprovação recomendada do OpenClaw (`tools.exec` em
+     allowlist estreita, com aprovação para os comandos de trade); e sugerem o
+     **1Password** para os segredos.
+  2. O `doctor` verifica, onde a venue expõe, se a API key pode sacar, e
+     reprova se puder; onde não expõe, diz que não conseguiu verificar.
+  3. O `doctor` avisa quando detectar que o OpenClaw dispensa aprovação
+     (`security: full`). Antes: confirmar o formato de `tools.exec` e de
+     `~/.openclaw/exec-approvals.json`.
+  4. `AUTORIZAR_TRADE_REAL` passa a ser registrada no log como rastro de
+     auditoria, e a documentação deixa de chamá-la de trava.
+- **Pronto quando:** nenhum doc de operador apresenta trava da skill como
+  segurança; os passos 2 e 3 têm teste; e um operador novo sabe, pelo
+  onboarding, qual modo está usando e o que o protege.
+
 **Critério de pronto da fase:** instalar a skill num bot limpo e operar sem
 herdar nada da instância original.
 
@@ -371,6 +394,9 @@ mercado, em que timeframe.
   confiança da fase inteira); e se a central só **informa** o operador ou também
   **ajusta** configuração — ajustar sozinho é operar com dinheiro alheio, e
   começa desligado.
+- **Decidido ([ADR 0007](decisions/0007-autonomia-do-agente.md)):** só entram
+  resultados conferíveis na exchange (fills reconciliados pela API da venue).
+  O relato do agente e o raciocínio narrado por ele não entram como fato.
 - **Pronto quando:** o operador vê, no painel, o desempenho agregado de um setup
   entre os bots que aceitaram compartilhar, sem identificar nenhum deles.
 
@@ -449,7 +475,10 @@ Nenhum passo da Fase 3 começa antes de:
 3. **Decisão da plataforma sobre onde vivem os dados de operadores externos**
    ([ADR 0006](decisions/0006-ecossistema-pela-plataforma.md), pergunta em
    aberto): banco compartilhado da IntusHub ou projeto próprio do produto.
-4. **`premortem`** da fase, com o resultado registrado.
+4. **`premortem`** da fase, com o resultado registrado. Cobre obrigatoriamente
+   os três riscos do [ADR 0007](decisions/0007-autonomia-do-agente.md): risco
+   sistêmico (teto de exposição agregada por ativo no ecossistema), injeção de
+   instrução via dados, e envenenamento do aprendizado.
 
 Os itens 2 e 3 são decididos **fora** deste repositório, na plataforma.
 
@@ -458,7 +487,7 @@ Os itens 2 e 3 são decididos **fora** deste repositório, na plataforma.
 | Etapa | Passos | Depende de |
 |---|---|---|
 | A — fechamentos pequenos | 0.2, 0.3 | — |
-| B — skill genérica | 1.1 → 1.6 | A; o 1.3 exige decidir item a item o que falta no pacote |
+| B — skill genérica | 1.1 → 1.7 | A; o 1.3 exige decidir item a item o que falta no pacote |
 | C — painel local | 2.1 → 2.6 | nada; corre em paralelo com B |
 | D — portão | os quatro itens acima | — ; pode começar já, em paralelo |
 | E — ecossistema | 3.1 → 3.8 (3.8 depois de 3.3 e 3.4) | D |
@@ -475,3 +504,4 @@ Os itens 2 e 3 são decididos **fora** deste repositório, na plataforma.
 | 24/09/2026 | Passo 3.2: o ecossistema nasce no schema `trading` existente, reformulável; inventário de uso antes de qualquer migration destrutiva |
 | 24/09/2026 | Portão da Fase 3 e etapas A–H em "Ordem e dependências"; 3.9 passa a depender da Fase 5 |
 | 24/09/2026 | Fase 3 pela plataforma: repo é satélite do `intushub-core`, acesso por Edge Function (ADR 0006); passos 3.8 (compartilhamento de setups) e 3.9 (central de aprendizagem) |
+| 25/09/2026 | Passos 1.6 (sem venue nem modo padrão) e 1.7 (autonomia do agente, ADR 0007); 3.9 aceita só fills reconciliados; premortem da Fase 3 ganha três riscos obrigatórios |
