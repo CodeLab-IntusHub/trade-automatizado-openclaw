@@ -76,11 +76,41 @@ LEGACY_LIVE_CONFIRM_ENV = "DELTA_NEUTRAL_CONFIRM_LIVE"
 _LIVE_CONFIRM_TRUE_VALUES = {"1", "true", "yes", "sim"}
 
 
+_LIVE_CONFIRM_ENVS = (FRIENDLY_LIVE_CONFIRM_ENV, FRIENDLY_CONFIRM_ENV, LIVE_CONFIRM_ENV, LEGACY_LIVE_CONFIRM_ENV)
+AUDIT_FILE_NAME = "auditoria-trade-real.jsonl"
+
+
+def _live_confirm_envs_set() -> list[str]:
+    return [name for name in _LIVE_CONFIRM_ENVS if os.environ.get(name, "").strip().lower() in _LIVE_CONFIRM_TRUE_VALUES]
+
+
 def _live_trade_confirmed() -> bool:
-    return any(
-        os.environ.get(name, "").strip().lower() in _LIVE_CONFIRM_TRUE_VALUES
-        for name in (FRIENDLY_LIVE_CONFIRM_ENV, FRIENDLY_CONFIRM_ENV, LIVE_CONFIRM_ENV, LEGACY_LIVE_CONFIRM_ENV)
-    )
+    return bool(_live_confirm_envs_set())
+
+
+def _record_live_trade_confirmation(argv: list[str]) -> None:
+    """Rastro de auditoria da decisao de operar real (ADR 0007).
+
+    A confirmacao nao e trava -- o agente pode definir a variavel --, mas deixa
+    registro de que, nesta execucao, alguem decidiu operar real, e por qual das
+    quatro variaveis equivalentes. Falhar ao gravar avisa e segue: e rastro.
+    """
+    log_dir = Path(
+        os.environ.get("DELTA_NEUTRAL_LOG_DIR")
+        or Path.home() / ".openclaw" / "logs" / "trade-automatizado-openclaw"
+    ).expanduser()
+    record = {
+        "ts": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "comando": argv[0],
+        "args": argv[1:],
+        "variaveis": _live_confirm_envs_set(),
+    }
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with (log_dir / AUDIT_FILE_NAME).open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError as exc:
+        print(f"aviso: registro de auditoria da operacao real nao gravado ({type(exc).__name__})", file=sys.stderr)
 
 
 def _early_live_confirmation_guard(argv: list[str]) -> None:
@@ -94,6 +124,9 @@ def _early_live_confirmation_guard(argv: list[str]) -> None:
     if "--dry-run" in argv or "--simular" in argv:
         return
     if _live_trade_confirmed():
+        # Unico ponto de registro: toda execucao real passa por aqui (o run.py
+        # chama o cli.py como script, e ninguem chama `main()` por fora).
+        _record_live_trade_confirmation(argv)
         return
     raise SystemExit(
         f"comando de trade bloqueado: defina {FRIENDLY_LIVE_CONFIRM_ENV}=sim apenas na execucao real aprovada "

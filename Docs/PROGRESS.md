@@ -19,6 +19,7 @@ Estado do **produto** — o que existe e funciona. O que vem depois está no
 | [config-export](features/config-export.md) | Emite o `settings.json` equivalente ao ambiente atual, e o que ele não cobre |
 | [Contrato do sinal](features/contrato-do-sinal.md) | Registro estruturado de cada sinal: o conjunto exato de campos, travado por teste |
 | [Escolha de venue e de modo](features/escolha-de-venue-e-modo.md) | Sem venue nem modo padrão: o operador escolhe, e o que falta para o comando |
+| [Travas e auditoria](features/travas-e-auditoria.md) | Key sem saque conferida no `doctor`; rastro de cada execução real |
 | [Entrega de mensagens](features/entrega-de-mensagens.md) | Avisos pelos canais do OpenClaw do operador; tópico do Telegram, bot dedicado |
 | [Inventário do `SKILL.md`](inventario-do-skill-md.md) | Cada trecho do manual do agente: regra geral, preferência de instância ou histórico |
 
@@ -74,8 +75,10 @@ agente, e ele tem shell. As travas que valem ficam fora da skill — na exchange
 (key sem saque, subconta com capital limitado) e na aprovação de execução do
 OpenClaw, encaminhada ao operador pelo chat. Três modos: análise (padrão), real
 com aprovação (recomendado) e real autônomo — ver o
-[ADR 0007](decisions/0007-autonomia-do-agente.md). O que a skill ainda vai
-verificar e orientar está no passo 1.7 do ROADMAP.
+[ADR 0007](decisions/0007-autonomia-do-agente.md). O `doctor` confere se a
+API key da CEX pode sacar (Binance, Bybit, OKX) e cada execução real deixa
+rastro de auditoria — ver [Travas e auditoria](features/travas-e-auditoria.md).
+O que falta está no passo 1.7 do ROADMAP.
 
 ## Sinais e marca
 

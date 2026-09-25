@@ -11,6 +11,8 @@
 
 ### Adicionado
 
+- **`doctor` reprova API key de CEX que pode sacar** (ADR 0007, ROADMAP 1.7). Binance, Bybit e OKX expoem a permissao da propria key; o check `cex_key_sem_saque` pergunta e reprova se ela sacar. Nas outras CEXs, e quando a consulta falha, o check diz "nao verificado" e nao reprova: a duvida nao prova que a key saca, e nunca e tratada como "sem saque". Unica chamada de rede do `doctor`, so com credencial configurada.
+- **Rastro de auditoria da operacao real.** Cada comando de trade executado em modo real grava em `auditoria-trade-real.jsonl` (diretorio de log) o comando, os argumentos e qual das quatro variaveis de confirmacao foi usada. E rastro, nao trava: falhar ao gravar avisa e segue.
 - **Onboarding pergunta a autonomia do agente** (ADR 0007, ROADMAP 1.7 passo 1): `autonomy_mode` = `analise` (padrao ate o operador escolher), `real_com_aprovacao` (recomendado) ou `real_autonomo`, dizendo o que protege em cada um. O `SKILL.md` ganha a secao "Autonomia do agente e o que protege de verdade": a aprovacao de execucao do OpenClaw (`tools.exec` em allowlist estreita), a key sem saque e o capital isolado. O onboarding e o `SKILL.md` sempre sugerem o 1Password para os segredos.
 
 ### Removido
