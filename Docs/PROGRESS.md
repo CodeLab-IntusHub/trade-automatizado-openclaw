@@ -1,7 +1,7 @@
 # Progresso
 
-> Última atualização: 24 de setembro de 2026
-> Versão da skill: 1.8.0
+> Última atualização: 25 de setembro de 2026
+> Versão da skill: 1.9.0
 
 Estado do **produto** — o que existe e funciona. O que vem depois está no
 [ROADMAP](ROADMAP.md); o porquê das decisões de arquitetura, em
@@ -18,6 +18,9 @@ Estado do **produto** — o que existe e funciona. O que vem depois está no
 | [Schema do settings](features/schema-do-settings.md) | Chave desconhecida derruba o comando em vez de ser ignorada |
 | [config-export](features/config-export.md) | Emite o `settings.json` equivalente ao ambiente atual, e o que ele não cobre |
 | [Contrato do sinal](features/contrato-do-sinal.md) | Registro estruturado de cada sinal: o conjunto exato de campos, travado por teste |
+| [Escolha de venue e de modo](features/escolha-de-venue-e-modo.md) | Sem venue nem modo padrão: o operador escolhe, e o que falta para o comando |
+| [Entrega de mensagens](features/entrega-de-mensagens.md) | Avisos pelos canais do OpenClaw do operador; tópico do Telegram, bot dedicado |
+| [Inventário do `SKILL.md`](inventario-do-skill-md.md) | Cada trecho do manual do agente: regra geral, preferência de instância ou histórico |
 
 ## Venues
 
@@ -28,6 +31,12 @@ Estado do **produto** — o que existe e funciona. O que vem depois está no
 | Binance, Bybit, OKX, KuCoin, MEXC, Bitget, Gate.io | CEX | `GenericCcxtTrader` | sim |
 | Nado | DEX | SDK próprio (opcional) | parcial |
 | DEX custom | DEX | `DEX_ADAPTER_MODULE` | depende do adapter |
+
+**Nenhuma venue é padrão:** o operador escolhe `DEX_ID` e/ou `CEX_ID`, e sem
+escolha os comandos de mercado param. A CEX é a fonte de candles em todos os
+modos, então quem opera só DEX informa `CEX_ID` mesmo assim, sem credencial. O
+modo de execução também não tem padrão — ver
+[Escolha de venue e de modo](features/escolha-de-venue-e-modo.md).
 
 O SDK da Nado é dependência **opcional** (`workspace/requirements-nado.txt`):
 exige toolchain de build nativo, e só `DEX_ID=nado` precisa dele. As demais
@@ -56,12 +65,29 @@ typo no nome fazia a chave não ser lida e o valor efetivo virar o default — q
 para `sandbox`, fora da família kraken, é produção. Ver
 [Schema do settings](features/schema-do-settings.md).
 
+## Autonomia do agente
+
+O agente escolhe análises, ativos, setups e parâmetros dentro do que o operador
+pede. As travas da skill (`AUTORIZAR_TRADE_REAL`, allowlist, `settings.json`)
+são **instrução ao agente, não fechadura**: quem monta o comando é o próprio
+agente, e ele tem shell. As travas que valem ficam fora da skill — na exchange
+(key sem saque, subconta com capital limitado) e na aprovação de execução do
+OpenClaw, encaminhada ao operador pelo chat. Três modos: análise (padrão), real
+com aprovação (recomendado) e real autônomo — ver o
+[ADR 0007](decisions/0007-autonomia-do-agente.md). O que a skill ainda vai
+verificar e orientar está no passo 1.7 do ROADMAP.
+
 ## Sinais e marca
 
-Cada sinal produz o **texto** entregue a pessoas (Discord, WhatsApp) e um
+Cada sinal produz o **texto** entregue a pessoas e um
 **registro estruturado** gravado no outbox local, que é o formato que o
 ecossistema vai publicar. Todo campo do registro é explícito, e o conjunto de
 chaves é travado por teste — ver [Contrato do sinal](features/contrato-do-sinal.md).
+
+O texto sai pelos canais do OpenClaw do operador no `setup-live`; o scanner e o
+watcher ainda falam direto com o Discord — ver
+[Entrega de mensagens](features/entrega-de-mensagens.md). A marca da imagem do
+sinal vem de `SETUP_NOTIFY_BRAND`; vazia, a imagem sai sem marca.
 
 O produto se chama **IntusCripto**. O nome anterior, Aspira, permanece de
 propósito em dois pontos que espelham estado fora do repositório (arquivos de
