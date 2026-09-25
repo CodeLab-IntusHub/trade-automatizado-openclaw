@@ -1101,19 +1101,6 @@ def _with_discord_message_prefix(message: str) -> str:
     return _box_discord_message(clean_message) if use_box else clean_message
 
 
-def _discord_native_embed_enabled() -> bool:
-    raw = os.environ.get("SETUP_NOTIFY_DISCORD_NATIVE_EMBED", "true").strip().lower()
-    return raw not in {"0", "false", "no", "nao", "off"}
-
-
-def _discord_embed_author() -> str:
-    return os.environ.get("SETUP_NOTIFY_DISCORD_EMBED_AUTHOR", "").strip()
-
-
-def _discord_normalized_symbol_text(value: str) -> str:
-    return re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
-
-
 def _discord_chart_image_path() -> Path | None:
     raw = (
         os.environ.get("SETUP_NOTIFY_CHART_IMAGE_PATH", "").strip()
@@ -1143,15 +1130,6 @@ def _render_setup_chart_image(payload: dict[str, Any] | None) -> Path | None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("grafico TradingView/static falhou: %s", exc)
     return None
-
-
-def _discord_channel_id(target: str) -> str:
-    normalized = _normalize_message_target("discord", target)
-    if normalized.startswith("channel:"):
-        return normalized.split(":", 1)[1].strip()
-    if normalized.isdigit():
-        return normalized
-    return ""
 
 
 def _discord_spaced_content(content: str) -> str:
