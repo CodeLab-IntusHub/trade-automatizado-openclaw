@@ -23,6 +23,8 @@
 
 - **Inventario do `SKILL.md`** (ROADMAP 1.1), em `Docs/inventario-do-skill-md.md`: cada trecho classificado como regra geral, preferencia de instancia ou historico, com a linha de origem. Aponta as tres referencias a arquivos fora do pacote e duas contradicoes internas -- "embed nativo por padrao" contra "sem embed", e o fallback automatico para a owner key da Nado contra `NADO_REQUIRE_LINKED_SIGNER=true` (o codigo segue o primeiro: sem linked signer, assina com a owner key).
 
+- **ADR 0007 -- autonomia do agente.** As travas da skill (`AUTORIZAR_TRADE_REAL`, allowlist, `settings.json`) sao instrucao ao agente, nao fechadura: o agente monta o comando e tem shell. As que valem ficam na exchange (key sem saque, subconta com capital limitado) e na aprovacao de execucao do OpenClaw, encaminhada ao operador pelo chat. Tres modos: analise (padrao), real com aprovacao (recomendado) e real autonomo. Custodia de chaves descartada; o 1Password e sempre sugerido para segredos. O aprendizado coletivo aceita so fills reconciliados com a exchange. Novo passo 1.7 no ROADMAP.
+
 ## v1.8.0 — 2026-09-24
 
 Contrato do sinal fechado e pacote limpo. O registro estruturado de cada sinal

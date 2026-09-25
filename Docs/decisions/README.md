@@ -1,6 +1,6 @@
 # Decisões de arquitetura (ADRs)
 
-> Última atualização: 24 de setembro de 2026
+> Última atualização: 25 de setembro de 2026
 
 Cada ADR registra uma decisão: o contexto, as opções consideradas, a escolha e
 as consequências. O [ROADMAP](../ROADMAP.md) diz **o que** será feito; os ADRs
@@ -17,6 +17,7 @@ antigo passa a status **Substituída**, apontando para o novo.
 | [0004](0004-identidade-de-bot-supabase-auth.md) | Identidade de bot via Supabase Auth, com RLS por bot | Substituída por 0006 |
 | [0005](0005-rebrand-intuscripto.md) | Rebrand Aspira → IntusCripto, com superfícies preservadas | Aceita |
 | [0006](0006-ecossistema-pela-plataforma.md) | O ecossistema é acessado por Edge Functions da plataforma, não pelo banco | Aceita (identidade: Proposta) |
+| [0007](0007-autonomia-do-agente.md) | Autonomia do agente: as travas que valem ficam na exchange e na aprovação do OpenClaw; sem custódia de chaves | Aceita |
 
 **Proposta** significa que a direção está registrada, mas a decisão é
 confirmada no início da fase do ROADMAP que a executa.
