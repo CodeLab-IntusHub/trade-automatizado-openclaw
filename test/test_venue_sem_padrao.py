@@ -252,3 +252,31 @@ def test_doctor_aceita_so_uma_venue(
     assert not any(
         nome.startswith(("nado_", "hyperliquid_", "dex_adapter")) for nome in checks
     )
+
+
+def test_dashboard_so_dex_com_cex_so_para_dados_sincroniza_a_dex(
+    sem_venue: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """CEX sem credencial e fonte de dados, nao venue de operacao: nao exige chave
+    nem consulta posicao nela."""
+    import workspace.run as run
+
+    monkeypatch.setattr(run, "_load_env_file", lambda *a, **k: None)
+    monkeypatch.setenv("DEX_ID", "hyperliquid")
+    monkeypatch.setenv("CEX_ID", "kraken")
+
+    class _DexComPosicao(_FakeDex):
+        def get_all_positions(self) -> list:
+            return []
+
+    class _CexSemChave(_FakeCex):
+        def get_all_positions(self) -> list:
+            raise AssertionError("posicao consultada numa CEX sem credencial")
+
+    monkeypatch.setattr(
+        cli, "_build_hyperliquid_trader", lambda *a, **k: _DexComPosicao()
+    )
+    monkeypatch.setattr(cli, "KrakenTrader", _CexSemChave)
+    recorder = _recorder(tmp_path)
+    recorder.sync_live_exposures(flush=False)
+    assert recorder.state["live_exposures"]["error"] == ""

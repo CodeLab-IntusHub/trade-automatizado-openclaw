@@ -1344,13 +1344,16 @@ class TradeDashboardRecorder:
 
             _load_env_file()
             from workspace.cli import _collect_live_status, build_engine
-            from workspace.venues.config import selected_venues
+            from workspace.venues.config import cex_credentials, selected_venues
 
-            # Exposicao so das venues que o operador escolheu: exigir as duas
-            # derrubava a sincronizacao de quem opera so DEX ou so CEX.
+            # Exposicao so das venues em que o operador opera. A CEX e obrigatoria
+            # como fonte de candles, entao `CEX_ID` sozinho nao diz que ha
+            # operacao nela: sem credencial, ela e so dados -- nao exige chave nem
+            # tem posicao a consultar.
             escolha = selected_venues()
-            eng = build_engine(require_nado=bool(escolha.dex_id), require_kraken=bool(escolha.cex_id))
-            nado_positions, kraken_positions, exposure_summary = _collect_live_status(eng)
+            opera_na_cex = bool(escolha.cex_id) and bool(cex_credentials(escolha.cex_id)["api_key"])
+            eng = build_engine(require_nado=bool(escolha.dex_id), require_kraken=opera_na_cex)
+            nado_positions, kraken_positions, exposure_summary = _collect_live_status(eng, include_cex=opera_na_cex)
             positions = [
                 *[_position_row(position, "nado") for position in nado_positions],
                 *[_position_row(position, "kraken") for position in kraken_positions],

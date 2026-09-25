@@ -856,9 +856,13 @@ def _resolve_setup_live_symbols(
     return _resolve_symbols(eng, raw_symbol, execution_mode=execution_mode)
 
 
-def _collect_live_status(eng: DeltaNeutralEngine) -> tuple[list, list, dict[str, dict[str, float]]]:
+def _collect_live_status(
+    eng: DeltaNeutralEngine, *, include_cex: bool = True
+) -> tuple[list, list, dict[str, dict[str, float]]]:
+    """Posicoes live das duas pontas. `include_cex=False` quando a CEX e so fonte
+    de candles, sem credencial: nao ha posicao a consultar nela."""
     nado_positions = getattr(eng.nado, "get_all_positions", lambda: [])()
-    kraken_positions = eng.kraken.get_all_positions()
+    kraken_positions = eng.kraken.get_all_positions() if include_cex else []
     summary: dict[str, dict[str, float]] = {}
 
     def ensure(base: str) -> dict[str, float]:
