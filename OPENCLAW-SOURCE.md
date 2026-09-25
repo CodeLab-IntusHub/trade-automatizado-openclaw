@@ -14,6 +14,6 @@ A skill foi incorporada ao workspace do Aspira em 2026-07-04 a partir de um repo
 Configuração local não sensível usada pela instalação:
 - `~/.config/openclaw/trade-automatizado-openclaw.env`
 - canal Discord privado de teste/entrega: `<DISCORD_TEST_CHANNEL_ID>`
-- fallback OpenClaw habilitado para entrega Discord sem expor `DISCORD_BOT_TOKEN` em arquivo.
+- entrega pelos canais do próprio OpenClaw (`openclaw message send`); a skill não lê token de bot.
 
 Segredos, estados, credenciais e artefatos de execução continuam fora do Git e do chat.

@@ -36,7 +36,7 @@ Quando o usuário pedir para configurar/refazer wizard, use o questionário curt
 - Subconta não é requisito obrigatório por padrão no wizard, mas é o modelo recomendado quando a corretora/DEX oferecer esse recurso. Recomendar operar em subconta, vault ou conta isolada; a decisão final é do usuário e não deve ser hard-coded; se o usuário não usar esse modelo, exigir no mínimo API key/credencial dedicada sem saque e validação por `doctor`/dry-run.
 - Usar `references/onboarding-detalhado.md` apenas se o usuário pedir passo a passo de Nado, Hyperliquid, Kraken, Binance, Bybit, OKX, KuCoin, MEXC, Bitget, Gate.io, outras CEXs via CCXT e outras DEXs via adapter, Ink, bridge, envs ou troubleshooting.
 - Payload automático: `python3 workspace/first_run_setup.py --json`.
-- Se o usuário pedir Discord, Zeus Trade, entrega de sinais, embed, watcher ou scanner, carregue também `doc referencia/05-entrega-discord-zeus.md` e siga o checklist: bot no servidor, `DISCORD_BOT_TOKEN` salvo em Secret Manager/env seguro, `SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID` em canal de teste, formato `embed_nativo` por padrão, dry-run antes de canal público/live. Nunca pedir o token no chat.
+- Se o usuário pedir entrega de sinais (Telegram, WhatsApp, Discord...), watcher ou scanner, carregue também `Docs/features/entrega-de-mensagens.md` e siga o checklist: o canal configurado no OpenClaw do operador, `SETUP_NOTIFY_ENTRY_CHANNEL` e `SETUP_NOTIFY_ENTRY_TARGET` apontando primeiro para destino de teste, dry-run antes de canal público/live. Não há canal padrão. A skill não lê token de bot; nunca pedir token ou segredo no chat.
 
 
 ## Venues DEX/CEX configuráveis
@@ -236,7 +236,7 @@ python3 workspace/run.py abrir BTC/USDT --lado vendido --modo somente-cex --modo
 - Setups direcionais exigem sinal explícito antes de entrada: `side` precisa ser `long` ou `short` e `reason` precisa estar preenchido. Sinal ausente, incompleto ou ativo fora da allowlist gera skip com motivo claro no log.
 - `asset-scan` compara perps Nado/Kraken, salva snapshot de adicionados/removidos e marca suspeitos por preco invalido ou spread alto; use `NADO_DISABLED_PERP_SYMBOLS` para blacklist temporaria.
 - Guardrail cross da Nado: `--account-margin-reserve-usd|pct`, `--slots-margem-conta` (`--account-margin-slots`), `--account-max-maint-usage-pct` e `--account-stress-pct` controlam reserva, slots flexiveis (qualquer inteiro positivo), Maint. Margin Usage e stress adverso antes de novas entradas. Para contas pequenas, prefira `--account-margin-slots 8` em vez de 16 para manter notional acima do mínimo operacional da Nado.
-- Notificacao de entrada confirmada: configure por flag (`--notify-entry-target`, `--notify-entry-channel`) ou env (`SETUP_NOTIFY_ENTRY_TARGET`, `SETUP_NOTIFY_ENTRY_CHANNEL`) para avisar no destino principal; use tambem `--notify-entry-discord-channel-id` ou `SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID` para entregar uma copia extra no Discord sem remover o Telegram. Para Discord direto no padrao Zeus, `DISCORD_BOT_TOKEN` precisa estar salvo no Secret Manager/env seguro. Para mencionar o servidor, defina `SETUP_NOTIFY_DISCORD_MENTION=@everyone` e garanta a permissao do bot.
+- Notificacao de entrada confirmada: configure por flag (`--notify-entry-target`, `--notify-entry-channel`) ou env (`SETUP_NOTIFY_ENTRY_TARGET`, `SETUP_NOTIFY_ENTRY_CHANNEL`) para avisar no destino principal; use tambem `--notify-entry-discord-channel-id` ou `SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID` para entregar uma copia extra no Discord sem remover o Telegram. Tudo sai pelo OpenClaw do operador (`openclaw message send`); bot dedicado é uma conta dedicada no OpenClaw (`SETUP_NOTIFY_ENTRY_ACCOUNT`) e tópico de grupo do Telegram vai em `SETUP_NOTIFY_ENTRY_THREAD_ID`. Para mencionar o servidor, defina `SETUP_NOTIFY_DISCORD_MENTION=@everyone` e garanta a permissao do bot.
 - `bollinger-mean-reversion` usa filtro refinado por 0.20 ATR fora da banda, RSI e volume>SMA20x1.05 para reduzir entradas fracas.
 - Setup `grid-strict` permanece ativo; `grid`, `hybrid` e `hybrid-15m` foram removidos/desativados do fluxo operacional padrão.
 - `institutional-strict` usa EMA50, RSI 52-65, volume>SMA20x1.15, EMA gap>0.10%, MACD gap 0.20%-0.50%, alvos 1R/1.5R/2R/3R e timeout de 8 candles. Prefira esta variante para live.
@@ -258,15 +258,15 @@ python3 workspace/run.py rodar-setups-live --simular --setup institutional-stric
 python3 workspace/run.py abrir ETH/USDT --lado comprado --modo somente-dex --modo-margem isolated --margem-usd 20 --alavancagem 5
 ```
 
-## Entrega Discord IntusCripto
+## Entrega de mensagens
 
-Quando o usuário pedir que a skill funcione no Discord usando Zeus como referência técnica, use `doc referencia/05-entrega-discord-zeus.md` apenas como histórico de migração. Zeus não é marca, identidade, token nem dependência operacional do IntusCripto.
+Toda entrega sai pelos canais do OpenClaw do operador (`openclaw message send`): `setup-live`, scanner e watcher usam a mesma configuração. Detalhe em `Docs/features/entrega-de-mensagens.md`.
 
-- `DISCORD_BOT_TOKEN` salvo no Secret Manager/env seguro; nunca pedir ou exibir o valor no chat.
-- `SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID` apontando primeiro para canal de teste.
-- Bot adicionado ao servidor/canal com permissão de ler/ver canal, enviar mensagens, anexar arquivos e mencionar o cargo configurado.
-- Formato correto do IntusCripto: uma única mensagem com texto + imagem anexada, sem card/embed nativo. Use `SETUP_NOTIFY_DISCORD_NATIVE_EMBED=false`, `SETUP_NOTIFY_BRAND=INTUSCRIPTO` e `SETUP_NOTIFY_DISCORD_BOX=false`.
-- Menção real de cargo só via `SETUP_NOTIFY_DISCORD_MENTION=<@&DISCORD_ROLE_ID>` ou outro cargo explícito; `allowed_mentions.roles` é derivado por regex da própria mensagem.
+- O canal (Telegram, WhatsApp, Discord...) precisa estar configurado no OpenClaw; a skill não lê nem guarda token de bot. Nunca pedir token ou segredo no chat.
+- `SETUP_NOTIFY_ENTRY_CHANNEL` e `SETUP_NOTIFY_ENTRY_TARGET` apontando primeiro para destino de teste. Sem canal, nada é enviado.
+- Bot dedicado: uma conta dedicada no OpenClaw, informada em `SETUP_NOTIFY_ENTRY_ACCOUNT` (vazio = conta padrão do OpenClaw). Tópico de grupo do Telegram: `SETUP_NOTIFY_ENTRY_THREAD_ID`.
+- Formato: uma única mensagem com texto + imagem anexada, sem card/embed. `SETUP_NOTIFY_BRAND` e `SETUP_NOTIFY_DISCORD_AUDIENCE` são do operador (sem valor padrão).
+- Menção real de cargo só via `SETUP_NOTIFY_DISCORD_MENTION=<@&DISCORD_ROLE_ID>` ou outro cargo explícito; as menções seguem a configuração do OpenClaw.
 - Validar `setup-check`, `doctor` e `rodar-setups-live --simular --max-iter 1` antes de canal público ou live.
 
 O fluxo oficial é `setup-live`; `workspace/discord_signal_watcher.py` apenas espelha entradas do log e `workspace/ccxt_entry_scanner.py` publica sinais analysis-only sem abrir ordens. Texto estruturado é a fonte da verdade da mensagem enviada; imagem é apoio visual e deve trazer fonte clara no rodapé.

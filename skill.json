@@ -46,26 +46,26 @@
       "DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK",
       "SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID",
       "SETUP_NOTIFY_ENTRY_DISCORD_ACCOUNT",
-      "DISCORD_BOT_TOKEN",
       "SETUP_NOTIFY_ENTRY_ENABLED",
       "SETUP_NOTIFY_ENTRY_CHANNEL",
       "SETUP_NOTIFY_ENTRY_TARGET",
       "SETUP_NOTIFY_ENTRY_ACCOUNT",
+      "SETUP_NOTIFY_ENTRY_THREAD_ID",
+      "SETUP_NOTIFY_REQUIRE_CHART_FOR_ENTRY",
+      "SETUP_NOTIFY_WHATSAPP_ENABLED",
+      "SETUP_NOTIFY_ENTRY_WHATSAPP_TARGET",
+      "SETUP_NOTIFY_ENTRY_WHATSAPP_ACCOUNT",
+      "SETUP_NOTIFY_DISCORD_AUDIENCE",
       "SETUP_NOTIFY_BRAND",
       "SETUP_NOTIFY_TIMEZONE",
       "SETUP_NOTIFY_DISCORD_MENTION",
-      "SETUP_NOTIFY_DISCORD_NATIVE_EMBED",
-      "SETUP_NOTIFY_DISCORD_EMBED_AUTHOR",
       "SETUP_NOTIFY_DISCORD_BOX",
       "SETUP_NOTIFY_DISCORD_BOX_STYLE",
       "SETUP_NOTIFY_TIMEOUT_SECONDS",
-      "SETUP_NOTIFY_FALLBACK_OPENCLAW",
-      "SETUP_NOTIFY_DISCORD_DIRECT",
       "SETUP_NOTIFY_BLOCKING",
       "SETUP_NOTIFY_QUEUE_MAX",
       "SETUP_NOTIFY_DROP_OLDEST",
       "SETUP_NOTIFY_MIN_INTERVAL_SECONDS",
-      "SETUP_NOTIFY_ENV_FILE",
       "SETUP_LIVE_NADO_MANAGED_TP_POLICY",
       "SETUP_LIVE_TARGET_STOP_MODE",
       "SETUP_LIVE_MAX_OPEN_SETUPS",
@@ -340,7 +340,7 @@
         "sizing",
         "margin_mode",
         "target_stop_mode",
-        "discord_delivery",
+        "delivery",
         "next_safe_step"
       ],
       "release": "1.9.0",
@@ -372,20 +372,23 @@
         ]
       },
       "other_integrations_notice": "Outras CEXs podem usar CEX_ID=<exchange_id CCXT>; Hyperliquid usa adapter builtin; outras DEXs exigem DEX_ADAPTER_MODULE antes de live.",
-      "discord_delivery_reference": "doc referencia/05-entrega-discord-zeus.md",
-      "discord_delivery_policy": {
+      "delivery_reference": "Docs/features/entrega-de-mensagens.md",
+      "delivery_policy": {
         "enabled_by_user_choice": true,
-        "secret_env": "DISCORD_BOT_TOKEN",
-        "channel_env": "SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID",
+        "via": "openclaw message send",
+        "channel_env": "SETUP_NOTIFY_ENTRY_CHANNEL",
+        "target_env": "SETUP_NOTIFY_ENTRY_TARGET",
+        "account_env": "SETUP_NOTIFY_ENTRY_ACCOUNT",
+        "thread_env": "SETUP_NOTIFY_ENTRY_THREAD_ID",
+        "default_channel": null,
         "default_stage": "teste",
-        "default_format": "embed_nativo",
-        "default_image_policy": "sem_imagem",
+        "bot_token_in_skill": false,
         "validation_required": [
           "setup-check",
           "doctor",
           "dry-run"
         ],
-        "never_request_token_in_chat": true
+        "never_request_secrets_in_chat": true
       }
     }
   }

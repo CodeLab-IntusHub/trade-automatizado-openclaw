@@ -212,10 +212,11 @@ guarda token de bot: bot dedicado é uma conta dedicada no OpenClaw.
 - **`setup-live` — feito em 25/09/2026:** tudo por `openclaw message send`,
   sem canal nem conta padrão, tópico com flag. Teste em
   `test/test_entrega_pelo_openclaw.py`.
-- **Falta:** scanner (`ccxt_entry_scanner.py`) e watcher
-  (`discord_signal_watcher.py`) no mesmo caminho, com a mesma configuração;
-  audiência e marca como configuração; onboarding perguntando canal, destino,
-  conta e tópico em vez de só Discord "padrão Zeus".
+- **Scanner, watcher e onboarding — feito em 25/09/2026:** os dois chamam a
+  mesma função de entrega do `setup-live`; audiência sem valor padrão; o
+  onboarding pergunta canal, destino, conta e tópico, sem token de bot; a
+  allowlist do `config.env` passa a aceitar toda a configuração de entrega.
+  Teste em `test/test_entrega_scanner_watcher.py`. **Passo concluído.**
 - **Pronto quando:** nenhum componente chama API de mensageria direto, nenhum
   lê token de bot, e os três leem a mesma configuração de entrega.
 

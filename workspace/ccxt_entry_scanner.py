@@ -9,16 +9,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import mimetypes
 import os
 import queue
 import re
-import subprocess
 import sys
 import threading
 import time
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -38,11 +34,13 @@ try:
         _entry_chart_payload as _canonical_entry_chart_payload,
         _format_entry_notice as _canonical_format_entry_notice,
         _format_whatsapp_from_notice as _canonical_format_whatsapp_from_notice,
+        _send_setup_trade_notice as _canonical_send_notice,
     )
 except Exception:  # noqa: BLE001
     _canonical_entry_chart_payload = None
     _canonical_format_entry_notice = None
     _canonical_format_whatsapp_from_notice = None
+    _canonical_send_notice = None
 
 try:
     from workspace.trade_dashboard import record_scanner_signals as _record_dashboard_signals
@@ -112,34 +110,15 @@ TEST_LEVERAGE = float(os.environ.get("SETUP_TEST_LEVERAGE", "5"))
 STATE_PATH = Path(os.environ.get("SETUP_TEST_STATE_PATH", DEFAULT_STATE_PATH)).expanduser()
 LOG_PATH = Path(os.environ.get("SETUP_TEST_LOG_PATH", DEFAULT_LOG_PATH)).expanduser()
 OUTBOX_PATH = Path(os.environ.get("SETUP_TRADING_OUTBOX_PATH", STATE_PATH.with_name("trading-signal-outbox.jsonl"))).expanduser()
-DISCORD_TARGET = os.environ.get("SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID", "").strip()
-DISCORD_ACCOUNT = os.environ.get("SETUP_NOTIFY_ENTRY_DISCORD_ACCOUNT", "default").strip()
-WHATSAPP_TARGET = os.environ.get("SETUP_NOTIFY_ENTRY_WHATSAPP_TARGET", "").strip()
-WHATSAPP_ACCOUNT = os.environ.get("SETUP_NOTIFY_ENTRY_WHATSAPP_ACCOUNT", "default").strip()
-NOTIFY_WHATSAPP = bool(WHATSAPP_TARGET) and os.environ.get("SETUP_NOTIFY_WHATSAPP_ENABLED", "1").strip().lower() not in {
-    "0",
-    "false",
-    "no",
-    "nao",
-    "off",
-}
-OPENCLAW_BIN = os.environ.get("OPENCLAW_BIN", "openclaw")
-NOTIFY_TIMEOUT_SECONDS = max(1, int(os.environ.get("SETUP_NOTIFY_TIMEOUT_SECONDS", "15")))
-SECRET_LOOKUP_TIMEOUT_SECONDS = max(1, min(10, NOTIFY_TIMEOUT_SECONDS))
 NOTIFY_BLOCKING = os.environ.get("SETUP_NOTIFY_BLOCKING", "0").strip().lower() in {"1", "true", "yes", "sim"}
 NOTIFY_QUEUE_MAX = max(1, int(os.environ.get("SETUP_NOTIFY_QUEUE_MAX", "25")))
 NOTIFY_DROP_OLDEST = os.environ.get("SETUP_NOTIFY_DROP_OLDEST", "1").strip().lower() not in {"0", "false", "no", "nao"}
-NOTIFY_DISCORD_DIRECT = os.environ.get("SETUP_NOTIFY_DISCORD_DIRECT", "1").strip().lower() not in {"0", "false", "no", "nao"}
-NOTIFY_FALLBACK_OPENCLAW = os.environ.get("SETUP_NOTIFY_FALLBACK_OPENCLAW", "0").strip().lower() in {"1", "true", "yes", "sim"}
 NOTIFY_MIN_INTERVAL_SECONDS = max(0.0, float(os.environ.get("SETUP_NOTIFY_MIN_INTERVAL_SECONDS", "0.5")))
-REQUIRE_CHART_FOR_ENTRY = os.environ.get("SETUP_NOTIFY_REQUIRE_CHART_FOR_ENTRY", "1").strip().lower() not in {"0", "false", "no", "nao", "off"}
 TRADE_NOTICE_TZ = ZoneInfo(os.environ.get("SETUP_NOTIFY_TIMEZONE", "America/Sao_Paulo") or "America/Sao_Paulo")
 
-_DISCORD_QUEUE: queue.Queue[tuple[str, str, list[str], str, Path | None, dict[str, Any] | None]] = queue.Queue(
-    maxsize=NOTIFY_QUEUE_MAX
-)
-_DISCORD_WORKER_LOCK = threading.Lock()
-_DISCORD_WORKER_STARTED = False
+_NOTIFY_QUEUE: queue.Queue[tuple[str, str, Path | None, dict[str, Any]]] = queue.Queue(maxsize=NOTIFY_QUEUE_MAX)
+_NOTIFY_WORKER_LOCK = threading.Lock()
+_NOTIFY_WORKER_STARTED = False
 
 
 def _first_env(*names: str) -> str | None:
@@ -355,67 +334,6 @@ def _timeframe_for_setup(setup_key: str) -> str:
     return SETUP_CATALOG[setup_key].timeframe
 
 
-def _discord_message_prefix() -> str:
-    raw = os.environ.get("SETUP_NOTIFY_DISCORD_MENTION", "").strip()
-    if raw.lower() in {"0", "false", "no", "nao", "off", "none"}:
-        return ""
-    if raw.lower() in {"1", "true", "yes", "sim", "everyone"}:
-        return "@everyone"
-    return raw
-
-
-def _message_already_has_prefix(message: str, prefix: str) -> bool:
-    if not prefix:
-        return True
-    first_lines = [line.strip() for line in str(message or "").splitlines()[:5] if line.strip()]
-    return any(line == prefix or line.startswith(f"{prefix} ") for line in first_lines)
-
-
-def _discord_allowed_mentions(text: str) -> dict[str, Any]:
-    clean = str(text or "")
-    roles = list(dict.fromkeys(re.findall(r"<@&(\d+)>", clean)))[:25]
-    parse = ["everyone"] if clean.strip().startswith("@everyone") else []
-    payload: dict[str, Any] = {"parse": parse}
-    if roles:
-        payload["roles"] = roles
-    return payload
-
-
-def _discord_box_enabled() -> bool:
-    # Box/código no Discord fica reservado para atualização de posição/alvo.
-    # Scanner publica trade novo detectado em texto normal, mesmo no fallback.
-    raw = os.environ.get("SETUP_NOTIFY_DISCORD_BOX", "false").strip().lower()
-    return raw not in {"0", "false", "no", "nao", "off"}
-
-
-def _discord_box_style() -> str:
-    style = os.environ.get("SETUP_NOTIFY_DISCORD_BOX_STYLE", "code").strip().lower()
-    if style in {"quote", "blockquote"}:
-        return "quote"
-    return "code"
-
-
-def _box_discord_message(message: str) -> str:
-    if not _discord_box_enabled():
-        return message
-    clean = message.replace("```", "'''")
-    if _discord_box_style() == "quote":
-        return "\n".join(f"> {line}" if line else ">" for line in clean.splitlines())
-    return f"```text\n{clean}\n```"
-
-
-def _with_discord_message_prefix(message: str) -> str:
-    prefix = _discord_message_prefix()
-    clean_message = message
-    if prefix and clean_message.startswith(prefix):
-        clean_message = clean_message[len(prefix):].lstrip("\n")
-    if prefix and _discord_box_enabled() and _discord_box_style() == "code":
-        return f"{prefix}\n{_box_discord_message(clean_message)}"
-    if prefix and not _message_already_has_prefix(clean_message, prefix):
-        clean_message = f"{prefix}\n{clean_message}"
-    return _box_discord_message(clean_message)
-
-
 def _notice_brand_label() -> str:
     return os.environ.get("SETUP_NOTIFY_BRAND", "").strip()
 
@@ -586,7 +504,8 @@ def _format_signal_notice(signal: dict[str, Any]) -> str:
     side = str(signal.get("side") or "").upper() or "N/A"
     targets = _ensure_four_targets(list(signal.get("targets") or []))
     rr = _risk_reward_ratio(signal.get("entry_price"), signal.get("stop_price"), targets)
-    audience = os.environ.get("SETUP_NOTIFY_DISCORD_AUDIENCE", "@intus Club Member").strip()
+    # Audiencia e do operador: sem valor padrao.
+    audience = os.environ.get("SETUP_NOTIFY_DISCORD_AUDIENCE", "").strip()
     risk_text = os.environ.get(
         "SETUP_NOTIFY_RISK_TEXT",
         "5% da banca destinada a trading futuros com alavancagem máxima de 5x.",
@@ -719,7 +638,7 @@ def _format_whatsapp_from_discord_notice(discord_message: str) -> str:
     if _canonical_format_whatsapp_from_notice is not None:
         return _canonical_format_whatsapp_from_notice(discord_message)
     text = str(discord_message or "").strip()
-    audience = os.environ.get("SETUP_NOTIFY_WHATSAPP_AUDIENCE", "Intus Club Member").strip()
+    audience = os.environ.get("SETUP_NOTIFY_WHATSAPP_AUDIENCE", "").strip()
     if audience:
         text = re.sub(r"<@&\d+>", audience, text)
         text = text.replace("@Intus Club Member", audience)
@@ -748,69 +667,6 @@ def _format_whatsapp_from_discord_notice(discord_message: str) -> str:
     if prefix:
         compact = [prefix, "", *compact]
     return "\n".join(compact).strip()
-
-
-def _discord_channel_id(target: str) -> str:
-    if target.startswith("channel:"):
-        return target.split(":", 1)[1].strip()
-    if target.isdigit():
-        return target
-    return ""
-
-
-def _discord_bot_token() -> str:
-    token = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
-    if token:
-        return token
-    env_path = Path(os.environ.get("SETUP_NOTIFY_ENV_FILE", DEFAULT_ENV_PATH)).expanduser()
-    try:
-        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            if key.strip() == "DISCORD_BOT_TOKEN":
-                token = value.strip().strip('"').strip("'")
-                if token:
-                    return token
-    except Exception:
-        pass
-    return _discord_bot_token_from_openclaw_config()
-
-
-def _discord_bot_token_from_openclaw_config() -> str:
-    config_path = Path(os.environ.get("OPENCLAW_CONFIG_PATH", HOME / ".openclaw" / "openclaw.json")).expanduser()
-    try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-        token_ref = ((config.get("channels") or {}).get("discord") or {}).get("token")
-        if isinstance(token_ref, str):
-            return token_ref.strip()
-        if not isinstance(token_ref, dict) or token_ref.get("source") != "exec":
-            return ""
-        provider_name = str(token_ref.get("provider") or "").strip()
-        provider = ((config.get("secrets") or {}).get("providers") or {}).get(provider_name) or {}
-        command = str(provider.get("command") or "").strip()
-        args = [str(arg) for arg in provider.get("args") or []]
-        if not command:
-            return ""
-        pass_env = {str(name) for name in provider.get("passEnv") or []}
-        env = {name: os.environ[name] for name in pass_env if name in os.environ}
-        if "HOME" in os.environ:
-            env.setdefault("HOME", os.environ["HOME"])
-        result = subprocess.run(
-            [command, *args],
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            timeout=SECRET_LOOKUP_TIMEOUT_SECONDS,
-            env=env,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except Exception:
-        return ""
-    return ""
 
 
 def _setup_chart_enabled() -> bool:
@@ -866,392 +722,88 @@ def _signal_chart_image(signal: dict[str, Any]) -> Path | None:
     return None
 
 
-def _discord_multipart_body(payload: dict, image_path: Path) -> tuple[bytes, str]:
-    boundary = f"intuscripto-trade-{int(time.time() * 1000)}"
-    filename = image_path.name or "trade-chart.png"
-    content_type = mimetypes.guess_type(filename)[0] or "image/png"
-    chunks: list[bytes] = []
-    chunks.append(f"--{boundary}\r\n".encode())
-    chunks.append(b'Content-Disposition: form-data; name="payload_json"\r\n')
-    chunks.append(b"Content-Type: application/json\r\n\r\n")
-    chunks.append(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
-    chunks.append(b"\r\n")
-    chunks.append(f"--{boundary}\r\n".encode())
-    chunks.append(f'Content-Disposition: form-data; name="files[0]"; filename="{filename}"\r\n'.encode())
-    chunks.append(f"Content-Type: {content_type}\r\n\r\n".encode())
-    chunks.append(image_path.read_bytes())
-    chunks.append(b"\r\n")
-    chunks.append(f"--{boundary}--\r\n".encode())
-    return b"".join(chunks), boundary
-
-
-def _discord_plain_content(message: str, prefix: str = "") -> str:
-    clean_message = str(message or "").strip()
-    clean_prefix = str(prefix or "").strip()
-    if clean_prefix and not _message_already_has_prefix(clean_message, clean_prefix):
-        clean_message = f"{clean_prefix}\n{clean_message}" if clean_message else clean_prefix
-    if len(clean_message) <= 2000:
-        return clean_message
-    for marker in ("\nDisclaimer:", "\nGerenciamento de risco:"):
-        head = clean_message.split(marker, 1)[0].rstrip()
-        if head and len(head) <= 1980:
-            return f"{head}\n\nTexto encurtado para caber em uma única mensagem do Discord."
-    return clean_message[:1970].rstrip() + "\n…"
-
-
-def _build_discord_embed(message: str, image_path: Path | None = None) -> dict[str, object]:
-    lines = [line.rstrip() for line in str(message or "").splitlines()]
-    title = next((line for line in lines if line.strip()), "🚨 NOVA OPERAÇÃO 🚨")
-    body = "\n".join(line for line in lines[1:] if line.strip())[:4096]
-    upper = str(message or "").upper()
-    embed: dict[str, object] = {
-        "title": title[:256],
-        "description": body or "\u200b",
-        "color": 0xE74C3C if "SHORT" in upper or "STOP" in upper else 0x2ECC71 if "LONG" in upper else 0xF1C40F,
-    }
-    author = os.environ.get("SETUP_NOTIFY_DISCORD_EMBED_AUTHOR", os.environ.get("SETUP_NOTIFY_BRAND", "")).strip()
-    if author:
-        embed["author"] = {"name": author}
-    if image_path is not None and image_path.is_file():
-        embed["image"] = {"url": f"attachment://{image_path.name}"}
-    return embed
-
-
-def _send_discord_direct(target: str, message: str, context: str, image_path: Path | None = None) -> dict[str, Any]:
-    if not NOTIFY_DISCORD_DIRECT:
-        return {"ok": False, "message_id": "", "method": "direct", "status": "disabled"}
-    token = _discord_bot_token()
-    channel_id = _discord_channel_id(target)
-    if not token or not channel_id:
-        return {"ok": False, "message_id": "", "method": "direct", "status": "missing_token_or_channel"}
-    prefix = _discord_message_prefix()
-    content = _discord_plain_content(message, prefix)
-    payload = {
-        "content": content,
-        "allowed_mentions": _discord_allowed_mentions(content),
-    }
-    if image_path is not None and image_path.is_file():
-        payload["attachments"] = [{"id": 0, "filename": image_path.name}]
-        data, boundary = _discord_multipart_body(payload, image_path)
-        content_type = f"multipart/form-data; boundary={boundary}"
+def _deliver(message: str, context: str, image_path: Path | None, outbox_base: dict[str, Any]) -> None:
+    """Entrega pelo mesmo caminho do `setup-live`: os canais do OpenClaw do operador."""
+    sent: dict[str, str] = {}
+    if _canonical_send_notice is None:
+        _log(f"entrega indisponivel {context} | workspace.cli nao importou")
     else:
-        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        content_type = "application/json"
-    for attempt in range(2):
-        req = urllib.request.Request(
-            f"https://discord.com/api/v10/channels/{channel_id}/messages",
-            data=data,
-            headers={
-                "Authorization": f"Bot {token}",
-                "Content-Type": content_type,
-                "User-Agent": "trader-low_stoch-scanner",
-            },
-            method="POST",
-        )
-        start = time.monotonic()
         try:
-            with urllib.request.urlopen(req, timeout=NOTIFY_TIMEOUT_SECONDS) as response:
-                elapsed = time.monotonic() - start
-                body = response.read().decode("utf-8", errors="replace")
-                ok = 200 <= int(response.status) < 300
-                try:
-                    payload_out = json.loads(body or "{}")
-                except Exception:
-                    payload_out = {}
-                message_id = _extract_message_id(payload_out)
-                _log(
-                    f"discord direct status={response.status} {context} elapsed={elapsed:.1f}s "
-                    f"message_id={message_id or 'n/a'}"
-                )
-                return {
-                    "ok": ok,
-                    "message_id": message_id,
-                    "method": "direct",
-                    "status": int(response.status),
-                }
-        except urllib.error.HTTPError as exc:
-            detail = exc.read(200).decode("utf-8", errors="replace")
-            if exc.code == 429 and attempt == 0:
-                try:
-                    retry_after = float(json.loads(detail).get("retry_after", 1.0))
-                except Exception:
-                    retry_after = 1.0
-                retry_after = min(max(retry_after, 0.3), float(NOTIFY_TIMEOUT_SECONDS))
-                _log(f"discord direct rate_limit {context} retry_after={retry_after:.1f}s")
-                time.sleep(retry_after)
-                continue
-            _log(f"discord direct erro {context} | status={exc.code} | detail={detail}")
+            sent = _canonical_send_notice(message, image_path=image_path)
         except Exception as exc:  # noqa: BLE001
-            _log(f"discord direct erro {context} | {exc}")
-        return {"ok": False, "message_id": "", "method": "direct", "status": "failed"}
-    return {"ok": False, "message_id": "", "method": "direct", "status": "failed"}
+            _log(f"entrega erro {context} | {exc}")
+    _log(f"entrega {context} | enviado={','.join(sorted(sent)) or '-'}")
+    _append_outbox_record({**outbox_base, "recorded_at": _utc_iso(), "event": "publish_attempted", "delivery": sent})
 
 
-def _run_openclaw_discord_command(cmd: list[str], context: str) -> dict[str, Any]:
-    start = time.monotonic()
-    try:
-        result = subprocess.run(
-            cmd,
-            check=False,
-            timeout=NOTIFY_TIMEOUT_SECONDS,
-            capture_output=True,
-            text=True,
-        )
-        elapsed = time.monotonic() - start
-        parsed: Any = None
-        stdout = (result.stdout or "").strip()
-        if stdout:
-            try:
-                parsed = json.loads(stdout)
-            except Exception:
-                parsed = None
-        message_id = _extract_message_id(parsed)
-        _log(f"discord rc={result.returncode} {context} elapsed={elapsed:.1f}s message_id={message_id or 'n/a'}")
-        return {
-            "ok": result.returncode == 0,
-            "message_id": message_id,
-            "method": "openclaw",
-            "status": result.returncode,
-            "payload": parsed,
-        }
-    except subprocess.TimeoutExpired:
-        _log(f"discord timeout {context} timeout={NOTIFY_TIMEOUT_SECONDS}s")
-        return {"ok": False, "message_id": "", "method": "openclaw", "status": "timeout"}
-    except Exception as exc:  # noqa: BLE001
-        _log(f"discord erro {context} | {exc}")
-        return {"ok": False, "message_id": "", "method": "openclaw", "status": "error"}
-
-
-def _extract_message_id(payload: Any) -> str:
-    if not isinstance(payload, dict):
-        return ""
-    candidates = [
-        payload.get("messageId"),
-        payload.get("message_id"),
-        payload.get("id"),
-        (payload.get("result") or {}).get("messageId") if isinstance(payload.get("result"), dict) else None,
-        (payload.get("result") or {}).get("id") if isinstance(payload.get("result"), dict) else None,
-        ((payload.get("payload") or {}).get("result") or {}).get("messageId") if isinstance(payload.get("payload"), dict) else None,
-        ((payload.get("payload") or {}).get("result") or {}).get("id") if isinstance(payload.get("payload"), dict) else None,
-    ]
-    for candidate in candidates:
-        value = str(candidate or "").strip()
-        if value:
-            return value
-    return ""
-
-
-def _run_openclaw_message_command(cmd: list[str], label: str, context: str) -> dict[str, Any]:
-    start = time.monotonic()
-    try:
-        result = subprocess.run(
-            cmd,
-            check=False,
-            timeout=NOTIFY_TIMEOUT_SECONDS,
-            capture_output=True,
-            text=True,
-        )
-        elapsed = time.monotonic() - start
-        stdout = (result.stdout or "").strip()
-        parsed: Any = None
-        if stdout:
-            try:
-                parsed = json.loads(stdout)
-            except Exception:
-                parsed = None
-        message_id = _extract_message_id(parsed)
-        _log(f"{label} rc={result.returncode} {context} elapsed={elapsed:.1f}s message_id={message_id or 'n/a'}")
-        return {"ok": result.returncode == 0, "message_id": message_id, "payload": parsed}
-    except subprocess.TimeoutExpired:
-        _log(f"{label} timeout {context} timeout={NOTIFY_TIMEOUT_SECONDS}s")
-    except Exception as exc:  # noqa: BLE001
-        _log(f"{label} erro {context} | {exc}")
-    return {"ok": False, "message_id": "", "payload": None}
-
-
-def _send_whatsapp(discord_message: str, context: str, image_path: Path | None = None) -> dict[str, Any]:
-    if not NOTIFY_WHATSAPP:
-        return {"ok": False, "message_id": "", "payload": None}
-    cmd = [
-        OPENCLAW_BIN,
-        "message",
-        "send",
-        "--channel",
-        "whatsapp",
-        "--target",
-        WHATSAPP_TARGET,
-        "--message",
-        _format_whatsapp_from_discord_notice(discord_message),
-    ]
-    if image_path is not None and image_path.is_file():
-        cmd.extend(["--media", str(image_path)])
-    if WHATSAPP_ACCOUNT:
-        cmd.extend(["--account", WHATSAPP_ACCOUNT])
-    return _run_openclaw_message_command(cmd, "whatsapp", context)
-
-
-def _run_discord_delivery(target: str, message: str, cmd: list[str], context: str, image_path: Path | None = None) -> dict[str, Any]:
-    direct_result = _send_discord_direct(target, message, context, image_path)
-    if direct_result.get("ok"):
-        return direct_result
-    if NOTIFY_FALLBACK_OPENCLAW:
-        fallback_result = _run_openclaw_discord_command(cmd, context)
-        fallback_result["direct"] = direct_result
-        return fallback_result
-    _log(f"discord entrega ignorada {context} | direct_failed=true fallback_openclaw=false")
-    return {"ok": False, "message_id": "", "method": "none", "status": "direct_failed_fallback_disabled", "direct": direct_result}
-
-
-def _discord_worker() -> None:
+def _notify_worker() -> None:
     while True:
-        target, message, cmd, context, image_path, outbox_base = _DISCORD_QUEUE.get()
+        job = _NOTIFY_QUEUE.get()
         try:
-            result = _run_discord_delivery(target, message, cmd, context, image_path)
-            if outbox_base is not None:
-                _append_outbox_record(
-                    {
-                        **outbox_base,
-                        "recorded_at": _utc_iso(),
-                        "event": "discord_delivery_result",
-                        "delivery": {"discord": result},
-                    }
-                )
+            _deliver(*job)
         finally:
-            _DISCORD_QUEUE.task_done()
+            _NOTIFY_QUEUE.task_done()
         if NOTIFY_MIN_INTERVAL_SECONDS > 0:
             time.sleep(NOTIFY_MIN_INTERVAL_SECONDS)
 
 
-def _ensure_discord_worker() -> None:
-    global _DISCORD_WORKER_STARTED
-    if NOTIFY_BLOCKING or _DISCORD_WORKER_STARTED:
+def _ensure_notify_worker() -> None:
+    global _NOTIFY_WORKER_STARTED
+    if NOTIFY_BLOCKING or _NOTIFY_WORKER_STARTED:
         return
-    with _DISCORD_WORKER_LOCK:
-        if _DISCORD_WORKER_STARTED:
+    with _NOTIFY_WORKER_LOCK:
+        if _NOTIFY_WORKER_STARTED:
             return
-        thread = threading.Thread(target=_discord_worker, name="discord-notify-worker", daemon=True)
+        thread = threading.Thread(target=_notify_worker, name="notify-worker", daemon=True)
         thread.start()
-        _DISCORD_WORKER_STARTED = True
-        _log(f"discord worker iniciado | timeout={NOTIFY_TIMEOUT_SECONDS}s | queue_max={NOTIFY_QUEUE_MAX}")
+        _NOTIFY_WORKER_STARTED = True
+        _log(f"entrega worker iniciado | queue_max={NOTIFY_QUEUE_MAX}")
 
 
-def _enqueue_discord_delivery(
-    target: str,
-    message: str,
-    cmd: list[str],
-    context: str,
-    image_path: Path | None = None,
-    outbox_base: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+def _enqueue_delivery(message: str, context: str, image_path: Path | None, outbox_base: dict[str, Any]) -> None:
+    job = (message, context, image_path, outbox_base)
     if NOTIFY_BLOCKING:
-        result = _run_discord_delivery(target, message, cmd, context, image_path)
-        if outbox_base is not None:
-            _append_outbox_record(
-                {
-                    **outbox_base,
-                    "recorded_at": _utc_iso(),
-                    "event": "discord_delivery_result",
-                    "delivery": {"discord": result},
-                }
-            )
-        return {"queued": False, "status": "attempted", **result}
-
-    _ensure_discord_worker()
-    try:
-        _DISCORD_QUEUE.put_nowait((target, message, cmd, context, image_path, outbox_base))
-    except queue.Full:
-        if NOTIFY_DROP_OLDEST:
-            try:
-                _DISCORD_QUEUE.get_nowait()
-                _DISCORD_QUEUE.task_done()
-                _log("discord queue cheia | alerta antigo descartado")
-            except queue.Empty:
-                pass
-            try:
-                _DISCORD_QUEUE.put_nowait((target, message, cmd, context, image_path, outbox_base))
-            except queue.Full:
-                _log(f"discord queue cheia | alerta novo descartado {context}")
-                return {"queued": False, "ok": False, "status": "queue_full"}
-        else:
-            _log(f"discord queue cheia | alerta novo descartado {context}")
-            return {"queued": False, "ok": False, "status": "queue_full"}
-    _log(f"discord queued {context} queue={_DISCORD_QUEUE.qsize()}/{NOTIFY_QUEUE_MAX}")
-    return {"queued": True, "ok": None, "status": "queued"}
-
-
-def _send_discord(signals: list[dict[str, Any]]) -> None:
-    if not signals:
+        _deliver(*job)
         return
-    target = DISCORD_TARGET if DISCORD_TARGET.startswith(("channel:", "user:")) else f"channel:{DISCORD_TARGET}" if DISCORD_TARGET else ""
-    sent = 0
-    for signal in signals:
+    _ensure_notify_worker()
+    try:
+        _NOTIFY_QUEUE.put_nowait(job)
+    except queue.Full:
+        if not NOTIFY_DROP_OLDEST:
+            _log(f"entrega queue cheia | alerta novo descartado {context}")
+            return
+        try:
+            _NOTIFY_QUEUE.get_nowait()
+            _NOTIFY_QUEUE.task_done()
+            _log("entrega queue cheia | alerta antigo descartado")
+        except queue.Empty:
+            pass
+        try:
+            _NOTIFY_QUEUE.put_nowait(job)
+        except queue.Full:
+            _log(f"entrega queue cheia | alerta novo descartado {context}")
+            return
+    _log(f"entrega queued {context} queue={_NOTIFY_QUEUE.qsize()}/{NOTIFY_QUEUE_MAX}")
+
+
+def _send_signals(signals: list[dict[str, Any]]) -> None:
+    for index, signal in enumerate(signals, start=1):
         raw_message = _format_signal_notice(signal)
-        whatsapp_message = _format_whatsapp_from_discord_notice(raw_message)
         structured_call = _structured_signal_call(signal)
         image_path = _signal_chart_image(signal)
-        has_chart = image_path is not None and image_path.is_file()
-        chart_path = image_path if has_chart else None
+        chart_path = image_path if image_path is not None and image_path.is_file() else None
         outbox_base = {
             "recorded_at": _utc_iso(),
             "idempotency_key": structured_call["idempotency_key"],
             "structured_call": structured_call,
             "rendered": {
                 "discord": raw_message,
-                "whatsapp": whatsapp_message,
+                "whatsapp": _format_whatsapp_from_discord_notice(raw_message),
             },
             "chart_path": str(chart_path) if chart_path else "",
-            "targets": {
-                "discord": DISCORD_TARGET,
-                "whatsapp": WHATSAPP_TARGET if NOTIFY_WHATSAPP else "",
-            },
         }
         _append_outbox_record({**outbox_base, "event": "signal_detected"})
-        delivery: dict[str, Any] = {}
-        if DISCORD_TARGET:
-            if REQUIRE_CHART_FOR_ENTRY and not has_chart:
-                delivery["discord"] = {"status": "skipped", "reason": "chart_required_missing"}
-                _log(
-                    "discord skip | grafico obrigatorio indisponivel | whatsapp continua texto-only | "
-                    f"exchange={signal.get('exchange', '')} symbol={signal.get('symbol', '')} setup={signal.get('setup', '')}"
-                )
-            else:
-                message = _with_discord_message_prefix(raw_message)
-                cmd = [
-                    OPENCLAW_BIN,
-                    "message",
-                    "send",
-                    "--channel",
-                    "discord",
-                    "--target",
-                    target,
-                    "--message",
-                    message,
-                ]
-                if has_chart:
-                    cmd.extend(["--media", str(chart_path)])
-                if DISCORD_ACCOUNT:
-                    cmd.extend(["--account", DISCORD_ACCOUNT])
-                discord_result = _enqueue_discord_delivery(
-                    target,
-                    raw_message,
-                    cmd,
-                    f"sinais={len(signals)} mensagem={sent + 1}",
-                    chart_path,
-                    outbox_base,
-                )
-                delivery["discord"] = discord_result
-                if discord_result.get("queued") or discord_result.get("ok"):
-                    sent += 1
-        whatsapp_result = _send_whatsapp(raw_message, f"sinais={len(signals)} mensagem={sent + 1}", chart_path)
-        if NOTIFY_WHATSAPP:
-            delivery["whatsapp"] = {
-                "status": "sent" if whatsapp_result.get("ok") else "failed",
-                "ok": bool(whatsapp_result.get("ok")),
-                "source": "whatsapp",
-                "source_message_id": whatsapp_result.get("message_id") or "",
-                "source_channel_id": WHATSAPP_TARGET,
-            }
-        _append_outbox_record({**outbox_base, "recorded_at": _utc_iso(), "event": "publish_attempted", "delivery": delivery})
+        _enqueue_delivery(raw_message, f"sinais={len(signals)} mensagem={index}", chart_path, outbox_base)
 
 
 def _scan_once(state: dict[str, float]) -> list[dict[str, Any]]:
@@ -1349,10 +901,10 @@ def _scan_once(state: dict[str, float]) -> list[dict[str, Any]]:
                     f"| entry={entry_price:.12g} | stop={stop_price:.12g} | tp={take_profit:.12g} | targets={targets_csv} | reason={signal.reason}"
                 )
                 if len(exchange_signals) >= MAX_SIGNALS_PER_BATCH:
-                    _send_discord(exchange_signals)
+                    _send_signals(exchange_signals)
                     exchange_signals.clear()
         if exchange_signals:
-            _send_discord(exchange_signals)
+            _send_signals(exchange_signals)
         _log(f"exchange done | {exchange_id} | novos_sinais={exchange_signal_count}")
     return signals
 

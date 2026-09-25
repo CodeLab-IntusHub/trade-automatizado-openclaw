@@ -480,7 +480,7 @@ python3 workspace/run.py rodar-setups-live --setup all --symbol all --modo somen
 
 Sem `--margem-usd`, a margem por entrada vira `orcamento operacional / slots`; com `--margem-usd` explícito, o valor manual continua prevalecendo. `slots` aceita qualquer inteiro positivo. Em contas pequenas, prefira menos slots para manter cada ordem acima do mínimo da Nado; por exemplo, 8 slots com saldo ~$22.91 e reserva de 20% gera notional aproximado de $11.46 a 5x.
 
-Para avisar quando uma entrada live for confirmada, defina o target principal por flag ou env. O canal principal pode ser Telegram, WhatsApp ou outro canal aceito pelo OpenClaw.
+Para avisar quando uma entrada live for confirmada, defina o target principal por flag ou env. O canal principal pode ser Telegram, WhatsApp, Discord ou outro canal configurado no seu OpenClaw: toda entrega sai por `openclaw message send`, e a skill não lê token de bot. Não há canal padrão. `setup-live`, scanner e watcher usam a mesma configuração.
 
 Exemplo Telegram + copia Discord:
 
@@ -497,10 +497,8 @@ ou:
 SETUP_NOTIFY_ENTRY_ENABLED=true
 SETUP_NOTIFY_ENTRY_CHANNEL=telegram
 SETUP_NOTIFY_ENTRY_TARGET=<chat_id_ou_usuario>
-DISCORD_BOT_TOKEN=<salvo-no-secret-manager>
+SETUP_NOTIFY_ENTRY_THREAD_ID=<id_do_topico_opcional>
 SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID=<discord_channel_id>
-SETUP_NOTIFY_DISCORD_NATIVE_EMBED=false
-SETUP_NOTIFY_FALLBACK_OPENCLAW=true
 SETUP_NOTIFY_DISCORD_BOX=false
 SETUP_NOTIFY_TRADINGVIEW_IMAGE=true
 SETUP_NOTIFY_DISCORD_MENTION=none
