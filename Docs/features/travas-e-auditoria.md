@@ -10,9 +10,10 @@ As travas da skill são instrução ao agente, não fechadura: quem monta o coma
 Esta feature cuida das duas coisas que a skill consegue fazer de útil a partir
 daí:
 
-1. **Conferir a trava que vale.** O `doctor` pergunta à CEX se a API key pode
-   sacar e reprova se puder. A key sem saque é o que limita o estrago de um
-   agente que errou, alucinou ou foi induzido.
+1. **Conferir as travas que valem e avisar.** O `doctor` pergunta à CEX se a
+   API key pode sacar, e ao OpenClaw se ele pede aprovação antes de executar.
+   É aviso: o operador fica ciente. Bloquear é escolha dele (ver *Bloqueio
+   configurável*).
 2. **Deixar rastro.** Cada execução real aprovada grava um registro de que o
    agente decidiu operar real, e por qual variável de confirmação.
 
@@ -25,10 +26,10 @@ daí:
 | OKX | `GET /api/v5/account/config` → `perm` contém `withdraw` | verificado |
 | Kraken, KuCoin, MEXC, Bitget, Gate.io e outras | a venue não expõe a permissão da própria key | "não verificado: confira no painel" |
 
-- O check `cex_key_sem_saque` é **bloqueante só quando a venue confirma que a
-  key saca**. "Não verificado" passa, com `verificado: false` e o motivo no
-  detalhe: a falta de verificação não prova que a key saca, mas o operador
-  fica sabendo que ninguém conferiu.
+- O check `cex_key_sem_saque` **avisa** quando a venue confirma que a key
+  saca. "Não verificado" vem com `verificado: false` e o motivo no detalhe: a
+  falta de verificação não prova que a key saca, mas o operador fica sabendo
+  que ninguém conferiu.
 - Resposta que não dá para ler, erro de rede ou de autenticação viram "não
   verificado", **nunca** "sem saque": dúvida não é segurança.
 - É a única chamada de rede do `doctor`, e só roda com credencial de CEX
@@ -37,6 +38,43 @@ daí:
 - DEX fica de fora nesta versão. Na Hyperliquid, uma API wallet (agent) não
   saca, e a chave principal saca; na Nado, a owner key saca. Conferir isso é o
   próximo passo.
+
+## OpenClaw sem aprovação (`openclaw_aprovacao`)
+
+O `doctor` roda `openclaw exec-policy show --json` e lê a política efetiva de
+cada escopo (o pior decide):
+
+| Política efetiva | Resultado |
+|---|---|
+| `security=full` (ou `mode=full`) | sem aprovação: real autônomo |
+| `security=allowlist` com `ask=off` | sem aprovação para o que está na allowlist |
+| `mode=auto` | revisor automático antes do operador |
+| `allowlist` com `ask=on-miss`/`always`, ou `deny` | protegido |
+| comando ausente, erro, JSON inválido | não verificado |
+
+"Protegido" não vê a allowlist: o detalhe lembra de conferir que os comandos
+de trade não estão nela.
+
+## Saque automático (`saque_automatico`)
+
+`AUTO_WITHDRAW_ENABLED=true` faz o `workspace/nado/auto_trade_nado.py` sacar
+sozinho da Nado. O aviso segue a leitura do script: só `true` liga.
+
+## Bloqueio configurável
+
+Decisão do autor (25/09/2026, adendo do ADR 0007): saque e falta de aprovação
+são aviso. Quem quiser bloqueio liga:
+
+| Variável | Transforma em bloqueio |
+|---|---|
+| `BLOQUEAR_SAQUE=sim` | `cex_key_sem_saque` e `saque_automatico` |
+| `BLOQUEAR_SEM_APROVACAO=sim` | `openclaw_aprovacao` (sem aprovação ou revisor automático) |
+
+Ligado, o check reprova o `doctor` (`blocking_checks` no relatório) e o
+`run.py` recusa o comando de trade antes de executá-lo. Não verificado nunca
+bloqueia: avisa no stderr e segue. Valor fora do vocabulário de booleano
+reprova o `doctor` nomeando a variável. O agente pode desligar a variável:
+é escolha do operador, não fechadura.
 
 ## Rastro de auditoria
 
@@ -68,13 +106,17 @@ diretório de log (`DELTA_NEUTRAL_LOG_DIR`):
 |---|---|---|
 | Permissão de saque | `workspace/venues/permissao_de_saque.py` | `interpretar` (puro) e `consultar` (CCXT) |
 | Check do `doctor` | `workspace/run.py` (`_check_key_sem_saque`) | liga o veredicto ao relatório |
+| Política do OpenClaw | `workspace/politica_openclaw.py` | `interpretar` (puro) e `consultar` (`exec-policy show --json`) |
+| Bloqueio configurável | `workspace/run.py` (`_checks_bloqueados_pelo_operador`, `_motivos_de_bloqueio_do_operador`) | doctor e comando de trade |
 | Rastro | `workspace/cli.py` (`_record_live_trade_confirmation`) | grava a linha de auditoria |
 
-Testes: `test/test_permissao_de_saque.py` e `test/test_auditoria_trade_real.py`.
-O `conftest` desliga a rede dessa consulta em toda a suíte.
+Testes: `test/test_permissao_de_saque.py`, `test/test_politica_openclaw.py`,
+`test/test_bloqueios_configuraveis.py` e `test/test_auditoria_trade_real.py`.
+O `conftest` desliga a rede e o `openclaw` dessas consultas em toda a suíte.
 
 ## Changelog
 
 | Data | Mudança |
 |---|---|
 | 25/09/2026 | Check `cex_key_sem_saque` no `doctor` (Binance, Bybit, OKX) e rastro de auditoria da confirmação real |
+| 25/09/2026 | Saque vira aviso; `openclaw_aprovacao` e `saque_automatico`; bloqueio configurável (`BLOQUEAR_SAQUE`, `BLOQUEAR_SEM_APROVACAO`) |

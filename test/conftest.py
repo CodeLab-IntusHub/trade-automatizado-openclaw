@@ -99,3 +99,14 @@ def sem_rede_na_permissao_de_saque(monkeypatch: pytest.MonkeyPatch) -> None:
         return ps.Veredicto(venue, ps.NAO_VERIFICAVEL, "rede desligada nos testes")
 
     monkeypatch.setattr(ps, "consultar", sem_rede)
+
+
+@pytest.fixture(autouse=True)
+def sem_openclaw_na_politica_de_exec(monkeypatch: pytest.MonkeyPatch) -> None:
+    """O `doctor` roda `openclaw exec-policy show --json` para saber se o
+    OpenClaw pede aprovacao. Na suite, isso mediria a maquina de quem roda:
+    fica "nao verificado". Os testes do check substituem pela politica que
+    precisam."""
+    from workspace import politica_openclaw as po
+
+    monkeypatch.setattr(po, "consultar", lambda: po.Veredicto(po.NAO_VERIFICAVEL, "openclaw fora dos testes"))

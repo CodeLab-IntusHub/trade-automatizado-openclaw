@@ -110,5 +110,16 @@ outros.
      item de primeira classe.
   3. **Envenenamento do aprendizado:** coberto pela regra dos fills
      reconciliados, que precisa de teste na Edge Function que recebe.
+- **Adendo de 25/09/2026 (decisão do autor): saque é aviso, bloqueio é
+  escolha.** "Sacar não é um bloqueador, somente um warning que o usuário
+  deve ter ciência. Quando possível, sempre bloquear configurável." Onde
+  este ADR diz "recusar operar se a key puder sacar", vale: o `doctor`
+  **avisa** (key da CEX com saque, saque automático da Nado, OpenClaw sem
+  aprovação), e o operador liga o bloqueio com `BLOQUEAR_SAQUE` e
+  `BLOQUEAR_SEM_APROVACAO`. Ligado, o `doctor` reprova e o comando de trade
+  é recusado. O que não dá para verificar nunca bloqueia. Como toda trava da
+  skill, o agente pode desligar a variável: é escolha do operador, não
+  fechadura. A política do OpenClaw vem de `openclaw exec-policy show
+  --json`; o `exec-approvals.json` foi aposentado nas versões novas.
 - **A telemetria continua opt-in,** pela mesma razão do
   [ADR 0002](0002-sentry-nao-se-aplica.md): a skill roda na máquina do operador.

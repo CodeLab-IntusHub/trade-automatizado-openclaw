@@ -184,9 +184,10 @@ com aprovação** (recomendado) e **real autônomo**.
      **1Password** para os segredos. **Feito em 25/09/2026:** o onboarding
      pergunta o modo (`autonomy_mode`, análise até o operador escolher).
   2. O `doctor` verifica, onde a venue expõe, se a API key pode sacar, e
-     reprova se puder; onde não expõe, diz que não conseguiu verificar.
+     avisa se puder; onde não expõe, diz que não conseguiu verificar.
      **Feito em 25/09/2026 para CEX** (Binance, Bybit e OKX expõem; as demais
-     ficam "não verificado"). Falta DEX: API wallet da Hyperliquid não saca,
+     ficam "não verificado"). Por decisão do autor no mesmo dia, é **aviso**;
+     `BLOQUEAR_SAQUE=sim` o torna bloqueio (doctor e comando de trade). Falta DEX: API wallet da Hyperliquid não saca,
      a chave principal saca; a owner key da Nado saca.
   3. O `doctor` avisa quando detectar que o OpenClaw dispensa aprovação
      (`security: full`). Antes: confirmar o formato de `tools.exec` e de
@@ -195,7 +196,9 @@ com aprovação** (recomendado) e **real autônomo**.
      `tools.exec.mode`: deny, allowlist, ask, auto, full) e o arquivo de
      aprovações, e as versões novas aposentaram o `exec-approvals.json`. Ler
      arquivo daria falso "seguro"; a fonte é `openclaw exec-policy show`.
-     Bloqueado até ter a saída real desse comando de uma instância.
+     **Feito em 25/09/2026** com a saída real de uma instância: check
+     `openclaw_aprovacao` (aviso; `BLOQUEAR_SEM_APROVACAO=sim` o torna
+     bloqueio).
   4. A confirmação de operação real passa a ser registrada no log como rastro
      de auditoria, **qualquer que seja a variável usada** — o código aceita
      quatro como equivalentes: `AUTORIZAR_TRADE_REAL`, `CONFIRMAR_TRADE_REAL`,
@@ -205,7 +208,9 @@ com aprovação** (recomendado) e **real autônomo**.
   5. `workspace/nado/auto_trade_nado.py` tem saque automático
      (`AUTO_WITHDRAW_ENABLED`), contra a política de key sem saque. É script
      avulso, que nenhum comando da skill chama: decidir se sai do pacote ou
-     fica documentado como fora da política.
+     fica documentado como fora da política. **Decidido em 25/09/2026:** fica,
+     com aviso no `doctor` quando `AUTO_WITHDRAW_ENABLED=true`, bloqueável por
+     `BLOQUEAR_SAQUE`.
 - **Pronto quando:** nenhum doc de operador apresenta trava da skill como
   segurança; os passos 2 e 3 têm teste; e um operador novo sabe, pelo
   onboarding, qual modo está usando e o que o protege.
