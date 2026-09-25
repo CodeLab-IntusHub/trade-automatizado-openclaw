@@ -335,6 +335,7 @@
         "dex_adapter_status",
         "cex_market_type",
         "execution_mode",
+        "autonomy_mode",
         "environment",
         "account_and_secrets_status",
         "sizing",

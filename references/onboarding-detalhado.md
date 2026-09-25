@@ -22,7 +22,7 @@ Regras do wizard:
 
 **Regras de roteamento:**
 
-1. Se o usuário não escolher, usar default seguro `DEX_ID=nado` e `CEX_ID=kraken`.
+1. Se o usuário não escolher, não assumir venue: não há DEX nem CEX padrão. Perguntar de novo, ou seguir só com explicação e diagnóstico, sem venue configurada.
 2. Se digitar `bibyt`, normalizar para `bybit`.
 3. Se escolher CEX não-Kraken, usar `CEX_ID=<exchange_id CCXT>` e credenciais genéricas `CEX_API_KEY`, `CEX_API_SECRET`, `CEX_API_PASSWORD` quando exigido; aceitar envs específicas (`BINANCE_*`, `BYBIT_*`, `OKX_*`, `KUCOIN_*`, `MEXC_*`, `BITGET_*`, `GATEIO_*`).
 4. Se escolher Hyperliquid, usar o adapter builtin com `DEX_ID=hyperliquid`, `HYPERLIQUID_WALLET_ADDRESS` e `HYPERLIQUID_PRIVATE_KEY`; `HYPERLIQUID_VAULT_ADDRESS` é opcional quando o usuário escolher vault.

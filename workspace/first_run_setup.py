@@ -17,6 +17,7 @@ CREDENTIAL_GUIDANCE = {
         "service_api_keys": "secret manager > Chaves de Serviço",
         "anthropic_oauth": "secret manager > OAuth Token"
     },
+    "recommended_secret_manager": "1Password (referencias op:// com `op run`) ou o gerenciador de segredos que o operador ja usa; a skill nao guarda credencial de ninguem.",
     "chat_allowed_answers": ["já está salvo", "não está salvo", "não sei"],
     "never_ask_for": ["API key", "token", "webhook", "OAuth token", "private key", "seed phrase", "secret value"],
     "user_message_template": "Essa skill precisa de {credential_name}. Por segurança, não cole a chave aqui. Configure em {section} no seu env/secret manager seguro e me diga apenas se já está salvo.",
@@ -416,6 +417,20 @@ DEFAULT_PAYLOAD = {
             "options": ["dex_only", "cex_only", "hedged"],
         },
         {
+            "field": "autonomy_mode",
+            "reason": "Diz o que o agente pode fazer sozinho e o que protege voce em cada caso (ADR 0007).",
+            "question": "Como o agente deve operar? `analise` (scanner, simulacao e dry-run; e o modo ate voce escolher outro), `real_com_aprovacao` (recomendado: cada comando de trade espera sua aprovacao pelo chat do OpenClaw) ou `real_autonomo` (opera sozinho; so as travas da exchange limitam a perda).",
+            "options": ["analise", "real_com_aprovacao", "real_autonomo"],
+            "default": "analise",
+            "protections": {
+                "analise": "nada a prender: nao abre ordem",
+                "real_com_aprovacao": "tools.exec do OpenClaw em allowlist estreita, com aprovacao para os comandos de trade; mais key sem saque e capital isolado. security: full ou allowlist larga contornam a aprovacao.",
+                "real_autonomo": "so a exchange: key sem saque e subconta com o capital que o bot pode perder",
+            },
+            "note": "AUTORIZAR_TRADE_REAL registra a decisao de operar real; nao e trava.",
+            "reference": "Docs/decisions/0007-autonomia-do-agente.md",
+        },
+        {
             "field": "environment",
             "reason": "Separa teste, dry-run e preparação para live/mainnet.",
             "question": "Vai validar em testnet/sandbox, mainnet dry-run ou preparar mainnet live para depois?",
@@ -478,6 +493,7 @@ DEFAULT_PAYLOAD = {
         "dex_adapter_status": None,
         "cex_market_type": None,
         "execution_mode": None,
+        "autonomy_mode": "analise",
         "environment": None,
         "account_and_secrets_status": None,
         "sizing": None,
@@ -487,7 +503,7 @@ DEFAULT_PAYLOAD = {
         "next_safe_step": "venues+setup-check+doctor",
         "questionnaire_completed": False,
     },
-    "final_confirmation_template": "Plano: DEX {dex_id}, CEX {cex_id}, modo {execution_mode}, ambiente {environment}, contas/envs {account_and_secrets_status}, sizing {sizing}, margem {margin_mode}, stop por alvo {target_stop_mode}, entrega {delivery}. Próximo passo seguro: venues + setup-check + doctor, sem trade. Confirmo?",
+    "final_confirmation_template": "Plano: DEX {dex_id}, CEX {cex_id}, modo {execution_mode}, autonomia {autonomy_mode}, ambiente {environment}, contas/envs {account_and_secrets_status}, sizing {sizing}, margem {margin_mode}, stop por alvo {target_stop_mode}, entrega {delivery}. Próximo passo seguro: venues + setup-check + doctor, sem trade. Confirmo?",
 }
 
 

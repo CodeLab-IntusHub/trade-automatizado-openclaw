@@ -9,6 +9,10 @@
 - **Sem audiencia fixa.** A linha "@Intus Club Member" no topo do aviso so aparece se `SETUP_NOTIFY_DISCORD_AUDIENCE` estiver definida.
 - **Onboarding sem token de bot.** O assistente deixa de pedir `DISCORD_BOT_TOKEN` e o formato `embed_nativo` (o codigo manda texto + imagem): pergunta canal do OpenClaw, destino, conta padrao ou bot dedicado e topico do Telegram. No payload, `discord_delivery*` vira `delivery*`, e no `skill.json`, `discord_delivery_policy` vira `delivery_policy`.
 
+### Adicionado
+
+- **Onboarding pergunta a autonomia do agente** (ADR 0007, ROADMAP 1.7 passo 1): `autonomy_mode` = `analise` (padrao ate o operador escolher), `real_com_aprovacao` (recomendado) ou `real_autonomo`, dizendo o que protege em cada um. O `SKILL.md` ganha a secao "Autonomia do agente e o que protege de verdade": a aprovacao de execucao do OpenClaw (`tools.exec` em allowlist estreita), a key sem saque e o capital isolado. O onboarding e o `SKILL.md` sempre sugerem o 1Password para os segredos.
+
 ### Removido
 
 - `DISCORD_BOT_TOKEN`, `SETUP_NOTIFY_FALLBACK_OPENCLAW`, `SETUP_NOTIFY_DISCORD_DIRECT`, `SETUP_NOTIFY_ENV_FILE`, `SETUP_NOTIFY_DISCORD_NATIVE_EMBED` e `SETUP_NOTIFY_DISCORD_EMBED_AUTHOR`: nenhum codigo le mais essas variaveis. Saem do `skill.json`, do `.env.example`, do onboarding, do `SKILL.md` e do README.
@@ -16,6 +20,12 @@
 ### Corrigido
 
 - **O `config.env` descartava em silencio parte da configuracao de entrega.** A allowlist aceitava canal, destino e o canal extra do Discord, mas nao conta, topico do Telegram nem WhatsApp: o topico configurado ali nunca chegava ao envio. Agora aceita as onze variaveis de entrega, nenhuma delas segredo.
+
+### Documentacao
+
+- **Nenhum doc de operador elege venue** (ROADMAP 1.6). O `SKILL.md` -- que o agente de cada bot le -- ainda descrevia "Nado DEX/Kraken CEX como defaults", e o questionario mandava usar `DEX_ID=nado CEX_ID=kraken` como "default seguro" quando o operador nao escolhesse: o agente reintroduziria pelo texto o padrao que o codigo tirou na v1.9.0. `SKILL.md`, README, INSTALL e `references/` passam a falar das venues escolhidas; um teste trava a volta.
+- `AUTORIZAR_TRADE_REAL` deixa de ser apresentada como trava no README e no `SKILL.md`: registra a decisao de operar real, e o agente pode defini-la.
+- ROADMAP: referral por venue registrado como plano futuro, sem dar destaque a nenhuma venue.
 
 ## v1.9.0 — 2026-09-25
 

@@ -283,7 +283,7 @@ Observacao:
 
 O dashboard e parte padrao da skill. Ele publica `index.html` e `dashboard-data.json` e separa:
 - `Monitoradas`: operacoes gerenciadas pelo `setup-live`.
-- `Exposicao real`: posicoes abertas detectadas diretamente em Nado/Kraken.
+- `Exposicao real`: posicoes abertas detectadas diretamente nas venues escolhidas.
 
 ### 6.1 Preparar runtime
 
@@ -303,7 +303,7 @@ mkdir -p ~/.config/openclaw
 cp workspace/.env.example ~/.config/openclaw/trade-automatizado-openclaw.env
 ```
 
-Preencha as envs Nado/Kraken no arquivo seguro. Para o painel mostrar `Exposicao real`, as credenciais precisam permitir leitura de posicoes. `--no-live-exposure` serve apenas para rebuild offline.
+Preencha as envs das venues escolhidas no arquivo seguro. Para o painel mostrar `Exposicao real`, as credenciais precisam permitir leitura de posicoes. `--no-live-exposure` serve apenas para rebuild offline.
 
 Valide antes de publicar:
 
@@ -387,7 +387,7 @@ systemctl --user status delta-dashboard-publisher.service --no-pager
 
 - `live-status` mostra mais ativos que o dashboard: problema no sync de exposicao real.
 - `live_exposure` correto mas `monitoradas` baixo: o setup-live esta gerenciando menos operacoes do que a exposicao real aberta.
-- `live_exposures.error` preenchido: revise envs Nado/Kraken e permissao de leitura.
+- `live_exposures.error` preenchido: revise as envs das venues escolhidas e a permissao de leitura.
 - HTML atualizado mas dados antigos: confira se `dashboard-data.json` mudou no destino configurado e se o auto-refresh JSON nao foi bloqueado por cache.
 
 ## 7. Validar sem abrir trade
