@@ -149,3 +149,18 @@ def test_env_example_nao_escolhe_modo() -> None:
     exemplo = (ROOT / "workspace" / ".env.example").read_text(encoding="utf-8")
     linha = next(li for li in exemplo.splitlines() if li.startswith("EXECUTION_MODE="))
     assert linha.split("=", 1)[1].split("#", 1)[0].strip() == ""
+
+
+def test_todo_setup_ativo_e_direcional_ou_hedgeado_por_natureza() -> None:
+    """A exigencia de modo no setup-live depende destas duas categorias: um setup
+    fora das duas escaparia do bloqueio de live sem modo."""
+    from workspace.core.setups import (
+        ACTIVE_SETUP_KEYS,
+        DIRECTIONAL_SETUP_KEYS,
+        HEDGED_ONLY_SETUP_KEYS,
+    )
+
+    assert set(ACTIVE_SETUP_KEYS) <= set(DIRECTIONAL_SETUP_KEYS) | set(
+        HEDGED_ONLY_SETUP_KEYS
+    )
+    assert not set(DIRECTIONAL_SETUP_KEYS) & set(HEDGED_ONLY_SETUP_KEYS)
