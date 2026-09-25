@@ -850,7 +850,7 @@ def test_assess_setup_entry_readiness_blocks_when_balance_and_health_are_low(mon
             "accounts": [{"name": "flex", "available_margin": 19.0}],
         },
     )
-    engine = SimpleNamespace(nado=fake_nado, kraken=fake_kraken, volume_per_leg=100.0)
+    engine = SimpleNamespace(nado=fake_nado, kraken=fake_kraken, volume_per_leg=100.0, dex_id="nado", cex_id="kraken")
 
     monkeypatch.delenv("SETUP_ENTRY_MIN_NADO_BALANCE_RATIO", raising=False)
     monkeypatch.delenv("SETUP_ENTRY_MIN_KRAKEN_MARGIN_RATIO", raising=False)

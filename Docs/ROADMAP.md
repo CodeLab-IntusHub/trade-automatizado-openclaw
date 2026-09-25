@@ -151,6 +151,12 @@ escolhe onde opera, e a Nado não é obrigatória. Até a v1.8.0, `DEX_ID` e
   sem venue (`venue_escolhida`); o wizard e o `.env.example` não sugerem par;
   o dashboard sincroniza só as venues escolhidas. Transição sem versão de
   aviso, também por decisão do autor. Teste em `test/test_venue_sem_padrao.py`.
+- **Limite descoberto no review:** candles e universo de símbolos vêm sempre
+  da CEX (`_fetch_setup_market_dataset`), inclusive no modo só DEX. Por isso
+  só DEX ainda exige `CEX_ID` (sem credencial); o motor recusa subir sem ela.
+  Para só DEX de fato, a DEX precisa virar fonte de dados — a Hyperliquid
+  expõe candles pelo CCXT, a Nado não — ou o operador escolhe a fonte de
+  dados à parte da venue de execução.
 - **Falta:** o modo de execução padrão ainda é `hedged` (`run.py`, `cli.py`),
   que exige as duas pontas; e cerca de 40 trechos de documentação (`README`,
   `INSTALL`, `references/`, `skill.json`, resto do `SKILL.md`) ainda falam em

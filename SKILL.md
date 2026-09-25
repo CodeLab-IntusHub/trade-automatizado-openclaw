@@ -47,7 +47,7 @@ Configuração principal:
 
 ```text
 DEX_ID=                           # escolha do usuario: nado | hyperliquid | id custom (ex.: dydx); vazio = sem DEX
-CEX_ID=                           # escolha do usuario: kraken ou exchange_id CCXT (binance, bybit, okx...); vazio = sem CEX
+CEX_ID=                           # escolha do usuario: kraken ou exchange_id CCXT (binance, bybit, okx...); obrigatoria ate no modo so DEX: e a fonte de candles (sem credencial basta)
 CEX_MARKET_TYPE=swap              # swap | future | spot
 CEX_API_KEY / CEX_API_SECRET / CEX_API_PASSWORD
 HYPERLIQUID_WALLET_ADDRESS=0x...  # obrigatorio se DEX_ID=hyperliquid

@@ -119,17 +119,29 @@ def test_so_cex_escolhida_opera_sem_dex(
         engine.nado.place_market_order("BTC/USDT", 1, True)
 
 
-def test_so_dex_escolhida_opera_sem_cex(
+def test_so_dex_sem_cex_para_antes_de_operar_as_cegas(
+    sem_venue: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Candles vem da CEX, inclusive no modo so DEX. Com um stub no lugar, o
+    setup-live falhava em silencio a cada ciclo e deixava posicao aberta sem
+    gestao de TP/SL. Sem CEX, o motor nem sobe."""
+    monkeypatch.setenv("DEX_ID", "hyperliquid")
+    monkeypatch.setattr(cli, "_build_hyperliquid_trader", lambda *a, **k: _FakeDex())
+    with pytest.raises(SystemExit) as erro:
+        cli.build_engine(require_nado=True, require_kraken=False)
+    assert "fonte de candles" in str(erro.value)
+    assert "CEX_ID" in str(erro.value)
+
+
+def test_so_dex_com_cex_so_para_dados_sobe_sem_credencial_de_cex(
     sem_venue: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("DEX_ID", "hyperliquid")
+    monkeypatch.setenv("CEX_ID", "kraken")
     monkeypatch.setattr(cli, "_build_hyperliquid_trader", lambda *a, **k: _FakeDex())
+    monkeypatch.setattr(cli, "KrakenTrader", _FakeCex)
     engine = cli.build_engine(require_nado=True, require_kraken=False)
-    assert engine.cex_id == ""
-    assert engine.kraken.get_symbol_to_product_map() == {"ETH/USDT": 0}
-    assert engine.kraken.get_all_positions() == []
-    with pytest.raises(RuntimeError):
-        engine.kraken.place_market_order("ETH/USDT", 1, True)
+    assert (engine.dex_id, engine.cex_id) == ("hyperliquid", "kraken")
 
 
 def test_resumo_de_venues_sem_escolha_nao_quebra(sem_venue: None) -> None:
@@ -152,10 +164,14 @@ def test_env_example_nao_escolhe_venue() -> None:
     assert linhas["CEX_ID"].split("#", 1)[0].strip() == ""
 
 
-def test_nenhum_default_de_venue_no_resolvedor() -> None:
-    fonte = (ROOT / "workspace" / "venues" / "config.py").read_text(encoding="utf-8")
-    assert 'or "nado"' not in fonte
-    assert 'or "kraken"' not in fonte
+@pytest.mark.parametrize(
+    "arquivo", ["workspace/venues/config.py", "workspace/cli.py", "workspace/run.py"]
+)
+def test_nenhum_default_de_venue_escondido(arquivo: str) -> None:
+    """Venue vazia completada com `or "nado"` reabre o default que saiu."""
+    fonte = (ROOT / arquivo).read_text(encoding="utf-8")
+    for venue in ("nado", "kraken"):
+        assert f'or "{venue}"' not in fonte, f'{arquivo}: or "{venue}"'
 
 
 def _recorder(tmp_path: Path):
