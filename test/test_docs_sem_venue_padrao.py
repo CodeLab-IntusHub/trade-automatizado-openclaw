@@ -41,6 +41,9 @@ ELEGE_VENUE = (
     r"default\s+(cex|dex)\b",
     r"requer somente (kraken|nado)",
     r"(é|e) apenas o default",
+    # "Por padrão a skill usa `DEX_ID=nado`": o padrao antes do valor (achado do review da #43).
+    r"padr(ã|a)o[^\n]{0,40}\b(dex_id|cex_id)\s*=\s*(nado|kraken)\b",
+    r"\b(dex_id|cex_id)\s*=\s*(nado|kraken)\b[^\n]{0,30}(padr(ã|a)o|default)",
 )
 
 

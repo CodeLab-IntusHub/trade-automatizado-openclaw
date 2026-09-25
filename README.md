@@ -85,7 +85,7 @@ as decisões de arquitetura em [`Docs/decisions/`](Docs/decisions/).
 
 ## Venues configuráveis
 
-Por padrão a skill usa `DEX_ID=nado` e `CEX_ID=kraken`. O wizard lista as principais venues: DEX `nado` e `hyperliquid`; CEX `kraken`, `binance`, `bybit`, `okx`, `kucoin`, `mexc`, `bitget` e `gateio`. Para trocar a CEX, use qualquer `exchange_id` suportado pelo CCXT e configure `CEX_API_KEY`, `CEX_API_SECRET` e, quando necessário, `CEX_API_PASSWORD`.
+Não há venue padrão: cada operador escolhe a DEX e/ou a CEX em `DEX_ID` e `CEX_ID`, e sem escolha os comandos de mercado param pedindo a venue. O wizard lista as principais venues: DEX `nado` e `hyperliquid`; CEX `kraken`, `binance`, `bybit`, `okx`, `kucoin`, `mexc`, `bitget` e `gateio`. Para outra CEX, use qualquer `exchange_id` suportado pelo CCXT e configure `CEX_API_KEY`, `CEX_API_SECRET` e, quando necessário, `CEX_API_PASSWORD`.
 
 ## Configuração
 
