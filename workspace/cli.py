@@ -40,16 +40,12 @@ import argparse
 import inspect
 import json
 import logging
-import mimetypes
 import os
 import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -1105,104 +1101,6 @@ def _with_discord_message_prefix(message: str) -> str:
     return _box_discord_message(clean_message) if use_box else clean_message
 
 
-def _discord_native_embed_enabled() -> bool:
-    raw = os.environ.get("SETUP_NOTIFY_DISCORD_NATIVE_EMBED", "true").strip().lower()
-    return raw not in {"0", "false", "no", "nao", "off"}
-
-
-def _discord_embed_author() -> str:
-    return os.environ.get("SETUP_NOTIFY_DISCORD_EMBED_AUTHOR", "").strip()
-
-
-def _discord_allowed_mentions(text: str) -> dict:
-    clean = str(text or "")
-    roles = list(dict.fromkeys(re.findall(r"<@&(\d+)>", clean)))[:25]
-    parse = ["everyone"] if clean.strip().startswith("@everyone") else []
-    payload: dict[str, Any] = {"parse": parse}
-    if roles:
-        payload["roles"] = roles
-    return payload
-
-
-def _discord_normalized_symbol_text(value: str) -> str:
-    return re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
-
-
-def _discord_entry_search_terms(symbol: str) -> set[str]:
-    normalized = _discord_normalized_symbol_text(symbol)
-    terms = {normalized} if normalized else set()
-    for quote in ("USDT", "USDC", "USD"):
-        if normalized.endswith(quote) and len(normalized) > len(quote):
-            base = normalized[: -len(quote)]
-            terms.add(base)
-            terms.add(f"{base}{quote}")
-    return {term for term in terms if len(term) >= 3}
-
-
-def _find_recent_discord_entry_message_id(state: "ManagedSetupState") -> str:
-    """Backfill do id raiz para updates de trades antigos que nasceram antes do formato canônico.
-
-    O caminho novo persiste `discord_entry_message_id` no estado. Para monitorados já vivos,
-    ainda pode faltar esse campo; sem ele, update sai sem reply. Aqui buscamos a última entrada
-    recente do mesmo par no canal Discord e reutilizamos como raiz.
-    """
-    token = _discord_bot_token()
-    channel_id = _discord_channel_id(os.environ.get("SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID", "").strip())
-    if not token or not channel_id:
-        return ""
-    terms = _discord_entry_search_terms(getattr(state, "symbol", ""))
-    if not terms:
-        return ""
-    try:
-        max_messages = max(25, min(int(os.environ.get("SETUP_NOTIFY_DISCORD_BACKFILL_SCAN_LIMIT", "250")), 500))
-    except (TypeError, ValueError):
-        max_messages = 250
-    before = ""
-    scanned = 0
-    while scanned < max_messages:
-        limit = min(100, max_messages - scanned)
-        url = f"https://discord.com/api/v10/channels/{channel_id}/messages?limit={limit}"
-        if before:
-            url += f"&before={before}"
-        req = urllib.request.Request(
-            url,
-            headers={
-                "Authorization": f"Bot {token}",
-                "User-Agent": "trader-low_stoch-notifier",
-            },
-            method="GET",
-        )
-        try:
-            timeout = int(os.environ.get("SETUP_NOTIFY_TIMEOUT_SECONDS", "75"))
-            with urllib.request.urlopen(req, timeout=timeout) as response:
-                payload = json.loads(response.read().decode("utf-8", errors="replace") or "[]")
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("discord backfill de reply falhou: %s", exc)
-            return ""
-        if not isinstance(payload, list) or not payload:
-            return ""
-        scanned += len(payload)
-        before = str((payload[-1] or {}).get("id") or "").strip()
-        for item in payload:
-            if not isinstance(item, dict):
-                continue
-            content = str(item.get("content") or "")
-            normalized_content = _discord_normalized_symbol_text(content)
-            if not any(marker in normalized_content for marker in ("ANLISETCNICA", "ANALISETCNICA", "ANALISETECNICA")):
-                continue
-            if not any(term in normalized_content for term in terms):
-                continue
-            attachments = item.get("attachments") or []
-            if not attachments:
-                continue
-            message_id = str(item.get("id") or "").strip()
-            if message_id:
-                return message_id
-        if not before:
-            return ""
-    return ""
-
-
 def _discord_chart_image_path() -> Path | None:
     raw = (
         os.environ.get("SETUP_NOTIFY_CHART_IMAGE_PATH", "").strip()
@@ -1234,130 +1132,6 @@ def _render_setup_chart_image(payload: dict[str, Any] | None) -> Path | None:
     return None
 
 
-def _discord_multipart_body(payload: dict, image_path: Path) -> tuple[bytes, str]:
-    boundary = f"intuscripto-trade-{int(time.time() * 1000)}"
-    filename = image_path.name or "trade-chart.png"
-    content_type = mimetypes.guess_type(filename)[0] or "image/png"
-    file_bytes = image_path.read_bytes()
-    chunks: list[bytes] = []
-    chunks.append(f"--{boundary}\r\n".encode())
-    chunks.append(b'Content-Disposition: form-data; name="payload_json"\r\n')
-    chunks.append(b"Content-Type: application/json\r\n\r\n")
-    chunks.append(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
-    chunks.append(b"\r\n")
-    chunks.append(f"--{boundary}\r\n".encode())
-    chunks.append(f'Content-Disposition: form-data; name="files[0]"; filename="{filename}"\r\n'.encode())
-    chunks.append(f"Content-Type: {content_type}\r\n\r\n".encode())
-    chunks.append(file_bytes)
-    chunks.append(b"\r\n")
-    chunks.append(f"--{boundary}--\r\n".encode())
-    return b"".join(chunks), boundary
-
-
-def _discord_channel_id(target: str) -> str:
-    normalized = _normalize_message_target("discord", target)
-    if normalized.startswith("channel:"):
-        return normalized.split(":", 1)[1].strip()
-    if normalized.isdigit():
-        return normalized
-    return ""
-
-
-def _discord_bot_token() -> str:
-    token = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
-    if token:
-        return token
-    if (
-        not os.environ.get("SETUP_NOTIFY_ENV_FILE")
-        and (os.environ.get("QC_SECRETS_PROXY") or os.environ.get("QC_SERVICE_KEY_NAMES"))
-    ):
-        return ""
-    env_path = Path(os.environ.get("SETUP_NOTIFY_ENV_FILE", DEFAULT_ENV_FILE)).expanduser()
-    try:
-        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            if key.strip() == "DISCORD_BOT_TOKEN":
-                return value.strip().strip('"').strip("'")
-    except Exception:
-        pass
-    token = _discord_bot_token_from_openclaw_config()
-    if token:
-        return token
-    return ""
-
-
-def _discord_bot_token_from_openclaw_config() -> str:
-    """Resolve o SecretRef do Discord configurado no OpenClaw, sem gravar segredo em disco.
-
-    A entrega canônica do trade no Discord precisa usar multipart direto para manter
-    texto completo + imagem no mesmo post. O adaptador `message` do OpenClaw pode
-    chunkar texto longo; por isso reaproveitamos o provider de segredo já existente
-    na config do gateway quando `DISCORD_BOT_TOKEN` não está no ambiente local.
-    """
-    config_path = Path(os.environ.get("OPENCLAW_CONFIG_FILE", "~/.openclaw/openclaw.json")).expanduser()
-    try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-        token_ref = ((config.get("channels") or {}).get("discord") or {}).get("token") or {}
-        if not isinstance(token_ref, dict) or token_ref.get("source") != "exec":
-            return ""
-        provider_name = str(token_ref.get("provider") or "").strip()
-        provider = ((config.get("secrets") or {}).get("providers") or {}).get(provider_name) or {}
-        if not isinstance(provider, dict) or provider.get("source") != "exec":
-            return ""
-        command = str(provider.get("command") or "").strip()
-        args = [str(arg) for arg in provider.get("args") or []]
-        if not command:
-            return ""
-        env = {key: value for key, value in os.environ.items() if key in set(provider.get("passEnv") or [])}
-        result = subprocess.run(
-            [command, *args],
-            check=False,
-            timeout=int(os.environ.get("SETUP_NOTIFY_SECRET_TIMEOUT_SECONDS", "15")),
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            env=env or None,
-        )
-        if result.returncode != 0:
-            return ""
-        value = result.stdout.strip()
-        if provider.get("jsonOnly"):
-            payload = json.loads(value)
-            secret_id = str(token_ref.get("id") or "value")
-            value = str(payload.get(secret_id) or payload.get("value") or "").strip() if isinstance(payload, dict) else ""
-        return value
-    except Exception:
-        return ""
-
-
-def _discord_embed_color(message: str) -> int:
-    text = message.upper()
-    if "SHORT" in text or "STOP" in text or "CANCELADA" in text:
-        return 0xE74C3C
-    if "LONG" in text or "ATINGIDO" in text:
-        return 0x2ECC71
-    return 0xF1C40F
-
-
-def _build_discord_embed(message: str) -> dict:
-    lines = [line.rstrip() for line in str(message or "").splitlines()]
-    title = next((line for line in lines if line.strip()), "🚨 NOVA OPERAÇÃO 🚨")
-    body_lines = lines[lines.index(title) + 1 :] if title in lines else lines[1:]
-    description = "\n".join(line for line in body_lines if line.strip())[:4096]
-    embed = {
-        "title": title[:256],
-        "description": description or "\u200b",
-        "color": _discord_embed_color(message),
-    }
-    author = _discord_embed_author()
-    if author:
-        embed["author"] = {"name": author}
-    return embed
-
-
 def _discord_spaced_content(content: str) -> str:
     clean = str(content or "").rstrip()
     if not clean or clean.endswith("\u200b"):
@@ -1380,103 +1154,6 @@ def _discord_plain_content(message: str, prefix: str = "") -> str:
         if head and len(head) <= 1980:
             return f"{head}\n\nTexto encurtado para caber em uma única mensagem do Discord."
     return clean_message[:1970].rstrip() + "\n…"
-
-
-def _compact_discord_fallback_update(message: str, *, limit: int = 340) -> str:
-    """Mantem updates em um unico reply quando o fallback OpenClaw chunkar em 350 chars."""
-    clean = str(message or "").strip()
-    if len(clean) <= limit or "```" not in clean or "### **" not in clean:
-        return clean
-    body = clean.replace("```text", "").replace("```", "").strip()
-    lines = [line.strip() for line in body.splitlines() if line.strip()]
-    title = next((line for line in lines if line.startswith("###")), lines[0] if lines else "🔄 ATUALIZAÇÃO")
-    targets = [line for line in lines if line.upper().startswith("ALVO ")][:4]
-    pnl = next((line for line in lines if line.startswith("P&L:")), "")
-    pnl_amount = next((line for line in lines if line.startswith("P&L Amount:")), "")
-    risk = next((line for line in lines if line.startswith("Risco até Stop:")), "")
-    reason = ""
-    for idx, line in enumerate(lines):
-        if "Motivo" in line:
-            reason = lines[idx + 1] if idx + 1 < len(lines) else ""
-            break
-    compact_lines = [title, *targets]
-    compact_lines.extend(line for line in (pnl, pnl_amount, risk) if line)
-    if reason:
-        compact_lines.append(f"Motivo: {reason}")
-    compact = "```text\n" + "\n".join(compact_lines) + "\n```"
-    if len(compact) <= limit:
-        return compact
-    keep = []
-    for line in compact_lines:
-        candidate = "```text\n" + "\n".join([*keep, line]) + "\n```"
-        if len(candidate) > limit:
-            break
-        keep.append(line)
-    return "```text\n" + "\n".join(keep) + "\n```"
-
-
-def _send_discord_native_embed(
-    *,
-    target: str,
-    message: str,
-    image_path: Path | None = None,
-    reply_to_message_id: str = "",
-) -> str | None:
-    # Nome mantido por compatibilidade: a entrega correta para o IntusCripto é texto + imagem,
-    # sem card/embed nativo. O anexo aparece abaixo do texto na mesma mensagem.
-    token = _discord_bot_token()
-    channel_id = _discord_channel_id(target)
-    if not token or not channel_id:
-        return None
-    prefix = _discord_message_prefix()
-    content = _discord_plain_content(message, prefix)
-    image_path = image_path or _discord_chart_image_path()
-    payload = {
-        "content": content,
-        "allowed_mentions": _discord_allowed_mentions(content),
-    }
-    clean_reply_to = str(reply_to_message_id or "").strip()
-    if clean_reply_to:
-        payload["message_reference"] = {
-            "message_id": clean_reply_to,
-            "channel_id": channel_id,
-            "fail_if_not_exists": False,
-        }
-    if image_path is not None:
-        payload["attachments"] = [{"id": 0, "filename": image_path.name}]
-        data, boundary = _discord_multipart_body(payload, image_path)
-        content_type = f"multipart/form-data; boundary={boundary}"
-    else:
-        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        content_type = "application/json"
-    req = urllib.request.Request(
-        f"https://discord.com/api/v10/channels/{channel_id}/messages",
-        data=data,
-        headers={
-            "Authorization": f"Bot {token}",
-            "Content-Type": content_type,
-            "User-Agent": "trader-low_stoch-notifier",
-        },
-        method="POST",
-    )
-    try:
-        timeout = int(os.environ.get("SETUP_NOTIFY_TIMEOUT_SECONDS", "75"))
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            if not 200 <= int(response.status) < 300:
-                return None
-            try:
-                body = response.read().decode("utf-8", errors="replace")
-                payload_out = json.loads(body) if body else {}
-                message_id = str(payload_out.get("id") or "").strip()
-                return message_id or None
-            except Exception:  # noqa: BLE001
-                return None
-    except urllib.error.HTTPError as exc:
-        detail = exc.read(200).decode("utf-8", errors="replace")
-        logger.warning("discord embed falhou | status=%s | detail=%s", exc.code, detail)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("discord embed falhou: %s", exc)
-    return None
 
 
 def _notice_brand_label() -> str:
@@ -1523,23 +1200,11 @@ def _send_entry_notification(
     target = _normalize_message_target(channel, target)
     if not target:
         return None
+    # Todo canal sai pelo OpenClaw do operador. Bot dedicado e uma conta dedicada
+    # nele (`--account`); a skill nao le nem guarda token de bot.
     if channel == "discord":
-        account = account or os.environ.get("SETUP_NOTIFY_ENTRY_DISCORD_ACCOUNT", "default").strip()
-        discord_message_id = _send_discord_native_embed(
-            target=target,
-            message=message,
-            image_path=image_path,
-            reply_to_message_id=reply_to_discord_message_id,
-        )
-        if discord_message_id:
-            return discord_message_id
-        fallback_openclaw = os.environ.get("SETUP_NOTIFY_FALLBACK_OPENCLAW", "0").strip().lower() in {"1", "true", "yes", "sim"}
-        if not fallback_openclaw:
-            logger.warning("discord embed falhou; fallback openclaw desativado | target=%s", target)
-            return None
-        message = _with_discord_message_prefix(message)
-        if reply_to_discord_message_id:
-            message = _compact_discord_fallback_update(message)
+        message = _discord_plain_content(_with_discord_message_prefix(message))
+        image_path = image_path or _discord_chart_image_path()
     cmd = [OPENCLAW_BIN, "message", "send", "--json", "--channel", channel, "--target", target, "--message", message]
     if image_path is not None and image_path.is_file():
         cmd.extend(["--media", str(image_path)])
@@ -1888,13 +1553,21 @@ def _send_setup_trade_notice(
     if not _setup_notifications_enabled():
         return {}
 
-    channel = os.environ.get("SETUP_NOTIFY_ENTRY_CHANNEL", "telegram").strip() or "telegram"
+    # Sem canal padrao: destino sem canal nao e enviado, e o aviso diz o que falta.
+    channel = os.environ.get("SETUP_NOTIFY_ENTRY_CHANNEL", "").strip().lower()
     target = os.environ.get("SETUP_NOTIFY_ENTRY_TARGET", "").strip()
+    if target and not channel:
+        logger.warning(
+            "notificacao sem canal: SETUP_NOTIFY_ENTRY_TARGET definido sem SETUP_NOTIFY_ENTRY_CHANNEL "
+            "(telegram, discord, whatsapp... -- um canal configurado no seu OpenClaw)"
+        )
+        target = ""
+    # Conta vazia = a conta padrao do OpenClaw; bot dedicado = conta dedicada nele.
     account = os.environ.get("SETUP_NOTIFY_ENTRY_ACCOUNT", "").strip()
     discord_channel_id = os.environ.get("SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID", "").strip()
-    discord_account = os.environ.get("SETUP_NOTIFY_ENTRY_DISCORD_ACCOUNT", "default").strip()
+    discord_account = os.environ.get("SETUP_NOTIFY_ENTRY_DISCORD_ACCOUNT", "").strip()
     whatsapp_target = os.environ.get("SETUP_NOTIFY_ENTRY_WHATSAPP_TARGET", "").strip()
-    whatsapp_account = os.environ.get("SETUP_NOTIFY_ENTRY_WHATSAPP_ACCOUNT", "default").strip()
+    whatsapp_account = os.environ.get("SETUP_NOTIFY_ENTRY_WHATSAPP_ACCOUNT", "").strip()
     whatsapp_enabled = os.environ.get("SETUP_NOTIFY_WHATSAPP_ENABLED", "false").strip().lower() in {"1", "true", "yes", "sim"}
     if not target and not discord_channel_id and not (whatsapp_enabled and whatsapp_target):
         return {}
@@ -3034,11 +2707,6 @@ def _notify_setup_state_event(
     metadata = state.metadata if isinstance(state.metadata, dict) else {}
     reply_to = str(metadata.get("discord_entry_message_id") or metadata.get("discord_message_id") or "").strip()
     whatsapp_reply_to = str(metadata.get("whatsapp_entry_message_id") or metadata.get("whatsapp_message_id") or "").strip()
-    if not reply_to:
-        reply_to = _find_recent_discord_entry_message_id(state)
-        if reply_to:
-            metadata["discord_entry_message_id"] = reply_to
-            state.metadata = metadata
     result = _send_setup_trade_notice(
         message,
         chart_payload=_state_chart_payload(state, reason=reason),
@@ -3249,6 +2917,9 @@ def _configure_entry_notifications_from_args(args: argparse.Namespace) -> None:
     account = str(getattr(args, "notify_entry_account", None) or "").strip()
     discord_channel_id = str(getattr(args, "notify_entry_discord_channel_id", None) or "").strip()
     discord_account = str(getattr(args, "notify_entry_discord_account", None) or "").strip()
+    thread_id = str(getattr(args, "notify_entry_thread_id", None) or "").strip()
+    if thread_id:
+        os.environ["SETUP_NOTIFY_ENTRY_THREAD_ID"] = thread_id
     if target:
         os.environ["SETUP_NOTIFY_ENTRY_TARGET"] = target
     if channel:
@@ -3269,7 +2940,7 @@ def _configure_entry_notifications_from_args(args: argparse.Namespace) -> None:
     if resolved_target and notifications_enabled:
         logger.info(
             "setup-live notificacao de entrada ativa | channel=%s | target=%s",
-            os.environ.get("SETUP_NOTIFY_ENTRY_CHANNEL", "telegram").strip() or "telegram",
+            os.environ.get("SETUP_NOTIFY_ENTRY_CHANNEL", "").strip() or "(sem canal)",
             resolved_target,
         )
     if resolved_discord and notifications_enabled:
@@ -8482,6 +8153,7 @@ def main(argv: list[str] | None = None) -> None:
     parser_notify_monitored.add_argument("--notify-entry-channel", default=None, help="canal principal para avisos, ex.: telegram ou whatsapp")
     parser_notify_monitored.add_argument("--notify-entry-discord-channel-id", default=None, help="envia uma copia extra ao canal Discord informado")
     parser_notify_monitored.add_argument("--notify-entry-account", default=None, help="account id opcional do canal principal de aviso")
+    parser_notify_monitored.add_argument("--notify-entry-thread-id", default=None, help="topico do Telegram (thread) do canal principal de aviso")
     parser_notify_monitored.add_argument("--notify-entry-discord-account", default=None, help="account id opcional do Discord para o aviso extra")
     parser_notify_monitored.add_argument("--no-notify-entry", action="store_true", help="desativa envio de notificação nesta execução")
     parser_notify_monitored.set_defaults(fn=cmd_setup_live_notify_monitored)
@@ -8579,6 +8251,7 @@ def main(argv: list[str] | None = None) -> None:
     parser_setup_live.add_argument("--notify-entry-channel", default=None, help="canal principal para avisos de entrada confirmada, ex.: telegram ou whatsapp")
     parser_setup_live.add_argument("--notify-entry-discord-channel-id", default=None, help="envia uma copia extra do aviso ao canal Discord informado")
     parser_setup_live.add_argument("--notify-entry-account", default=None, help="account id opcional do canal principal de aviso")
+    parser_setup_live.add_argument("--notify-entry-thread-id", default=None, help="topico do Telegram (thread) do canal principal de aviso")
     parser_setup_live.add_argument("--notify-entry-discord-account", default=None, help="account id opcional do Discord para o aviso extra")
     parser_setup_live.add_argument("--no-notify-entry", action="store_true", help="desativa aviso de entrada confirmada nesta execucao")
     parser_setup_live.add_argument("--notify-monitored-on-start", action="store_true", help="envia status das operações já monitoradas ao iniciar")
