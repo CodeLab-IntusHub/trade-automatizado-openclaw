@@ -283,7 +283,7 @@ Observacao:
 
 O dashboard e parte padrao da skill. Ele publica `index.html` e `dashboard-data.json` e separa:
 - `Monitoradas`: operacoes gerenciadas pelo `setup-live`.
-- `Exposicao real`: posicoes abertas detectadas diretamente em Nado/Kraken.
+- `Exposicao real`: posicoes abertas detectadas diretamente nas venues escolhidas.
 
 ### 6.1 Preparar runtime
 
@@ -303,7 +303,7 @@ mkdir -p ~/.config/openclaw
 cp workspace/.env.example ~/.config/openclaw/trade-automatizado-openclaw.env
 ```
 
-Preencha as envs Nado/Kraken no arquivo seguro. Para o painel mostrar `Exposicao real`, as credenciais precisam permitir leitura de posicoes. `--no-live-exposure` serve apenas para rebuild offline.
+Preencha as envs das venues escolhidas no arquivo seguro. Para o painel mostrar `Exposicao real`, as credenciais precisam permitir leitura de posicoes. `--no-live-exposure` serve apenas para rebuild offline.
 
 Valide antes de publicar:
 
@@ -387,7 +387,7 @@ systemctl --user status delta-dashboard-publisher.service --no-pager
 
 - `live-status` mostra mais ativos que o dashboard: problema no sync de exposicao real.
 - `live_exposure` correto mas `monitoradas` baixo: o setup-live esta gerenciando menos operacoes do que a exposicao real aberta.
-- `live_exposures.error` preenchido: revise envs Nado/Kraken e permissao de leitura.
+- `live_exposures.error` preenchido: revise as envs das venues escolhidas e a permissao de leitura.
 - HTML atualizado mas dados antigos: confira se `dashboard-data.json` mudou no destino configurado e se o auto-refresh JSON nao foi bloqueado por cache.
 
 ## 7. Validar sem abrir trade
@@ -519,7 +519,7 @@ Acao:
 
 ## Venues configuráveis
 
-Por padrão a skill usa `DEX_ID=nado` e `CEX_ID=kraken`. O wizard lista as principais venues: DEX `nado` e `hyperliquid`; CEX `kraken`, `binance`, `bybit`, `okx`, `kucoin`, `mexc`, `bitget` e `gateio`. Para trocar a CEX, use qualquer `exchange_id` suportado pelo CCXT e configure `CEX_API_KEY`, `CEX_API_SECRET` e, quando necessário, `CEX_API_PASSWORD`.
+Não há venue padrão: cada operador escolhe a DEX e/ou a CEX em `DEX_ID` e `CEX_ID`, e sem escolha os comandos de mercado param pedindo a venue. O wizard lista as principais venues: DEX `nado` e `hyperliquid`; CEX `kraken`, `binance`, `bybit`, `okx`, `kucoin`, `mexc`, `bitget` e `gateio`. Para outra CEX, use qualquer `exchange_id` suportado pelo CCXT e configure `CEX_API_KEY`, `CEX_API_SECRET` e, quando necessário, `CEX_API_PASSWORD`.
 
 Para usar Hyperliquid como DEX, defina `DEX_ID=hyperliquid` e salve `HYPERLIQUID_WALLET_ADDRESS`/`HYPERLIQUID_PRIVATE_KEY` no Secret Manager; `HYPERLIQUID_VAULT_ADDRESS` é opcional. Para outras DEXs custom, forneça `DEX_ADAPTER_MODULE=pacote.modulo:Classe` e dados não sensíveis em `DEX_CONFIG_JSON`. O adapter deve implementar a interface de trading usada pela skill (`get_symbol_to_product_map`, preço médio, posições, arredondamento, ordens market, SL/TP e `assert_trade_ready`).
 

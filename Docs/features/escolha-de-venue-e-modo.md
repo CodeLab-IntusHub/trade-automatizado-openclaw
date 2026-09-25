@@ -73,3 +73,4 @@ Testes: `test/test_venue_sem_padrao.py` e `test/test_modo_sem_padrao.py`.
 |---|---|
 | 24/09/2026 | Sem venue padrão (#37) |
 | 25/09/2026 | Sem modo de execução padrão (#38) |
+| 25/09/2026 | Docs de operador sem venue padrão; teste `test/test_docs_sem_venue_padrao.py` |

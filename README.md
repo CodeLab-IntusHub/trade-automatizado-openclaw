@@ -1,10 +1,10 @@
 # Trade Automatizado OpenClaw
 
-> Bot/skill OpenClaw para setups delta-neutros e ordens solo em DEX/CEX configuráveis, com defaults Nado DEX + Kraken CEX, CEX via CCXT e Hyperliquid DEX builtin e DEX custom por adapter Python.
+> Bot/skill OpenClaw para setups delta-neutros e ordens solo em DEX/CEX configuráveis, sem venue nem modo padrão (cada operador escolhe), CEX via CCXT e Hyperliquid DEX builtin e DEX custom por adapter Python.
 
 ## O que faz
 
-- Diagnostica ambiente DEX/CEX antes de qualquer operação; defaults Nado + Kraken.
+- Diagnostica o ambiente da DEX e/ou CEX escolhidas antes de qualquer operação; não há venue padrão.
 - Lista símbolos/funding e simula cenários delta-neutros.
 - Monitora estado do par ou da perna solo, drift/exposição e PnL.
 - Abre, rebalanceia e desmonta pares ou ordens solo quando explicitamente autorizado.
@@ -27,12 +27,12 @@
 Esta skill pode operar capital real se configurada para live trading. Por isso:
 
 - nunca salve private key, seed ou API secret no Git;
-- use env/secret manager do OpenClaw;
+- guarde segredos num gerenciador de segredos (sugerimos o 1Password, com referências `op://`) ou no env/secret manager do OpenClaw;
 - prefira operar em subconta/conta isolada quando a corretora/DEX oferecer esse recurso; a decisão é do usuário e não deve ser hard-coded; no mínimo use API key dedicada sem saque;
 - use Nado linked signer limitado quando configurado;
 - fallback para Nado owner key ou Kraken main account exige flags explícitas e confirmação privilegiada;
 - mantenha `venues.cex.kraken.sandbox: true` no `settings.json` e `NADO_NETWORK=testnet` até validar tudo (ver [Sandbox por venue](Docs/features/sandbox-por-venue.md));
-- comandos de trade são bloqueados pelo wrapper até definir `AUTORIZAR_TRADE_REAL=sim` na execução aprovada; `TRADE_AUTOMATIZADO_CONFIRM_LIVE=true` e `DELTA_NEUTRAL_CONFIRM_LIVE=true` seguem aceitos como aliases técnicos.
+- o wrapper recusa comandos de trade sem `AUTORIZAR_TRADE_REAL=sim` na execução aprovada (`TRADE_AUTOMATIZADO_CONFIRM_LIVE=true` e `DELTA_NEUTRAL_CONFIRM_LIVE=true` seguem aceitos como aliases técnicos). Isso registra a decisão de operar real, mas não é trava: o agente pode definir a variável. O que protege de verdade é a key sem saque, o capital isolado e a aprovação de execução do OpenClaw, nos modos descritos no [ADR 0007](Docs/decisions/0007-autonomia-do-agente.md): análise (padrão), real com aprovação (recomendado) e real autônomo.
 
 ## Estrutura
 
@@ -85,7 +85,7 @@ as decisões de arquitetura em [`Docs/decisions/`](Docs/decisions/).
 
 ## Venues configuráveis
 
-Por padrão a skill usa `DEX_ID=nado` e `CEX_ID=kraken`. O wizard lista as principais venues: DEX `nado` e `hyperliquid`; CEX `kraken`, `binance`, `bybit`, `okx`, `kucoin`, `mexc`, `bitget` e `gateio`. Para trocar a CEX, use qualquer `exchange_id` suportado pelo CCXT e configure `CEX_API_KEY`, `CEX_API_SECRET` e, quando necessário, `CEX_API_PASSWORD`.
+Não há venue padrão: cada operador escolhe a DEX e/ou a CEX em `DEX_ID` e `CEX_ID`, e sem escolha os comandos de mercado param pedindo a venue. O wizard lista as principais venues: DEX `nado` e `hyperliquid`; CEX `kraken`, `binance`, `bybit`, `okx`, `kucoin`, `mexc`, `bitget` e `gateio`. Para outra CEX, use qualquer `exchange_id` suportado pelo CCXT e configure `CEX_API_KEY`, `CEX_API_SECRET` e, quando necessário, `CEX_API_PASSWORD`.
 
 ## Configuração
 
@@ -394,7 +394,7 @@ systemctl --user enable --now delta-dashboard-publisher.service
 systemctl --user status delta-dashboard-publisher.service --no-pager
 ```
 
-Por padrão o publisher consulta exposição live Nado/Kraken e grava em `live_exposures`. Use `--no-live-exposure` somente para rebuild offline.
+Por padrão o publisher consulta a exposição live das venues escolhidas e grava em `live_exposures`. Use `--no-live-exposure` somente para rebuild offline.
 
 O painel separa duas leituras:
 

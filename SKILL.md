@@ -1,7 +1,7 @@
 ---
 name: trade-automatizado-openclaw
 description: >
-  Opera, monitora e diagnostica setups delta-neutros e ordens solo em DEX/CEX configuráveis, mantendo Nado DEX/Kraken CEX como defaults, CEX genérica via CCXT e Hyperliquid DEX builtin e DEX custom por adapter Python. Use quando o usuário pedir delta neutro, hedge, funding, dashboard de trades, HTML do usuário, DEX-only/CEX-only, Binance, Bybit, OKX, KuCoin, MEXC, Bitget, Gate.io, Kraken, Nado, Hyperliquid, dYdX, Uniswap ou outra venue, abrir/rebalancear/desmontar par, simular cenários, validar venue, subconta ou rodar doctor/setup-check. Keywords: delta neutro, delta-neutral, hedge, kraken, nado, DEX, CEX, CCXT, adapter, dashboard, airdrop farming, funding, subconta, linked signer, OpenClaw.
+  Opera, monitora e diagnostica setups delta-neutros e ordens solo em DEX/CEX configuráveis, sem venue nem modo padrão (o operador escolhe), CEX genérica via CCXT e Hyperliquid DEX builtin e DEX custom por adapter Python. Use quando o usuário pedir delta neutro, hedge, funding, dashboard de trades, HTML do usuário, DEX-only/CEX-only, Binance, Bybit, OKX, KuCoin, MEXC, Bitget, Gate.io, Kraken, Nado, Hyperliquid, dYdX, Uniswap ou outra venue, abrir/rebalancear/desmontar par, simular cenários, validar venue, subconta ou rodar doctor/setup-check. Keywords: delta neutro, delta-neutral, hedge, kraken, nado, DEX, CEX, CCXT, adapter, dashboard, airdrop farming, funding, subconta, linked signer, OpenClaw.
 ---
 
 # Trade Automatizado OpenClaw
@@ -16,7 +16,7 @@ Regra anti-legado: referências antigas a colaboradores anteriores são históri
 
 Use para:
 
-- validar setup/ambiente DEX + CEX, incluindo Nado/Kraken ou venues customizadas;
+- validar setup/ambiente da DEX e/ou CEX escolhidas (Nado, Hyperliquid, Kraken, CEX via CCXT ou DEX por adapter);
 - listar símbolos, funding ou contas da CEX selecionada;
 - simular cenários e matriz de risco;
 - abrir, monitorar, rebalancear ou desmontar par delta-neutro;
@@ -120,12 +120,28 @@ O wrapper:
 
 - **Nunca** pedir, exibir ou commitar private key, seed, mnemonic, keystore ou API secret.
 - Credenciais devem vir só de env/secret manager.
-- Credenciais são obrigatórias por modo: `cex_only`/`kraken_only` requer somente Kraken; `dex_only`/`nado_only` requer somente Nado; `hedged`/`delta_neutral` requer ambas. Sem as credenciais do modo escolhido, só rode diagnóstico/simulação.
+- Credenciais são obrigatórias por modo: `cex_only` requer só a CEX escolhida; `dex_only` requer só a DEX escolhida; `hedged` requer as duas. Sem as credenciais do modo escolhido, só rode diagnóstico/simulação.
 - Nado live trade prefere linked signer limitado quando configurado; quando `NADO_LINKED_SIGNER_PRIVATE_KEY` estiver ausente, a regra da skill é usar automaticamente o owner da wallet/conta configurada. Fallback owner por erro/mismatch de linked signer ainda exige confirmação explícita.
 - Kraken live trade requer API key dedicada/isolada para a estratégia; subaccount não é requisito obrigatório da skill. Evite permissões de saque/withdraw.
 - Não operar mainnet/live sem confirmação explícita do usuário.
 - Para comandos de trade, preferir a confirmação em português `AUTORIZAR_TRADE_REAL=sim` apenas na execução aprovada; aceitar `TRADE_AUTOMATIZADO_CONFIRM_LIVE=true` como alias técnico e `DELTA_NEUTRAL_CONFIRM_LIVE=true` apenas como alias legado.
 - Se faltar credencial, responder com o nome da env esperada e instruir a salvar no secret manager.
+
+## Autonomia do agente e o que protege de verdade
+
+As travas desta skill (`AUTORIZAR_TRADE_REAL`, allowlists, `settings.json`) são instrução ao agente, não fechadura: o agente monta o comando e tem shell. O que protege de verdade fica fora da skill ([ADR 0007](Docs/decisions/0007-autonomia-do-agente.md)).
+
+| Modo | O que o agente faz sozinho | O que prende de verdade |
+|---|---|---|
+| **Análise** (padrão de toda instalação) | scanner, backtest, simulação, dry-run, leitura de posição | nada a prender: não abre ordem |
+| **Real com aprovação** (recomendado) | prepara a ordem; cada comando de trade espera o operador aprovar pelo chat | aprovação de execução do OpenClaw com allowlist estreita, mais as travas da exchange |
+| **Real autônomo** | abre e gerencia posição sem pedir | só as travas da exchange: o teto real de perda é o saldo da subconta |
+
+- No onboarding, perguntar qual modo o operador quer e dizer o que o protege nele. Até ele escolher, operar em análise.
+- Real com aprovação: recomendar `tools.exec` do OpenClaw em allowlist estreita (os comandos da skill, sem `python -c`, `curl` ou shell livre) e aprovação para os comandos de trade, respondida pelo chat (`/approve`) ou pelo app. Com `security: full` ou allowlist larga, o agente contorna a aprovação: na prática é real autônomo. Quem configura o OpenClaw é o operador.
+- Na exchange: API key **sem permissão de saque** e subconta ou conta separada só com o capital que o bot pode perder.
+- Segredos: sempre sugerir o **1Password** (referências `op://` com `op run`) ou o gerenciador de segredos que o operador já usa; nunca pedir segredo no chat. A skill não guarda credencial de ninguém.
+- `AUTORIZAR_TRADE_REAL=sim` (ou uma das variáveis equivalentes) registra que o agente decidiu operar real naquela execução. É confirmação de intenção e rastro, não é trava.
 
 ## Env esperadas
 
@@ -234,7 +250,7 @@ python3 workspace/run.py abrir BTC/USDT --lado vendido --modo somente-cex --modo
 - Allowlists padrão locais: todos os ativos listados abaixo aceitam pares `USDT` e `USDC`: `institutional-strict` = BTC/ETH/TAO/SOL/BCH/XMR/LINK/ZEC/DOT/HBAR/TRX/LTC/ADA; `bollinger-mean-reversion` = BTC/ETH/SOL/BCH/TAO/ZEC/HBAR/XMR/AVAX/XRP/TRX/DOT/UNI/NEAR/LTC; `grid-strict` = BTC/ETH/HBAR/SUI/XMR; `low-stoch-storm` = BTC/ETH/SOL/XRP; `divergence-and-volume-15m`, `divergence-and-volume-1h` e `divergence-and-volume-4h` = ETH/XMR. Essas listas são o fluxo padrão recomendado para buscar par Nado/Kraken e operar delta neutro; em delta neutro/`hedged`, também é permitido usar `--symbol all` para avaliar todos os pares comuns disponíveis. Entrada real ainda depende de par comum, sinal e guardrails.
 - Cada setup direcional novo deve ter sua própria allowlist de ativos mais lucrativos/validados para aquele setup, baseada em validação operacional. Não reutilizar uma allowlist genérica sem evidência; se ainda não houver validação, manter o setup fechado ou restrito a dry-run até definir a lista.
 - Setups direcionais exigem sinal explícito antes de entrada: `side` precisa ser `long` ou `short` e `reason` precisa estar preenchido. Sinal ausente, incompleto ou ativo fora da allowlist gera skip com motivo claro no log.
-- `asset-scan` compara perps Nado/Kraken, salva snapshot de adicionados/removidos e marca suspeitos por preco invalido ou spread alto; use `NADO_DISABLED_PERP_SYMBOLS` para blacklist temporaria.
+- `asset-scan` compara os perps da DEX e da CEX escolhidas, salva snapshot de adicionados/removidos e marca suspeitos por preco invalido ou spread alto; use `NADO_DISABLED_PERP_SYMBOLS` para blacklist temporaria.
 - Guardrail cross da Nado: `--account-margin-reserve-usd|pct`, `--slots-margem-conta` (`--account-margin-slots`), `--account-max-maint-usage-pct` e `--account-stress-pct` controlam reserva, slots flexiveis (qualquer inteiro positivo), Maint. Margin Usage e stress adverso antes de novas entradas. Para contas pequenas, prefira `--account-margin-slots 8` em vez de 16 para manter notional acima do mínimo operacional da Nado.
 - Notificacao de entrada confirmada: configure por flag (`--notify-entry-target`, `--notify-entry-channel`) ou env (`SETUP_NOTIFY_ENTRY_TARGET`, `SETUP_NOTIFY_ENTRY_CHANNEL`) para avisar no destino principal; use tambem `--notify-entry-discord-channel-id` ou `SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID` para entregar uma copia extra no Discord sem remover o Telegram. Tudo sai pelo OpenClaw do operador (`openclaw message send`); bot dedicado é uma conta dedicada no OpenClaw (`SETUP_NOTIFY_ENTRY_ACCOUNT`) e tópico de grupo do Telegram vai em `SETUP_NOTIFY_ENTRY_THREAD_ID`. Para mencionar o servidor, defina `SETUP_NOTIFY_DISCORD_MENTION=@everyone` e garanta a permissao do bot.
 - `bollinger-mean-reversion` usa filtro refinado por 0.20 ATR fora da banda, RSI e volume>SMA20x1.05 para reduzir entradas fracas.
@@ -323,7 +339,7 @@ python3 workspace/run.py dashboard-publisher --once --deploy-command "<comando-d
 Regras obrigatórias do painel:
 
 - Gerar `index.html` e `dashboard-data.json` na raiz do pacote e manter auto-refresh JSON a cada 60s.
-- Sincronizar exposição real Nado/Kraken por padrão; usar `--no-live-exposure` somente se o usuário pedir explicitamente.
+- Sincronizar a exposição real das venues escolhidas por padrão; usar `--no-live-exposure` somente se o usuário pedir explicitamente.
 - Separar `Monitoradas` de `Exposição real`: monitoradas vêm de `setup_live_state.json`; exposição real vem das posições abertas consultadas nas exchanges.
 - Mostrar para cada exposição real: venue, par, lado long/short, quantidade, notional, mark, entrada, liquidação, margem/leverage quando a venue fornecer.
 - Mostrar para cada trade monitorado: setup, fonte, lado, entrada, stop, alvos/TPs e status de alvo/fechamento quando disponível nos logs/estado.
@@ -334,7 +350,7 @@ Regras obrigatórias do painel:
 Quando orientar configuração do zero, seguir este roteiro:
 
 1. instalar/entrar na skill, rodar `python3 workspace/run.py bootstrap`, `setup-check` e `doctor`;
-2. salvar envs Nado/Kraken fora do Git em `~/.config/openclaw/trade-automatizado-openclaw.env`;
+2. salvar as envs das venues escolhidas fora do Git em `~/.config/openclaw/trade-automatizado-openclaw.env`;
 3. validar `live-status` antes de gerar o painel, porque exposição real depende das credenciais;
 4. gerar local com `python3 workspace/run.py dashboard`;
 5. manter loop local com systemd ou `dashboard-publisher --loop --no-deploy`;

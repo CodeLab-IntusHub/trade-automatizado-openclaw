@@ -12,7 +12,7 @@ Objetivo: coletar só o mínimo para escolher o caminho seguro, começando pela 
 - Explicar o motivo da pergunta em uma frase curta.
 - Nunca pedir private key, seed, mnemonic, API secret ou token no chat.
 - Pedir apenas confirmação de que as contas/envs/secrets já estão prontas no OpenClaw.
-- Perguntar a DEX/CEX desejadas antes de orientar secrets: default seguro é `DEX_ID=nado` e `CEX_ID=kraken`; CEX não-Kraken usa CCXT; DEX fora de Nado/Hyperliquid exige `DEX_ADAPTER_MODULE` antes de live.
+- Perguntar a DEX/CEX desejadas antes de orientar secrets: não há venue padrão, e sem escolha não se assume nenhuma; CEX não-Kraken usa CCXT; DEX fora de Nado/Hyperliquid exige `DEX_ADAPTER_MODULE` antes de live.
 - Listar explicitamente as principais venues no wizard: Nado, Hyperliquid, Binance, Kraken, Bybit, OKX, KuCoin, MEXC, Bitget e Gate.io. Se o usuário escrever `bibyt`, normalizar para `bybit`.
 - Avisar que outras CEXs suportadas pelo CCXT podem ser usadas com `CEX_ID=<exchange_id>` e que outras DEXs podem ser integradas com `DEX_ADAPTER_MODULE=pacote.modulo:Classe`.
 - Não perguntar o nome da subconta Nado no wizard curto: usar `NADO_SUBACCOUNT_NAME=default_1` como default operacional e só orientar descoberta se o usuário informar subconta customizada ou se `setup-check`/`doctor` falhar.
@@ -36,7 +36,7 @@ Objetivo: coletar só o mínimo para escolher o caminho seguro, começando pela 
 Roteamento rápido:
 - `Nado`: DEX nativa da skill, usar `DEX_ID=nado`.
 - `Hyperliquid`: usar o adapter builtin com `DEX_ID=hyperliquid`, `DEX_MARKET_TYPE=trade` ou `HYPERLIQUID_MARKET_TYPE=trade`, `HYPERLIQUID_WALLET_ADDRESS` e `HYPERLIQUID_PRIVATE_KEY`; `HYPERLIQUID_VAULT_ADDRESS` é opcional quando o usuario escolher vault.
-- `Kraken`: default CEX, usar `CEX_ID=kraken` ou aliases legados `KRAKEN_*`.
+- `Kraken`: CEX nativa da skill, usar `CEX_ID=kraken` ou aliases legados `KRAKEN_*`.
 - `Binance`: CEX via CCXT, usar `CEX_ID=binance`.
 - `Bybit`: CEX via CCXT, usar `CEX_ID=bybit`; aceitar typo `bibyt` como `bybit`.
 - `OKX`: CEX via CCXT, usar `CEX_ID=okx` e lembrar que normalmente exige password/passphrase.
@@ -51,6 +51,19 @@ Roteamento rápido:
 **Motivo:** define quais credenciais e validações são necessárias.
 
 > Qual modo você quer configurar agora: `dex_only` na DEX escolhida, `cex_only` na CEX escolhida ou `hedged` usando as duas venues?
+
+### 2.1 Autonomia do agente
+
+**Motivo:** diz o que o agente pode fazer sozinho e o que protege o operador em cada caso ([ADR 0007](../Docs/decisions/0007-autonomia-do-agente.md)).
+
+> Como o agente deve operar? `análise` (scanner, simulação e dry-run; é o modo até você escolher outro), `real com aprovação` (recomendado: cada comando de trade espera você aprovar pelo chat do OpenClaw) ou `real autônomo` (opera sozinho; só as travas da exchange limitam a perda).
+
+Ao responder, dizer o que protege no modo escolhido:
+- **análise:** nada a prender, não abre ordem;
+- **real com aprovação:** `tools.exec` do OpenClaw em allowlist estreita (os comandos da skill, sem `python -c`, `curl` ou shell livre) com aprovação para os comandos de trade, mais key sem saque e capital isolado. Com `security: full` ou allowlist larga, o agente contorna a aprovação;
+- **real autônomo:** só a exchange: key sem saque e subconta com o capital que o bot pode perder.
+
+`AUTORIZAR_TRADE_REAL=sim` registra a decisão de operar real; não é trava.
 
 ### 3. Ambiente
 
@@ -115,7 +128,7 @@ Padrão seguro atual:
 - `low-stoch-storm`: BTC/USDT, BTC/USDC, ETH/USDT, ETH/USDC, TRX/USDT, TRX/USDC, LINK/USDT, LINK/USDC, XMR/USDT, XMR/USDC, SOL/USDT, SOL/USDC, AVAX/USDT, AVAX/USDC
 - `divergence-and-volume-15m/1h/4h`: BTC/USDT, BTC/USDC, ETH/USDT, ETH/USDC, XMR/USDT, XMR/USDC, XRP/USDT, XRP/USDC
 
-Fluxo padrão do usuário: `--symbol allowlist`. Para operação delta neutra/`hedged`, pode usar `--symbol all` quando quiser avaliar todos os pares comuns das venues escolhidas; Nado/Kraken é apenas o default. Para `dex_only`/`cex_only`, não sugerir `--symbol all`; usar allowlist ou símbolo explícito aprovado. Entrada real ainda depende de existir par comum e sinal válido. Cada setup novo precisa declarar uma allowlist própria com os ativos mais lucrativos/validados naquele setup antes de ser sugerido para live.
+Fluxo padrão do usuário: `--symbol allowlist`. Para operação delta neutra/`hedged`, pode usar `--symbol all` quando quiser avaliar todos os pares comuns das venues escolhidas. Para `dex_only`/`cex_only`, não sugerir `--symbol all`; usar allowlist ou símbolo explícito aprovado. Entrada real ainda depende de existir par comum e sinal válido. Cada setup novo precisa declarar uma allowlist própria com os ativos mais lucrativos/validados naquele setup antes de ser sugerido para live.
 
 ### 9. Próximo passo seguro
 
@@ -125,7 +138,7 @@ Fluxo padrão do usuário: `--symbol allowlist`. Para operação delta neutra/`h
 
 ## Confirmação final
 
-> Plano: DEX `{dex_id}`, CEX `{cex_id}`, modo `{execution_mode}`, ambiente `{environment}`, secrets `{account_and_secrets_status}`, sizing `{sizing}`, margem `{margin_mode}`, stop por alvo `{target_stop_mode}`. Próximo passo seguro: `venues` + `setup-check` + `doctor`, sem trade. Confirmo?
+> Plano: DEX `{dex_id}`, CEX `{cex_id}`, modo `{execution_mode}`, autonomia `{autonomy_mode}`, ambiente `{environment}`, secrets `{account_and_secrets_status}`, sizing `{sizing}`, margem `{margin_mode}`, stop por alvo `{target_stop_mode}`. Próximo passo seguro: `venues` + `setup-check` + `doctor`, sem trade. Confirmo?
 
 ## Payload esperado para runtime
 
@@ -137,6 +150,7 @@ Fluxo padrão do usuário: `--symbol allowlist`. Para operação delta neutra/`h
   "dex_adapter_status": "builtin|required|configured|not_applicable",
   "cex_market_type": "trade|future|spot|unknown",
   "execution_mode": "dex_only|cex_only|hedged",
+  "autonomy_mode": "analise|real_com_aprovacao|real_autonomo",
   "environment": "testnet|sandbox|mainnet_dry_run|mainnet_live_later",
   "account_and_secrets_status": "yes|no|unknown",
   "sizing": "margin_usd|notional|account_margin_slots|dry_run_only",
@@ -207,7 +221,7 @@ Foco deste caminho: configurar hedge, sizing, margem, conta/subconta customizada
 Quando a skill precisar de API key, token, webhook, OAuth, private key, seed phrase ou qualquer segredo:
 
 - **não pedir, receber, colar, repetir nem salvar o valor no chat**;
-- explicar que chaves e segredos devem ser configurados pelo secret manager disponivel quando possível;
+- explicar que chaves e segredos devem ser configurados pelo secret manager disponivel quando possível, e sempre sugerir o **1Password** (referências `op://` com `op run`) ou o gerenciador que o operador já usa; a skill não guarda credencial de ninguém;
 - para **chaves de provider de IA/LLM**: orientar `secret manager > Chaves LLM`;
 - para **chaves de serviço/API externa** como `GEMINI_API_KEY`, `DUNE_API_KEY`, GitHub, SERPER, webhooks e integrações: orientar `secret manager > Chaves de Serviço`;
 - para **OAuth Anthropic**: orientar `secret manager > OAuth Token`;

@@ -161,9 +161,13 @@ escolhe onde opera, e a Nado não é obrigatória. Até a v1.8.0, `DEX_ID` e
   autor. `abrir` sem modo para e sugere os modos compatíveis com as venues;
   o modo não é deduzido pelas credenciais; o `doctor` avisa modo ausente ou
   incompatível (`modo_execucao`). Teste em `test/test_modo_sem_padrao.py`.
-- **Falta:** cerca de 40 trechos de documentação (`README`,
-  `INSTALL`, `references/`, `skill.json`, resto do `SKILL.md`) ainda falam em
-  "padrão Nado/Kraken".
+- **Documentação — feita em 25/09/2026:** `SKILL.md`, `README`, `INSTALL` e
+  `references/` deixam de eleger venue ("default seguro `DEX_ID=nado`",
+  "Nado DEX/Kraken CEX como defaults"). Um teste
+  (`test/test_docs_sem_venue_padrao.py`) trava a volta. **Passo concluído.**
+- **Referral:** no futuro, cada venue suportada ganha o link de referral da
+  IntusHub para contas novas (decisão do autor em 24/09/2026). O referral não
+  muda a ordem nem o destaque das venues: nenhuma vira padrão por isso.
 - **Pronto quando:** nenhum doc de operador elege venue nem modo de execução.
 
 ### 1.7 Autonomia do agente, com as travas no lugar certo
@@ -177,7 +181,8 @@ com aprovação** (recomendado) e **real autônomo**.
   1. Onboarding e `SKILL.md` descrevem os três modos e o que prende cada um;
      a configuração de aprovação recomendada do OpenClaw (`tools.exec` em
      allowlist estreita, com aprovação para os comandos de trade); e sugerem o
-     **1Password** para os segredos.
+     **1Password** para os segredos. **Feito em 25/09/2026:** o onboarding
+     pergunta o modo (`autonomy_mode`, análise até o operador escolher).
   2. O `doctor` verifica, onde a venue expõe, se a API key pode sacar, e
      reprova se puder; onde não expõe, diz que não conseguiu verificar.
   3. O `doctor` avisa quando detectar que o OpenClaw dispensa aprovação
