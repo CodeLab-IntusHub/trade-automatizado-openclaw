@@ -168,12 +168,23 @@ def test_manifest_fields():
     assert "DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK" in manifest["dependencies"]["env"]
     assert "SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID" in manifest["dependencies"]["env"]
     assert "SETUP_NOTIFY_ENTRY_DISCORD_ACCOUNT" in manifest["dependencies"]["env"]
-    assert "DISCORD_BOT_TOKEN" in manifest["dependencies"]["env"]
-    assert "SETUP_NOTIFY_DISCORD_NATIVE_EMBED" in manifest["dependencies"]["env"]
-    assert "SETUP_NOTIFY_DISCORD_EMBED_AUTHOR" in manifest["dependencies"]["env"]
+    assert "SETUP_NOTIFY_ENTRY_THREAD_ID" in manifest["dependencies"]["env"]
     assert "SETUP_NOTIFY_DISCORD_BOX_STYLE" in manifest["dependencies"]["env"]
-    assert "discord_delivery" in manifest["metadata"]["wizard"]["short_wizard_fields"]
-    assert manifest["metadata"]["wizard"]["discord_delivery_policy"]["secret_env"] == "DISCORD_BOT_TOKEN"
+    # A entrega sai pelo OpenClaw do operador: a skill nao le token de bot.
+    for morta in (
+        "DISCORD_BOT_TOKEN",
+        "SETUP_NOTIFY_DISCORD_NATIVE_EMBED",
+        "SETUP_NOTIFY_DISCORD_EMBED_AUTHOR",
+        "SETUP_NOTIFY_FALLBACK_OPENCLAW",
+        "SETUP_NOTIFY_DISCORD_DIRECT",
+        "SETUP_NOTIFY_ENV_FILE",
+    ):
+        assert morta not in manifest["dependencies"]["env"], morta
+    assert "delivery" in manifest["metadata"]["wizard"]["short_wizard_fields"]
+    policy = manifest["metadata"]["wizard"]["delivery_policy"]
+    assert policy["channel_env"] == "SETUP_NOTIFY_ENTRY_CHANNEL"
+    assert policy["bot_token_in_skill"] is False
+    assert "secret_env" not in policy
     assert "SETUP_LIVE_TARGET_STOP_MODE" in manifest["dependencies"]["env"]
 
 
@@ -212,17 +223,21 @@ def test_skill_md_frontmatter():
     assert "description:" in front
 
 
-def test_first_run_payload_includes_discord_zeus_delivery():
+def test_first_run_payload_guia_a_entrega_pelo_openclaw():
     from workspace import first_run_setup
 
     payload = first_run_setup.DEFAULT_PAYLOAD
-    assert payload["discord_delivery_reference"] == "doc referencia/05-entrega-discord-zeus.md"
-    guidance = payload["discord_delivery_guidance"]
-    assert guidance["required_secret_envs"] == ["DISCORD_BOT_TOKEN"]
-    assert "SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID" in guidance["required_config_envs"]
-    assert payload["state"]["discord_delivery"]["stage"] == "teste"
-    assert payload["state"]["discord_delivery"]["format"] == "embed_nativo"
-    assert any(item["field"] == "discord_delivery" for item in payload["question_flow"])
+    assert payload["delivery_reference"] == "Docs/features/entrega-de-mensagens.md"
+    assert (ROOT / payload["delivery_reference"]).is_file()
+    guidance = payload["delivery_guidance"]
+    assert "required_secret_envs" not in guidance
+    assert guidance["required_config_envs"] == ["SETUP_NOTIFY_ENTRY_CHANNEL", "SETUP_NOTIFY_ENTRY_TARGET"]
+    assert payload["state"]["delivery"]["stage"] == "teste"
+    assert payload["state"]["delivery"]["channel"] is None
+    canal = next(q for q in guidance["question_flow"] if q["field"] == "delivery.channel")
+    assert "default" not in canal, "nao ha canal padrao"
+    assert any(item["field"] == "delivery" for item in payload["question_flow"])
+    assert "DISCORD_BOT_TOKEN" not in json.dumps(payload, ensure_ascii=False)
 
 
 def test_runtime_env_arg_can_be_before_or_after_command():

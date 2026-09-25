@@ -1,5 +1,21 @@
 # Changelog
 
+## Nao publicado
+
+### Mudanca de comportamento (atencao ao atualizar)
+
+- **Scanner e watcher entregam pelo mesmo caminho do `setup-live`** (ROADMAP 1.8). Os dois tinham a propria copia da entrega: Discord direto pela API REST, com token de bot lido do ambiente, de um `.env` e ate do `~/.openclaw/openclaw.json`, e fallback ao OpenClaw desligado. Agora chamam a mesma funcao do `setup-live`: leem `SETUP_NOTIFY_ENTRY_CHANNEL`/`_TARGET`/`_ACCOUNT`/`_THREAD_ID` e as copias extras, e tudo sai por `openclaw message send`. Quem usava so `SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID` continua recebendo no Discord, desde que ele esteja configurado como canal no OpenClaw. Os defaults divergentes se alinham ao `setup-live`: o WhatsApp do scanner deixa de ligar so por haver destino (exige `SETUP_NOTIFY_WHATSAPP_ENABLED=true`), nenhuma conta `default` e imposta, e a caixa de codigo do watcher deixa de vir ligada. O scanner grava `publish_attempted` no outbox depois da entrega, com o id de cada canal, e o registro deixa de levar os ids de destino.
+- **Sem audiencia fixa.** A linha "@Intus Club Member" no topo do aviso so aparece se `SETUP_NOTIFY_DISCORD_AUDIENCE` estiver definida.
+- **Onboarding sem token de bot.** O assistente deixa de pedir `DISCORD_BOT_TOKEN` e o formato `embed_nativo` (o codigo manda texto + imagem): pergunta canal do OpenClaw, destino, conta padrao ou bot dedicado e topico do Telegram. No payload, `discord_delivery*` vira `delivery*`, e no `skill.json`, `discord_delivery_policy` vira `delivery_policy`.
+
+### Removido
+
+- `DISCORD_BOT_TOKEN`, `SETUP_NOTIFY_FALLBACK_OPENCLAW`, `SETUP_NOTIFY_DISCORD_DIRECT`, `SETUP_NOTIFY_ENV_FILE`, `SETUP_NOTIFY_DISCORD_NATIVE_EMBED` e `SETUP_NOTIFY_DISCORD_EMBED_AUTHOR`: nenhum codigo le mais essas variaveis. Saem do `skill.json`, do `.env.example`, do onboarding, do `SKILL.md` e do README.
+
+### Corrigido
+
+- **O `config.env` descartava em silencio parte da configuracao de entrega.** A allowlist aceitava canal, destino e o canal extra do Discord, mas nao conta, topico do Telegram nem WhatsApp: o topico configurado ali nunca chegava ao envio. Agora aceita as dez variaveis de entrega, nenhuma delas segredo.
+
 ## v1.9.0 — 2026-09-25
 
 Skill generica: nada da instancia original imposto a quem instala. Nao ha mais

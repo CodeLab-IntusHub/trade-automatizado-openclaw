@@ -1549,7 +1549,14 @@ def _send_setup_trade_notice(
     reply_to_discord_message_id: str = "",
     reply_to_whatsapp_message_id: str = "",
     include_chart: bool = True,
+    image_path: Path | None = None,
 ) -> dict[str, str]:
+    """Entrega o aviso nos canais do OpenClaw do operador.
+
+    Caminho unico de entrega: `setup-live`, scanner e watcher passam por aqui.
+    `image_path` e o grafico ja renderizado por quem chama; sem ele, o grafico
+    sai de `chart_payload`.
+    """
     if not _setup_notifications_enabled():
         return {}
 
@@ -1577,7 +1584,10 @@ def _send_setup_trade_notice(
         or (bool(target) and channel in {"discord", "whatsapp"})
         or (whatsapp_enabled and bool(whatsapp_target))
     )
-    image_path = _render_setup_chart_image(chart_payload) if needs_chart else None
+    if not needs_chart:
+        image_path = None
+    elif image_path is None:
+        image_path = _render_setup_chart_image(chart_payload)
     sent: dict[str, str] = {}
     require_chart = os.environ.get("SETUP_NOTIFY_REQUIRE_CHART_FOR_ENTRY", "true").strip().lower() not in {"0", "false", "no", "nao", "off"}
     if needs_chart and require_chart and image_path is None:
@@ -2542,7 +2552,8 @@ def _format_entry_notice(
     valid_targets = _ensure_four_notice_targets(targets)
     rr = _notice_rr_label(entry_price, stop_price, valid_targets)
     side_plain = str(side or "").upper() or "N/A"
-    audience = os.environ.get("SETUP_NOTIFY_DISCORD_AUDIENCE", "@Intus Club Member").strip()
+    # Audiencia e do operador: sem valor padrao.
+    audience = os.environ.get("SETUP_NOTIFY_DISCORD_AUDIENCE", "").strip()
     clean_reason = str(reason or "Setup detectado pelo robô.").strip().rstrip(".")
     lines = [symbol_pair]
     if audience:

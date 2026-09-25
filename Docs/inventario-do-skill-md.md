@@ -43,7 +43,7 @@ Além do grupo, duas marcas que não dependem dele:
 | 17–25 | "Use para" | G | |
 | 26 | "configurar entrega **Discord/Zeus**" | G + H | a entrega Discord é do produto; "Zeus" é nome histórico |
 | 30–38 | wizard curto: uma pergunta por vez, venues antes de credenciais, `default_1`, subconta recomendada e opcional | G | |
-| 39 | Discord: carregar `doc referencia/05-entrega-discord-zeus.md`; "formato `embed_nativo` por padrão" | G + **1.3** + **⚠** | o arquivo não existe no pacote; e "embed nativo por padrão" contradiz a linha 268 ("sem card/embed nativo") |
+| 39 | Discord: carregar `doc referencia/05-entrega-discord-zeus.md`; "formato `embed_nativo` por padrão" | G + **1.3** + **⚠** | o arquivo não existe no pacote; e "embed nativo por padrão" contradiz a linha 268 ("sem card/embed nativo") — **resolvido em 25/09**: aponta `Docs/features/entrega-de-mensagens.md`, e o formato segue o código (texto + imagem) |
 | 42–82 | venues configuráveis, env de venue, comandos, contrato de DEX custom, CCXT | G | a linha 44 ("use Nado/Kraken como default") era I; reescrita na #37 (ROADMAP 1.6) |
 | 84–103 | wrapper `run.py`: venv, env opcional, fallback legado `delta-neutral-airdrop-farmer.env`, estado fora do Git | G | o fallback é compatibilidade, não histórico: o código ainda lê |
 | 106–117 | guardrails OpenClaw: `.env` sob secret proxy, `config.env`, sandbox no `settings.json`, tamanho explícito, `cross`/`isolated`, credencial por modo, lock do state, mínimo Nado local | G | |
@@ -65,7 +65,7 @@ Além do grupo, duas marcas que não dependem dele:
 | 254–259 | exemplos | G | |
 | 263 | "use `doc referencia/05-entrega-discord-zeus.md` apenas como histórico de migração. Zeus não é marca…" | H + **1.3** | arquivo ausente do pacote |
 | 265–267 | token do bot, canal de teste, permissões | G | |
-| 268 | "Formato correto do **IntusCripto**: uma única mensagem com texto + imagem anexada, sem card/embed nativo. Use `SETUP_NOTIFY_DISCORD_NATIVE_EMBED=false`, `SETUP_NOTIFY_BRAND=INTUSCRIPTO` e `SETUP_NOTIFY_DISCORD_BOX=false`." | I + **⚠** | formato e marca da entrega são escolha de quem opera — já são variáveis; o texto deve descrever as opções, não impor a da instância. Contradiz a linha 39 |
+| 268 | "Formato correto do **IntusCripto**: uma única mensagem com texto + imagem anexada, sem card/embed nativo. Use `SETUP_NOTIFY_DISCORD_NATIVE_EMBED=false`, `SETUP_NOTIFY_BRAND=INTUSCRIPTO` e `SETUP_NOTIFY_DISCORD_BOX=false`." | I + **⚠** | formato e marca da entrega são escolha de quem opera — já são variáveis; o texto deve descrever as opções, não impor a da instância. Contradiz a linha 39 — **resolvido em 25/09**: a seção virou "Entrega de mensagens", com marca e audiência como configuração |
 | 269–272 | menção de cargo, validação antes de canal público, `setup-live` como fluxo oficial | G | |
 | 276–284 | fonte da verdade para presença/ausência de sinal | G | |
 | 286 | "No fluxo **Hyperliquid top 50**, auditar via Hyperliquid…" | I | fluxo de uma instância; a regra geral já está em 278–284 |
