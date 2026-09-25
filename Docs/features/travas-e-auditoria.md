@@ -53,6 +53,11 @@ diretório de log (`DELTA_NEUTRAL_LOG_DIR`):
 - Simulação (`--simular`, `--dry-run`) e comando de leitura não geram registro.
 - Um ponto só de registro: o `run.py` chama o `cli.py` como script, e ninguém
   chama `main()` por fora; a guarda do topo do `cli.py` vê toda execução real.
+  **Condição para isso continuar valendo:** o watcher, o scanner e o dashboard
+  importam `workspace.cli`, e a guarda roda nesse import com o `argv` do
+  processo que importou. Hoje eles só usam funções de notificação e leitura, e
+  nenhum aceita comando posicional. Um módulo que passe a executar ordem por
+  dentro do `cli` escapa do registro.
 - Falhar ao gravar avisa no stderr e segue: é rastro, não trava. Pelo mesmo
   motivo, o agente pode apagar o arquivo; o rastro que o agente não alcança é
   o histórico de ordens da exchange.
