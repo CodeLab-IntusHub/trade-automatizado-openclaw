@@ -23,7 +23,7 @@ WORKSPACE_DIR = Path(__file__).resolve().parent
 REPO_DIR = WORKSPACE_DIR.parent
 if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
-from workspace.venues import venue_summary  # noqa: E402
+from workspace.venues import cex_credentials, permissao_de_saque, venue_summary  # noqa: E402
 from workspace.venues.sandbox import resolve_sandbox, sandbox_settings_keys  # noqa: E402
 from workspace.venues.config import mensagem_de_modo_nao_escolhido, modos_compativeis, selected_venues  # noqa: E402
 from workspace.config import ConfigError, load_settings  # noqa: E402
@@ -695,8 +695,38 @@ def setup_check() -> dict[str, object]:
 # de proposito: ela falta em quem ainda esta configurando, e nao impede o
 # diagnostico de rodar.
 BLOCKING_CHECKS = frozenset(
-    {"requirements_file", "state_dir_writable", "log_dir_writable", "venv_ready", "venues_config", "settings_schema", "venue_escolhida"}
+    {
+        "requirements_file",
+        "state_dir_writable",
+        "log_dir_writable",
+        "venv_ready",
+        "venues_config",
+        "settings_schema",
+        "venue_escolhida",
+        # Reprova so quando a venue confirma que a key saca; "nao verificado"
+        # passa, dizendo que nao verificou (ADR 0007).
+        "cex_key_sem_saque",
+    }
 )
+
+
+def _check_key_sem_saque(cex_id: str) -> dict[str, object]:
+    """A key da CEX pode sacar? A trava que vale esta na exchange (ADR 0007).
+
+    So roda com credencial configurada: e a unica chamada de rede do `doctor`.
+    """
+    try:
+        sandbox = resolve_sandbox("cex", cex_id)
+    except Exception:  # noqa: BLE001 -- config invalida ja reprova em `venues_config`
+        sandbox = False
+    veredicto = permissao_de_saque.consultar(cex_id, cex_credentials(cex_id), sandbox=sandbox)
+    verificado = veredicto.estado in {permissao_de_saque.SEM_SAQUE, permissao_de_saque.PODE_SACAR}
+    return {
+        "name": "cex_key_sem_saque",
+        "ok": veredicto.estado != permissao_de_saque.PODE_SACAR,
+        "detail": veredicto.detalhe if verificado else f"nao verificado: {veredicto.detalhe}",
+        "verificado": verificado,
+    }
 
 
 def doctor() -> dict[str, object]:
@@ -741,6 +771,8 @@ def doctor() -> dict[str, object]:
             bool(venues.get("cex_credentials_configured")),
             f"credenciais da CEX {cex_id}: CEX_API_KEY/CEX_API_SECRET ou envs especificas do venue selecionado",
         )
+        if venues.get("cex_credentials_configured"):
+            report["checks"].append(_check_key_sem_saque(cex_id))
     if not dex_id:
         pass
     elif dex_id in {"nado", "nado-dex", "nado_dex"}:

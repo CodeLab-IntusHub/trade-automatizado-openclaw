@@ -85,3 +85,17 @@ def isola_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("DELTA_NEUTRAL_ENV_FILE", raising=False)
     for constante in ("ENV_FILE", "USER_CONFIG_FILE", "STATE_CONFIG_FILE", "DEFAULT_ENV_FILE", "LEGACY_ENV_FILE"):
         monkeypatch.setattr(run, constante, vazio / f"{constante.lower()}.env", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def sem_rede_na_permissao_de_saque(monkeypatch: pytest.MonkeyPatch) -> None:
+    """O `doctor` consulta a CEX para saber se a key pode sacar -- a unica
+    chamada de rede dele, e so com credencial configurada. Varios testes rodam
+    o `doctor` com credencial falsa; sem isto, cada um tentaria a venue de
+    verdade. Os testes do check substituem esta consulta pela que precisam."""
+    from workspace.venues import permissao_de_saque as ps
+
+    def sem_rede(venue: str, credenciais: dict, *, sandbox: bool) -> ps.Veredicto:
+        return ps.Veredicto(venue, ps.NAO_VERIFICAVEL, "rede desligada nos testes")
+
+    monkeypatch.setattr(ps, "consultar", sem_rede)
