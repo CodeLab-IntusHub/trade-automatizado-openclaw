@@ -267,7 +267,7 @@ def test_venue_pair_commands_are_live_guarded():
 def test_runtime_env_file_is_loaded_by_wrapper():
     with tempfile.TemporaryDirectory() as tmp:
         env_file = Path(tmp) / "runtime.env"
-        env_file.write_text("NADO_NETWORK=testnet\nKRAKEN_SANDBOX=true\nMARGIN_USD=20\n", encoding="utf-8")
+        env_file.write_text("DEX_ID=nado\nCEX_ID=kraken\nNADO_NETWORK=testnet\nKRAKEN_SANDBOX=true\nMARGIN_USD=20\n", encoding="utf-8")
         env = os.environ.copy()
         env["DELTA_NEUTRAL_USER_CONFIG_FILE"] = str(Path(tmp) / "missing-user-config.env")
         env["DELTA_NEUTRAL_STATE_CONFIG_FILE"] = str(Path(tmp) / "missing-state-config.env")
@@ -309,7 +309,8 @@ def test_first_run_wizard_lists_main_venues():
     )
     assert result.returncode == 0
     payload = json.loads(result.stdout)
-    assert payload["supported_venues"]["default_pair"] == {"dex_id": "nado", "cex_id": "kraken"}
+    # Nao ha venue padrao: o wizard pergunta, nao sugere par.
+    assert "default_pair" not in payload["supported_venues"]
     assert any(item["id"] == "hyperliquid" for item in payload["supported_venues"]["main_dex"])
     cex_ids = {item["id"] for item in payload["supported_venues"]["main_cex"]}
     assert {"binance", "kraken", "bybit", "okx", "kucoin", "mexc", "bitget", "gateio"}.issubset(cex_ids)

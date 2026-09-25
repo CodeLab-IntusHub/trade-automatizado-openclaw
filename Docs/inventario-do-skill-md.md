@@ -37,14 +37,14 @@ Além do grupo, duas marcas que não dependem dele:
 | Linhas | Trecho | Grupo | Observação |
 |---|---|---|---|
 | 1–5 | frontmatter (`name`, `description`) | G | |
-| 7–9 | título e escopo | G | |
+| 7–9 | título e escopo; "o padrão continua sendo Nado DEX + Kraken CEX" | G + I | o padrão de venue era da instância: não há venue padrão (decisão de 24/09, ROADMAP 1.6); reescrito na #37 |
 | 13 | "Use quando o **owner** pedir ou quando houver demanda autorizada dentro da **governança atual**" | I | "owner" e "governança atual" são da instância; genérico é "quando o usuário pedir" |
 | 15 | regra anti-legado: colaboradores anteriores, "desde 2026-08-04 … IntusHub/Aspira" | H | decisão de organização de uma instância; sai |
 | 17–25 | "Use para" | G | |
 | 26 | "configurar entrega **Discord/Zeus**" | G + H | a entrega Discord é do produto; "Zeus" é nome histórico |
 | 30–38 | wizard curto: uma pergunta por vez, venues antes de credenciais, `default_1`, subconta recomendada e opcional | G | |
 | 39 | Discord: carregar `doc referencia/05-entrega-discord-zeus.md`; "formato `embed_nativo` por padrão" | G + **1.3** + **⚠** | o arquivo não existe no pacote; e "embed nativo por padrão" contradiz a linha 268 ("sem card/embed nativo") |
-| 42–82 | venues configuráveis, env de venue, comandos, contrato de DEX custom, CCXT | G | |
+| 42–82 | venues configuráveis, env de venue, comandos, contrato de DEX custom, CCXT | G | a linha 44 ("use Nado/Kraken como default") era I; reescrita na #37 (ROADMAP 1.6) |
 | 84–103 | wrapper `run.py`: venv, env opcional, fallback legado `delta-neutral-airdrop-farmer.env`, estado fora do Git | G | o fallback é compatibilidade, não histórico: o código ainda lê |
 | 106–117 | guardrails OpenClaw: `.env` sob secret proxy, `config.env`, sandbox no `settings.json`, tamanho explícito, `cross`/`isolated`, credencial por modo, lock do state, mínimo Nado local | G | |
 | 121–128 | segurança obrigatória | G | |

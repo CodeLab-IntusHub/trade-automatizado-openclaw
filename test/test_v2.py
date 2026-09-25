@@ -850,7 +850,7 @@ def test_assess_setup_entry_readiness_blocks_when_balance_and_health_are_low(mon
             "accounts": [{"name": "flex", "available_margin": 19.0}],
         },
     )
-    engine = SimpleNamespace(nado=fake_nado, kraken=fake_kraken, volume_per_leg=100.0)
+    engine = SimpleNamespace(nado=fake_nado, kraken=fake_kraken, volume_per_leg=100.0, dex_id="nado", cex_id="kraken")
 
     monkeypatch.delenv("SETUP_ENTRY_MIN_NADO_BALANCE_RATIO", raising=False)
     monkeypatch.delenv("SETUP_ENTRY_MIN_KRAKEN_MARGIN_RATIO", raising=False)
@@ -3220,6 +3220,8 @@ def test_state_context_validation_blocks_wrong_kraken_fingerprint():
 
 
 def test_build_engine_accepts_owner_private_key(monkeypatch):
+    monkeypatch.setenv("DEX_ID", "nado")  # nao ha venue padrao
+    monkeypatch.setenv("CEX_ID", "kraken")
     captured = {}
 
     class FakeNado:
@@ -3283,6 +3285,8 @@ def test_build_engine_accepts_owner_private_key(monkeypatch):
 
 
 def test_build_engine_uses_owner_when_linked_signer_missing_and_still_confirms_main_fallback(monkeypatch):
+    monkeypatch.setenv("DEX_ID", "nado")  # nao ha venue padrao
+    monkeypatch.setenv("CEX_ID", "kraken")
     captured = {}
 
     class FakeNado:

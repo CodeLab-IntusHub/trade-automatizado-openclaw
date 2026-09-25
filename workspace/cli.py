@@ -856,9 +856,13 @@ def _resolve_setup_live_symbols(
     return _resolve_symbols(eng, raw_symbol, execution_mode=execution_mode)
 
 
-def _collect_live_status(eng: DeltaNeutralEngine) -> tuple[list, list, dict[str, dict[str, float]]]:
+def _collect_live_status(
+    eng: DeltaNeutralEngine, *, include_cex: bool = True
+) -> tuple[list, list, dict[str, dict[str, float]]]:
+    """Posicoes live das duas pontas. `include_cex=False` quando a CEX e so fonte
+    de candles, sem credencial: nao ha posicao a consultar nela."""
     nado_positions = getattr(eng.nado, "get_all_positions", lambda: [])()
-    kraken_positions = eng.kraken.get_all_positions()
+    kraken_positions = eng.kraken.get_all_positions() if include_cex else []
     summary: dict[str, dict[str, float]] = {}
 
     def ensure(base: str) -> dict[str, float]:
@@ -964,7 +968,7 @@ def _get_generic_dex_entry_snapshot(eng: DeltaNeutralEngine, dex_id: str) -> dic
 
 
 def _get_nado_entry_snapshot(eng: DeltaNeutralEngine) -> dict:
-    dex_id = str(getattr(eng, "dex_id", "nado") or "nado").lower()
+    dex_id = str(getattr(eng, "dex_id", "") or "").lower()
     if not _is_builtin_nado_dex(dex_id):
         return _get_generic_dex_entry_snapshot(eng, dex_id)
     context = getattr(eng.nado, "get_isolation_context", lambda: {})()
@@ -2309,9 +2313,9 @@ def _sync_pair_stop_price(state: ManagedSetupState, stop_price: float) -> None:
 
 def _native_order_venue_id(eng: DeltaNeutralEngine | None, role: str) -> str:
     if role == "nado":
-        return str(getattr(eng, "dex_id", "nado") or "nado")
+        return str(getattr(eng, "dex_id", "") or "")
     if role == "kraken":
-        return str(getattr(eng, "cex_id", "kraken") or "kraken")
+        return str(getattr(eng, "cex_id", "") or "")
     return role
 
 
@@ -5570,7 +5574,7 @@ def cmd_close_venue_pair(args: argparse.Namespace) -> None:
 
 
 class _UnavailableNadoTrader:
-    """Stub seguro para fluxos Kraken-only que nao devem exigir credencial Nado."""
+    """Stub seguro para fluxos sem DEX: nao exige credencial e recusa operar."""
 
     def __init__(self, symbol_map: dict[str, int] | None = None):
         self._symbol_map = dict(symbol_map or {})
@@ -5584,12 +5588,19 @@ class _UnavailableNadoTrader:
     def get_isolation_context(self) -> dict:
         return {
             "subaccount_name": "-",
-            "signer_mode": "not_required_kraken_only",
+            "signer_mode": "not_required_cex_only",
             "trade_ready": False,
         }
 
     def __getattr__(self, name: str):
-        raise RuntimeError(f"Nado indisponivel neste fluxo Kraken-only: {name}")
+        raise RuntimeError(f"DEX indisponivel neste fluxo sem DEX: {name}")
+
+
+def _symbol_map_or_empty(trader: Any) -> dict[str, int]:
+    """Simbolos de uma venue para montar o stub da outra; vazio sem venue."""
+    if trader is None:
+        return {}
+    return {symbol: 0 for symbol in trader.get_symbol_to_product_map()}
 
 
 def load_nado_trader_class():
@@ -5771,6 +5782,32 @@ def build_engine(*, require_nado: bool = True, require_kraken: bool = True) -> D
     dex_id = venues.dex_id
     cex_id = venues.cex_id
 
+    # Nao ha venue padrao: o operador escolhe. Faltou a que o comando precisa, para.
+    if not dex_id and not cex_id:
+        raise SystemExit(
+            "Nenhuma venue escolhida. Defina DEX_ID (nado, hyperliquid ou uma DEX com adapter) "
+            "e/ou CEX_ID (kraken ou qualquer exchange_id do CCXT) -- ou rode o wizard."
+        )
+    if require_dex and not dex_id:
+        raise SystemExit(
+            "Este comando precisa de uma DEX e nenhuma foi escolhida. Defina DEX_ID "
+            "(nado, hyperliquid ou uma DEX com DEX_ADAPTER_MODULE), ou use um modo so de CEX."
+        )
+    if require_cex and not cex_id:
+        raise SystemExit(
+            "Este comando precisa de uma CEX e nenhuma foi escolhida. Defina CEX_ID "
+            "(kraken ou qualquer exchange_id do CCXT), ou use um modo so de DEX."
+        )
+    if not cex_id:
+        # Candles e universo de simbolos vem da CEX (`_fetch_setup_market_dataset`),
+        # inclusive no modo so DEX. Um stub aqui fazia o setup-live falhar em
+        # silencio a cada ciclo -- sem sinal e sem gerir TP/SL de posicao aberta.
+        raise SystemExit(
+            "Nenhuma CEX escolhida, e hoje a skill usa a CEX como fonte de candles e "
+            "simbolos, inclusive no modo so DEX. Defina CEX_ID (kraken ou qualquer "
+            "exchange_id do CCXT); para modo so DEX basta o CEX_ID, sem credencial."
+        )
+
     if _is_builtin_kraken_cex(cex_id):
         kraken_key = (
             _clean_literal_env(os.environ.get("KRAKEN_API_KEY"))
@@ -5859,8 +5896,7 @@ def build_engine(*, require_nado: bool = True, require_kraken: bool = True) -> D
                 nado_kwargs["allow_owner_fallback"] = nado_allow_owner_fallback
             nado = nado_trader_cls(nado_key, nado_network, **nado_kwargs)
         else:
-            kraken_symbols = kraken.get_symbol_to_product_map()
-            nado = _UnavailableNadoTrader({symbol: 0 for symbol in kraken_symbols})
+            nado = _UnavailableNadoTrader(_symbol_map_or_empty(kraken))
     elif _is_builtin_hyperliquid_dex(dex_id):
         nado = _build_hyperliquid_trader(dex_id, require_credentials=require_dex)
     elif require_dex:
@@ -5872,8 +5908,7 @@ def build_engine(*, require_nado: bool = True, require_kraken: bool = True) -> D
             )
         nado = load_custom_dex_adapter(adapter_spec, dex_config(dex_id))
     else:
-        kraken_symbols = kraken.get_symbol_to_product_map()
-        nado = _UnavailableNadoTrader({symbol: 0 for symbol in kraken_symbols})
+        nado = _UnavailableNadoTrader(_symbol_map_or_empty(kraken))
 
     engine = DeltaNeutralEngine(
         nado=nado,

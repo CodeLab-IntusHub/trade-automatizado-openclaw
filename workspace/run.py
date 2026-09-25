@@ -649,7 +649,7 @@ def setup_check() -> dict[str, object]:
 # de proposito: ela falta em quem ainda esta configurando, e nao impede o
 # diagnostico de rodar.
 BLOCKING_CHECKS = frozenset(
-    {"requirements_file", "state_dir_writable", "log_dir_writable", "venv_ready", "venues_config", "settings_schema"}
+    {"requirements_file", "state_dir_writable", "log_dir_writable", "venv_ready", "venues_config", "settings_schema", "venue_escolhida"}
 )
 
 
@@ -676,15 +676,26 @@ def doctor() -> dict[str, object]:
     venues_error = report.get("venues_error")
     add("venues_config", venues_error is None, str(venues_error) if venues_error else "ok")
     venues = report.get("venues", {}) if isinstance(report.get("venues"), dict) else {}
-    dex_id = str(venues.get("dex_id") or "nado")
-    cex_id = str(venues.get("cex_id") or "kraken")
-    dex_env = venues.get("dex_required_env", {}) if isinstance(venues.get("dex_required_env"), dict) else {}
+    # Nao ha venue padrao: sem escolha, nada a validar de credencial -- e o
+    # `doctor` reprova, porque nenhum comando de mercado roda assim.
+    dex_id = str(venues.get("dex_id") or "")
+    cex_id = str(venues.get("cex_id") or "")
     add(
-        "cex_credentials",
-        bool(venues.get("cex_credentials_configured")),
-        f"credenciais da CEX {cex_id}: CEX_API_KEY/CEX_API_SECRET ou envs especificas do venue selecionado",
+        "venue_escolhida",
+        bool(dex_id or cex_id),
+        f"DEX={dex_id or '-'} CEX={cex_id or '-'}" if (dex_id or cex_id)
+        else "nenhuma venue escolhida: defina DEX_ID e/ou CEX_ID (nao ha venue padrao)",
     )
-    if dex_id in {"nado", "nado-dex", "nado_dex"}:
+    dex_env = venues.get("dex_required_env", {}) if isinstance(venues.get("dex_required_env"), dict) else {}
+    if cex_id:
+        add(
+            "cex_credentials",
+            bool(venues.get("cex_credentials_configured")),
+            f"credenciais da CEX {cex_id}: CEX_API_KEY/CEX_API_SECRET ou envs especificas do venue selecionado",
+        )
+    if not dex_id:
+        pass
+    elif dex_id in {"nado", "nado-dex", "nado_dex"}:
         add(
             "nado_credentials",
             configured(dex_env.get("owner_private_key")),

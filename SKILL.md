@@ -6,7 +6,7 @@ description: >
 
 # Trade Automatizado OpenClaw
 
-Skill operacional para analisar e, quando explicitamente autorizado, operar pares delta-neutros entre uma **DEX selecionada** e uma **CEX selecionada**, ou abrir uma perna solo em DEX/CEX. O padrão continua sendo Nado DEX + Kraken CEX.
+Skill operacional para analisar e, quando explicitamente autorizado, operar pares delta-neutros entre uma **DEX selecionada** e uma **CEX selecionada**, ou abrir uma perna solo em DEX/CEX. **Não há venue padrão:** cada usuário escolhe a DEX e/ou a CEX onde opera (`DEX_ID`, `CEX_ID`); sem escolha, os comandos de mercado param pedindo a venue.
 
 ## Quando usar
 
@@ -41,13 +41,13 @@ Quando o usuário pedir para configurar/refazer wizard, use o questionário curt
 
 ## Venues DEX/CEX configuráveis
 
-Use Nado/Kraken como default quando o usuário não escolher venue. Liste como principais: Nado e Hyperliquid no lado DEX; Kraken, Binance, Bybit, OKX, KuCoin, MEXC, Bitget e Gate.io no lado CEX. Quando ele pedir outra CEX, use CCXT. Quando ele pedir Hyperliquid, use o adapter builtin. Quando ele pedir outra DEX, exija um adapter Python explícito antes de qualquer live trade.
+Não assuma venue: se o usuário não escolheu, pergunte. Liste como principais: Nado e Hyperliquid no lado DEX; Kraken, Binance, Bybit, OKX, KuCoin, MEXC, Bitget e Gate.io no lado CEX. Quando ele pedir outra CEX, use CCXT. Quando ele pedir Hyperliquid, use o adapter builtin. Quando ele pedir outra DEX, exija um adapter Python explícito antes de qualquer live trade.
 
 Configuração principal:
 
 ```text
-DEX_ID=nado                       # nado | hyperliquid | id custom, ex.: dydx, uniswap
-CEX_ID=kraken                     # kraken ou exchange_id CCXT: binance, bybit, okx, kucoin, mexc, bitget, gateio etc.
+DEX_ID=                           # escolha do usuario: nado | hyperliquid | id custom (ex.: dydx); vazio = sem DEX
+CEX_ID=                           # escolha do usuario: kraken ou exchange_id CCXT (binance, bybit, okx...); obrigatoria ate no modo so DEX: e a fonte de candles (sem credencial basta)
 CEX_MARKET_TYPE=swap              # swap | future | spot
 CEX_API_KEY / CEX_API_SECRET / CEX_API_PASSWORD
 HYPERLIQUID_WALLET_ADDRESS=0x...  # obrigatorio se DEX_ID=hyperliquid
