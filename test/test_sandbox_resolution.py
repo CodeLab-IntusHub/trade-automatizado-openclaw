@@ -390,6 +390,7 @@ def test_doctor_acusa_config_de_venue_invalida(tmp_path, monkeypatch) -> None:
         json.dumps({"venues": {"cex": {"sandbox": "ture"}}}), encoding="utf-8"
     )
     monkeypatch.delenv("CEX_SANDBOX", raising=False)
+    monkeypatch.setenv("CEX_ID", "kraken")  # config de CEX so e resolvida com CEX escolhida
     monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
     monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
 
@@ -493,6 +494,7 @@ def test_doctor_reprova_com_config_de_venue_invalida(tmp_path, monkeypatch) -> N
         json.dumps({"venues": {"cex": {"sandbox": "ture"}}}), encoding="utf-8"
     )
     monkeypatch.delenv("CEX_SANDBOX", raising=False)
+    monkeypatch.setenv("CEX_ID", "kraken")  # config de CEX so e resolvida com CEX escolhida
     monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
     monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
     monkeypatch.setattr(run, "_writable_dir", lambda _p: True)
@@ -557,6 +559,7 @@ def test_relatorio_diz_nao_sei_com_config_ilegivel(tmp_path, monkeypatch) -> Non
         json.dumps({"venues": {"cex": {"sandbox": "ture"}}}), encoding="utf-8"
     )
     monkeypatch.delenv("CEX_SANDBOX", raising=False)
+    monkeypatch.setenv("CEX_ID", "kraken")  # config de CEX so e resolvida com CEX escolhida
     monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
     monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
 
@@ -582,6 +585,7 @@ def test_setup_check_nao_le_os_arquivos_de_env_do_operador(tmp_path, monkeypatch
         assert home_real not in caminho.parents, f"{constante} ainda no home real: {caminho}"
 
     monkeypatch.delenv("CEX_SANDBOX", raising=False)
+    monkeypatch.setenv("CEX_ID", "kraken")  # config de CEX so e resolvida com CEX escolhida
     monkeypatch.setattr(run, "_ensure_venv_ready", lambda: {})
     monkeypatch.setattr(run, "_dependency_status", lambda python=None: {n: True for n in run.PROBED_MODULES})
 

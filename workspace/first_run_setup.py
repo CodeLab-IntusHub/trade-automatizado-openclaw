@@ -62,7 +62,6 @@ SUPPORTED_VENUES = {
         {"id": "gateio", "label": "Gate.io", "adapter": "ccxt", "env": "CEX_ID=gateio"},
     ],
     "other_integrations_notice": "A skill integra Hyperliquid como DEX builtin via CCXT, outras CEXs suportadas pelo CCXT usando CEX_ID=<exchange_id> e outras DEXs com DEX_ID=<id> + DEX_ADAPTER_MODULE=pacote.modulo:Classe antes de live trade.",
-    "default_pair": {"dex_id": "nado", "cex_id": "kraken"},
 }
 
 ACCOUNT_ISOLATION_POLICY = {
@@ -104,7 +103,7 @@ CEX_MARKET_TYPE_REFERENCE = (
 
 VENUE_SETUP_GUIDES = {
     "nado": [
-        "Definir DEX_ID=nado ou manter o default.",
+        "Definir DEX_ID=nado (nao ha DEX padrao).",
         "Conectar wallet na Nado e selecionar rede Ink; subconta/nome customizado nao e requisito do wizard e so deve ser ajustado se a venue/runtime exigir.",
         "Salvar NADO_OWNER_PRIVATE_KEY no secret/env seguro; opcionalmente salvar NADO_LINKED_SIGNER_PRIVATE_KEY.",
         "Salvar NADO_NETWORK como config nao sensivel; salvar NADO_SUBACCOUNT_NAME apenas quando precisar sobrescrever o default.",
@@ -129,7 +128,7 @@ VENUE_SETUP_GUIDES = {
         "Rodar venues, cex-accounts, symbols e dry-run antes de live.",
     ],
     "kraken": [
-        "Definir CEX_ID=kraken ou manter o default.",
+        "Definir CEX_ID=kraken (nao ha CEX padrao).",
         "Criar API key dedicada na Kraken Pro/Futures com leitura e trading, sem saque; subconta e recomendada para isolamento, mas nao obrigatoria.",
         "Salvar KRAKEN_API_KEY_ ou KRAKEN_API_KEY e KRAKEN_API_SECRET no Secret Manager.",
         "Definir KRAKEN_VENUE/CEX_MARKET_TYPE; sandbox fica em venues.cex.kraken.sandbox no settings.json (env definida vence o arquivo). KRAKEN_API_IS_SUBACCOUNT so se a key realmente for de subconta.",
@@ -360,7 +359,7 @@ VENUE_SELECTION_QUESTION = {
     "reason": "Define quais integrações, credenciais e passos de corretora/DEX serão necessários.",
     "question": "Quais venues você quer usar? Principais: DEX `nado` ou `hyperliquid`; CEX `kraken`, `binance`, `bybit`, `okx`, `kucoin`, `mexc`, `bitget` ou `gateio`. Também posso integrar outras CEXs via CCXT e outras DEXs por adapter. Responda, por exemplo: `DEX=nado CEX=kraken`, `CEX=binance` ou `DEX=hyperliquid CEX=bybit`.",
     "options": ["DEX=nado CEX=kraken", "DEX=hyperliquid CEX=bybit", "CEX=binance", "CEX=bybit", "CEX=okx", "CEX=kucoin", "CEX=mexc", "CEX=bitget", "CEX=gateio", "outra"],
-    "default": "DEX=nado CEX=kraken",
+    # Sem default: nao ha venue padrao, o operador escolhe.
 }
 
 DEFAULT_PAYLOAD = {

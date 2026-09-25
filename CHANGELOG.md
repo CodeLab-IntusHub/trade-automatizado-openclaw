@@ -4,10 +4,12 @@
 
 ### Mudanca de comportamento (atencao ao atualizar)
 
+- **Nao ha mais venue padrao.** `DEX_ID` ausente deixava de ser `nado`, e `CEX_ID` ausente deixava de ser `kraken`: cada operador escolhe onde opera. Quem nunca definiu essas variaveis e contava com o Nado/Kraken implicito passa a receber, no primeiro comando de mercado, uma mensagem dizendo qual venue escolher -- nenhum bot opera numa venue que o operador nao escolheu. O `doctor` ganha o check bloqueante `venue_escolhida` e so cobra credencial da venue escolhida; o wizard perde o par sugerido; o `.env.example` traz `DEX_ID` e `CEX_ID` em branco. Quem opera so DEX ou so CEX segue com a outra ponta substituida por um stub que recusa operar.
 - O badge da imagem gerada pelo `render_trade_chart.js` passa a mostrar `SETUP_NOTIFY_BRAND`, e nao mais o texto fixo `INTUSCRIPTO`. Com a variavel vazia ou ausente, a imagem sai **sem badge** -- a mesma regra que o texto do sinal ja seguia. Quem usa o `.env.example` nao percebe diferenca: ele traz `SETUP_NOTIFY_BRAND=INTUSCRIPTO`.
 
 ### Corrigido
 
+- **O dashboard nao derruba mais o publisher quando falta config de venue.** `build_engine` sinaliza config faltando com `SystemExit`, que nao e `Exception`, e a sincronizacao de exposicao so pegava `Exception` -- um operador so-CEX com o default antigo `nado` e sem chave da Nado ja caia nisso. A sincronizacao agora exige so as venues escolhidas e registra o erro no painel.
 - **O badge do renderer le a marca da configuracao** (ROADMAP 0.2). A marca vai escapada para o HTML. O `html()` do renderer passa a ser exportado e o Playwright so e carregado no modo de linha de comando, o que permite testar o badge com `node`, sem navegador: um teste prova que a marca configurada aparece no HTML fotografado, que marca vazia nao gera badge, e que nenhuma marca fica escrita no renderer.
 
 ### Documentacao

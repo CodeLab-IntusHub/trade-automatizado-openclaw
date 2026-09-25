@@ -17,6 +17,9 @@ class VenueSelection:
     cex_id: str
 
 
+# Marca de venue que o operador nao escolheu, no resumo que alimenta JSON.
+NAO_ESCOLHIDA = "nao_escolhida"
+
 CAPABILITY_KEYS = ("native_sl", "native_tp", "edit_stop", "cancel_trigger", "reduce_only")
 
 
@@ -41,6 +44,8 @@ def venue_capabilities(venue_kind: str, venue_id: str) -> dict[str, bool]:
     """Static execution capability matrix for the selected venue adapter."""
     kind = str(venue_kind or "").strip().lower()
     venue = str(venue_id or "").strip().lower()
+    if not venue:
+        return _capabilities()
     if kind == "dex":
         if venue in {"nado", "nado-dex", "nado_dex"}:
             return _capabilities(native_sl=True, native_tp=True, cancel_trigger=True, reduce_only=True)
@@ -87,8 +92,13 @@ def _normalize_cex_market_type(value: str | None, cex_id: str) -> str:
 
 
 def selected_venues() -> VenueSelection:
-    dex_id = _first_env("DEX_ID", "TRADE_DEX_ID", "PRIMARY_DEX") or "nado"
-    cex_id = _first_env("CEX_ID", "TRADE_CEX_ID", "PRIMARY_CEX") or "kraken"
+    """DEX e CEX escolhidas pelo operador. Nao ha venue padrao: sem escolha, vazio.
+
+    Quem precisa de uma venue e recebe vazio deve parar e pedir a escolha --
+    nunca completar com uma venue que o operador nao escolheu.
+    """
+    dex_id = _first_env("DEX_ID", "TRADE_DEX_ID", "PRIMARY_DEX")
+    cex_id = _first_env("CEX_ID", "TRADE_CEX_ID", "PRIMARY_CEX")
     return VenueSelection(dex_id=dex_id.lower(), cex_id=cex_id.lower())
 
 
@@ -182,19 +192,19 @@ def venue_summary() -> dict[str, Any]:
     return {
         "dex_id": selection.dex_id,
         "cex_id": selection.cex_id,
-        "dex_adapter": dex_adapter_spec(selection.dex_id) or (
+        "dex_adapter": NAO_ESCOLHIDA if not selection.dex_id else dex_adapter_spec(selection.dex_id) or (
             "builtin:nado"
             if selection.dex_id in {"nado", "nado-dex", "nado_dex"}
             else "builtin:hyperliquid"
             if selection.dex_id in {"hyperliquid", "hyperliquid-dex", "hyperliquid_dex"}
             else "missing"
         ),
-        "cex_adapter": "builtin:kraken" if selection.cex_id in {"kraken", "krakenfutures", "kraken-futures", "kraken_futures", "kraken-spot"} else "ccxt",
+        "cex_adapter": NAO_ESCOLHIDA if not selection.cex_id else "builtin:kraken" if selection.cex_id in {"kraken", "krakenfutures", "kraken-futures", "kraken_futures", "kraken-spot"} else "ccxt",
         "cex_market_type": _normalize_cex_market_type(_first_env("CEX_MARKET_TYPE", "CEX_DEFAULT_TYPE", f"{_prefix(selection.cex_id)}_MARKET_TYPE"), selection.cex_id),
         # String, porque o resumo alimenta JSON de painel -- mas derivada do
         # mesmo resolvedor da ordem. Antes ela tinha precedencia propria e
         # podia mostrar `false` enquanto a ordem ia para sandbox.
-        "cex_sandbox": "true" if resolve_sandbox("cex", selection.cex_id) else "false",
+        "cex_sandbox": "" if not selection.cex_id else "true" if resolve_sandbox("cex", selection.cex_id) else "false",
         "cex_required_env": cex_names,
         "cex_credentials_configured": bool(cex_creds["api_key"] and cex_creds["api_secret"]),
         "dex_required_env": dex_names,

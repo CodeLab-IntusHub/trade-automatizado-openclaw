@@ -3220,6 +3220,8 @@ def test_state_context_validation_blocks_wrong_kraken_fingerprint():
 
 
 def test_build_engine_accepts_owner_private_key(monkeypatch):
+    monkeypatch.setenv("DEX_ID", "nado")  # nao ha venue padrao
+    monkeypatch.setenv("CEX_ID", "kraken")
     captured = {}
 
     class FakeNado:
@@ -3283,6 +3285,8 @@ def test_build_engine_accepts_owner_private_key(monkeypatch):
 
 
 def test_build_engine_uses_owner_when_linked_signer_missing_and_still_confirms_main_fallback(monkeypatch):
+    monkeypatch.setenv("DEX_ID", "nado")  # nao ha venue padrao
+    monkeypatch.setenv("CEX_ID", "kraken")
     captured = {}
 
     class FakeNado:

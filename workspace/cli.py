@@ -5570,7 +5570,7 @@ def cmd_close_venue_pair(args: argparse.Namespace) -> None:
 
 
 class _UnavailableNadoTrader:
-    """Stub seguro para fluxos Kraken-only que nao devem exigir credencial Nado."""
+    """Stub seguro para fluxos sem DEX: nao exige credencial e recusa operar."""
 
     def __init__(self, symbol_map: dict[str, int] | None = None):
         self._symbol_map = dict(symbol_map or {})
@@ -5584,12 +5584,41 @@ class _UnavailableNadoTrader:
     def get_isolation_context(self) -> dict:
         return {
             "subaccount_name": "-",
-            "signer_mode": "not_required_kraken_only",
+            "signer_mode": "not_required_cex_only",
             "trade_ready": False,
         }
 
     def __getattr__(self, name: str):
-        raise RuntimeError(f"Nado indisponivel neste fluxo Kraken-only: {name}")
+        raise RuntimeError(f"DEX indisponivel neste fluxo sem DEX: {name}")
+
+
+class _UnavailableCexTrader:
+    """Stub seguro para fluxos sem CEX: nao exige credencial e recusa operar."""
+
+    venue = "-"
+    account = "-"
+    account_symbol = ""
+    api_fingerprint = ""
+    sandbox = False
+
+    def __init__(self, symbol_map: dict[str, int] | None = None):
+        self._symbol_map = dict(symbol_map or {})
+
+    def get_symbol_to_product_map(self, product_filter: Any = None) -> dict[str, int]:
+        return dict(self._symbol_map)
+
+    def get_all_positions(self) -> list:
+        return []
+
+    def __getattr__(self, name: str):
+        raise RuntimeError(f"CEX indisponivel neste fluxo sem CEX: {name}")
+
+
+def _symbol_map_or_empty(trader: Any) -> dict[str, int]:
+    """Simbolos de uma venue para montar o stub da outra; vazio sem venue."""
+    if trader is None:
+        return {}
+    return {symbol: 0 for symbol in trader.get_symbol_to_product_map()}
 
 
 def load_nado_trader_class():
@@ -5771,7 +5800,30 @@ def build_engine(*, require_nado: bool = True, require_kraken: bool = True) -> D
     dex_id = venues.dex_id
     cex_id = venues.cex_id
 
-    if _is_builtin_kraken_cex(cex_id):
+    # Nao ha venue padrao: o operador escolhe. Faltou a que o comando precisa, para.
+    if not dex_id and not cex_id:
+        raise SystemExit(
+            "Nenhuma venue escolhida. Defina DEX_ID (nado, hyperliquid ou uma DEX com adapter) "
+            "e/ou CEX_ID (kraken ou qualquer exchange_id do CCXT) -- ou rode o wizard."
+        )
+    if require_dex and not dex_id:
+        raise SystemExit(
+            "Este comando precisa de uma DEX e nenhuma foi escolhida. Defina DEX_ID "
+            "(nado, hyperliquid ou uma DEX com DEX_ADAPTER_MODULE), ou use um modo so de CEX."
+        )
+    if require_cex and not cex_id:
+        raise SystemExit(
+            "Este comando precisa de uma CEX e nenhuma foi escolhida. Defina CEX_ID "
+            "(kraken ou qualquer exchange_id do CCXT), ou use um modo so de DEX."
+        )
+
+    kraken: Any = None
+    kraken_require_subaccount = False
+    kraken_api_is_subaccount = False
+    kraken_allow_main_account_requested = False
+    if not cex_id:
+        pass  # sem CEX: o stub e montado depois da DEX, com os simbolos dela
+    elif _is_builtin_kraken_cex(cex_id):
         kraken_key = (
             _clean_literal_env(os.environ.get("KRAKEN_API_KEY"))
             or _clean_literal_env(os.environ.get("KRAKEN_API_KEY_"))
@@ -5859,8 +5911,7 @@ def build_engine(*, require_nado: bool = True, require_kraken: bool = True) -> D
                 nado_kwargs["allow_owner_fallback"] = nado_allow_owner_fallback
             nado = nado_trader_cls(nado_key, nado_network, **nado_kwargs)
         else:
-            kraken_symbols = kraken.get_symbol_to_product_map()
-            nado = _UnavailableNadoTrader({symbol: 0 for symbol in kraken_symbols})
+            nado = _UnavailableNadoTrader(_symbol_map_or_empty(kraken))
     elif _is_builtin_hyperliquid_dex(dex_id):
         nado = _build_hyperliquid_trader(dex_id, require_credentials=require_dex)
     elif require_dex:
@@ -5872,8 +5923,10 @@ def build_engine(*, require_nado: bool = True, require_kraken: bool = True) -> D
             )
         nado = load_custom_dex_adapter(adapter_spec, dex_config(dex_id))
     else:
-        kraken_symbols = kraken.get_symbol_to_product_map()
-        nado = _UnavailableNadoTrader({symbol: 0 for symbol in kraken_symbols})
+        nado = _UnavailableNadoTrader(_symbol_map_or_empty(kraken))
+
+    if kraken is None:
+        kraken = _UnavailableCexTrader(_symbol_map_or_empty(nado))
 
     engine = DeltaNeutralEngine(
         nado=nado,

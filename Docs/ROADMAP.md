@@ -140,6 +140,24 @@ aponta para o operador.
 - **Pronto quando:** um bot OpenClaw limpo instala a skill, passa por
   `setup-check`/`doctor` e roda `setup-live --simular` sem configurar Discord.
 
+### 1.6 Sem venue padrão
+
+Decisão do autor em 24/09/2026: não existe DEX nem CEX padrão, cada operador
+escolhe onde opera, e a Nado não é obrigatória. Até a v1.8.0, `DEX_ID` e
+`CEX_ID` ausentes viravam `nado` e `kraken`.
+
+- **Código — feito em 24/09/2026:** o resolvedor não completa a escolha; o
+  comando que precisa da venue que falta para com mensagem; o `doctor` reprova
+  sem venue (`venue_escolhida`); o wizard e o `.env.example` não sugerem par;
+  o dashboard sincroniza só as venues escolhidas. Transição sem versão de
+  aviso, também por decisão do autor. Teste em `test/test_venue_sem_padrao.py`.
+- **Falta:** o modo de execução padrão ainda é `hedged` (`run.py`, `cli.py`),
+  que exige as duas pontas; e cerca de 40 trechos de documentação (`README`,
+  `INSTALL`, `references/`, `skill.json`, resto do `SKILL.md`) ainda falam em
+  "padrão Nado/Kraken".
+- **Pronto quando:** nenhum doc de operador elege venue, e o modo de execução
+  também é escolha do operador ou decorre das venues escolhidas.
+
 **Critério de pronto da fase:** instalar a skill num bot limpo e operar sem
 herdar nada da instância original.
 
@@ -432,7 +450,7 @@ Os itens 2 e 3 são decididos **fora** deste repositório, na plataforma.
 | Etapa | Passos | Depende de |
 |---|---|---|
 | A — fechamentos pequenos | 0.2, 0.3 | — |
-| B — skill genérica | 1.1 → 1.5 | A; o 1.3 exige decidir item a item o que falta no pacote |
+| B — skill genérica | 1.1 → 1.6 | A; o 1.3 exige decidir item a item o que falta no pacote |
 | C — painel local | 2.1 → 2.6 | nada; corre em paralelo com B |
 | D — portão | os quatro itens acima | — ; pode começar já, em paralelo |
 | E — ecossistema | 3.1 → 3.8 (3.8 depois de 3.3 e 3.4) | D |

@@ -1344,8 +1344,12 @@ class TradeDashboardRecorder:
 
             _load_env_file()
             from workspace.cli import _collect_live_status, build_engine
+            from workspace.venues.config import selected_venues
 
-            eng = build_engine()
+            # Exposicao so das venues que o operador escolheu: exigir as duas
+            # derrubava a sincronizacao de quem opera so DEX ou so CEX.
+            escolha = selected_venues()
+            eng = build_engine(require_nado=bool(escolha.dex_id), require_kraken=bool(escolha.cex_id))
             nado_positions, kraken_positions, exposure_summary = _collect_live_status(eng)
             positions = [
                 *[_position_row(position, "nado") for position in nado_positions],
@@ -1361,7 +1365,9 @@ class TradeDashboardRecorder:
                 "net_notional": sum(_safe_float(row.get("net_notional")) for row in rows),
                 "error": "",
             }
-        except Exception as exc:  # noqa: BLE001
+        except (Exception, SystemExit) as exc:  # noqa: BLE001
+            # `build_engine` sinaliza config faltando com `SystemExit`, que nao e
+            # `Exception`: sem pegar aqui, uma venue nao escolhida derrubava o publisher.
             previous = self.state.get("live_exposures") if isinstance(self.state.get("live_exposures"), dict) else {}
             self.state["live_exposures"] = {
                 **previous,
