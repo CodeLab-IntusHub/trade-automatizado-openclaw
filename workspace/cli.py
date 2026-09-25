@@ -1542,6 +1542,9 @@ def _format_whatsapp_from_notice(message: str) -> str:
     return formatted.strip()
 
 
+_IMAGE_CHANNELS = frozenset({"discord", "whatsapp"})
+
+
 def _send_setup_trade_notice(
     message: str,
     chart_payload: dict[str, Any] | None = None,
@@ -1550,12 +1553,14 @@ def _send_setup_trade_notice(
     reply_to_whatsapp_message_id: str = "",
     include_chart: bool = True,
     image_path: Path | None = None,
+    require_chart: bool | None = None,
 ) -> dict[str, str]:
     """Entrega o aviso nos canais do OpenClaw do operador.
 
     Caminho unico de entrega: `setup-live`, scanner e watcher passam por aqui.
     `image_path` e o grafico ja renderizado por quem chama; sem ele, o grafico
-    sai de `chart_payload`.
+    sai de `chart_payload`. `require_chart` (padrao: SETUP_NOTIFY_REQUIRE_CHART_FOR_ENTRY)
+    segura so os canais com imagem quando o grafico falta.
     """
     if not _setup_notifications_enabled():
         return {}
@@ -1589,11 +1594,20 @@ def _send_setup_trade_notice(
     elif image_path is None:
         image_path = _render_setup_chart_image(chart_payload)
     sent: dict[str, str] = {}
-    require_chart = os.environ.get("SETUP_NOTIFY_REQUIRE_CHART_FOR_ENTRY", "true").strip().lower() not in {"0", "false", "no", "nao", "off"}
-    if needs_chart and require_chart and image_path is None:
+    if require_chart is None:
+        require_chart = os.environ.get("SETUP_NOTIFY_REQUIRE_CHART_FOR_ENTRY", "true").strip().lower() not in {"0", "false", "no", "nao", "off"}
+    # Grafico obrigatorio ausente segura so os canais que levam imagem; os de
+    # texto (Telegram e outros) nunca recebem imagem e seguem sendo entregues.
+    chart_missing = needs_chart and require_chart and image_path is None
+    if chart_missing:
         symbol = str((chart_payload or {}).get("symbol") or "").strip() or "N/A"
-        logger.warning("notificacao de entrada bloqueada: grafico obrigatorio ausente | symbol=%s", symbol)
-        return sent
+        logger.warning(
+            "grafico obrigatorio ausente: discord e whatsapp nao recebem esta notificacao | symbol=%s", symbol
+        )
+        discord_channel_id = ""
+        whatsapp_enabled = False
+        if channel in _IMAGE_CHANNELS:
+            target = ""
 
     if target:
         message_id = _send_entry_notification(

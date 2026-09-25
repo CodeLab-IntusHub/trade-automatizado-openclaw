@@ -31,6 +31,7 @@ destino, audiência "@Intus Club Member" fixa).
 | Bot dedicado | uma conta dedicada configurada no OpenClaw, informada em `SETUP_NOTIFY_ENTRY_ACCOUNT` (vazio = conta padrão do OpenClaw) |
 | Cópia extra no Discord | `SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID` (e `_ACCOUNT`), também pelo OpenClaw |
 | Cópia extra no WhatsApp | `SETUP_NOTIFY_WHATSAPP_ENABLED=true` + `SETUP_NOTIFY_ENTRY_WHATSAPP_TARGET` (e `_ACCOUNT`); sem o opt-in, nada vai |
+| Gráfico obrigatório | `SETUP_NOTIFY_REQUIRE_CHART_FOR_ENTRY` (padrão `true`): sem gráfico, Discord e WhatsApp não recebem; Telegram e outros canais de texto seguem. O watcher não exige gráfico |
 | Linha de audiência no topo | `SETUP_NOTIFY_DISCORD_AUDIENCE` (vazio = sem linha) |
 
 As atualizações de uma posição saem como **resposta** à mensagem de entrada no
@@ -47,7 +48,7 @@ a configuração do OpenClaw.
 | Scanner de sinais (analysis-only) | `workspace/ccxt_entry_scanner.py` (`_send_signals`) | fila assíncrona; cada item chama a entrega com o gráfico já renderizado e grava o resultado no outbox |
 | Watcher do log | `workspace/discord_signal_watcher.py` (`_send`) | chama a entrega |
 | Onboarding | `workspace/first_run_setup.py` (`DELIVERY_GUIDANCE`) | pergunta canal, destino, conta e tópico; nunca token |
-| `config.env` | `workspace/run.py` (`NON_SECRET_CONFIG_ENV`) | aceita as dez variáveis de entrega |
+| `config.env` | `workspace/run.py` (`NON_SECRET_CONFIG_ENV`) | aceita as onze variáveis de entrega |
 
 O nome `discord_signal_watcher.py` é histórico: o watcher entrega em qualquer
 canal configurado.

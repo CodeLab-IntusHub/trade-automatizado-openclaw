@@ -215,6 +215,7 @@ ENTREGA_NO_CONFIG_ENV = (
     "SETUP_NOTIFY_WHATSAPP_ENABLED",
     "SETUP_NOTIFY_ENTRY_WHATSAPP_TARGET",
     "SETUP_NOTIFY_ENTRY_WHATSAPP_ACCOUNT",
+    "SETUP_NOTIFY_REQUIRE_CHART_FOR_ENTRY",
 )
 
 
@@ -229,3 +230,31 @@ def test_config_env_carrega_toda_a_configuracao_de_entrega(tmp_path: Path, monke
     arquivo.write_text("".join(f"{nome}=valor\n" for nome in ENTREGA_NO_CONFIG_ENV), encoding="utf-8")
     run._load_key_value_file(arquivo, allowed_keys=run.NON_SECRET_CONFIG_ENV)
     assert [n for n in ENTREGA_NO_CONFIG_ENV if os.environ.get(n) != "valor"] == []
+
+
+def test_watcher_entrega_sem_grafico_como_antes(comandos, monkeypatch) -> None:
+    """O watcher antigo mandava o texto mesmo sem grafico. Com o default real
+    (grafico obrigatorio) e o render falhando, ele nao pode ficar mudo."""
+    monkeypatch.delenv("SETUP_NOTIFY_REQUIRE_CHART_FOR_ENTRY", raising=False)
+    monkeypatch.setenv("SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID", "123")
+    _publicar_watcher()
+    assert len(comandos) == 1
+    assert "--media" not in comandos[0]
+
+
+def test_grafico_obrigatorio_ausente_so_segura_os_canais_com_imagem(comandos, monkeypatch) -> None:
+    """Telegram nunca recebe imagem: a falta do grafico nao pode cala-lo."""
+    monkeypatch.delenv("SETUP_NOTIFY_REQUIRE_CHART_FOR_ENTRY", raising=False)
+    monkeypatch.setenv("SETUP_NOTIFY_ENTRY_CHANNEL", "telegram")
+    monkeypatch.setenv("SETUP_NOTIFY_ENTRY_TARGET", "-100200")
+    monkeypatch.setenv("SETUP_NOTIFY_ENTRY_DISCORD_CHANNEL_ID", "123")
+    cli._send_setup_trade_notice("sinal", {"symbol": "BTC/USDT"})
+    assert [_opcao(c, "--channel") for c in comandos] == ["telegram"]
+
+
+def test_grafico_obrigatorio_ausente_segura_o_discord(comandos, monkeypatch) -> None:
+    monkeypatch.delenv("SETUP_NOTIFY_REQUIRE_CHART_FOR_ENTRY", raising=False)
+    monkeypatch.setenv("SETUP_NOTIFY_ENTRY_CHANNEL", "discord")
+    monkeypatch.setenv("SETUP_NOTIFY_ENTRY_TARGET", "channel:123")
+    assert cli._send_setup_trade_notice("sinal", {"symbol": "BTC/USDT"}) == {}
+    assert comandos == []

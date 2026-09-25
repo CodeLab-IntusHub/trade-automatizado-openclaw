@@ -278,7 +278,8 @@ def _send(entries: list[dict[str, str]]) -> None:
     (`SETUP_NOTIFY_ENTRY_*`); tudo sai pelo OpenClaw do operador.
     """
     for entry in entries:
-        sent = cli._send_setup_trade_notice(_format_message(entry), _entry_chart_payload(entry))
+        # O watcher sempre mandou o texto mesmo sem grafico: a imagem e apoio.
+        sent = cli._send_setup_trade_notice(_format_message(entry), _entry_chart_payload(entry), require_chart=False)
         print(
             f"{time.strftime('%Y-%m-%d %H:%M:%S')} entrega sinal=1 "
             f"symbol={entry.get('symbol', '')} setup={entry.get('setup', '')} "
