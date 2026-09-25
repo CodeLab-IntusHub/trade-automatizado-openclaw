@@ -1,6 +1,15 @@
 # Changelog
 
-## Nao publicado
+## v1.9.0 — 2026-09-25
+
+Skill generica: nada da instancia original imposto a quem instala. Nao ha mais
+venue padrao nem modo de execucao padrao -- cada operador escolhe DEX, CEX e
+modo, e o que falta para o comando com uma mensagem que diz o que escolher. O
+`setup-live` passa a entregar so pelos canais do OpenClaw do operador, sem ler
+token de bot. O ADR 0007 registra a politica de autonomia do agente: as travas
+que valem ficam na exchange e na aprovacao de execucao do OpenClaw, nao na
+skill. **Antes de atualizar:** defina `DEX_ID`/`CEX_ID` e `EXECUTION_MODE`, e,
+se entrega no Discord, configure-o como canal no seu OpenClaw.
 
 ### Mudanca de comportamento (atencao ao atualizar)
 
@@ -26,6 +35,8 @@
 - **Inventario do `SKILL.md`** (ROADMAP 1.1), em `Docs/inventario-do-skill-md.md`: cada trecho classificado como regra geral, preferencia de instancia ou historico, com a linha de origem. Aponta as tres referencias a arquivos fora do pacote e duas contradicoes internas -- "embed nativo por padrao" contra "sem embed", e o fallback automatico para a owner key da Nado contra `NADO_REQUIRE_LINKED_SIGNER=true` (o codigo segue o primeiro: sem linked signer, assina com a owner key).
 
 - **ADR 0007 -- autonomia do agente.** As travas da skill (`AUTORIZAR_TRADE_REAL`, allowlist, `settings.json`) sao instrucao ao agente, nao fechadura: o agente monta o comando e tem shell. As que valem ficam na exchange (key sem saque, subconta com capital limitado) e na aprovacao de execucao do OpenClaw, encaminhada ao operador pelo chat. Tres modos: analise (padrao), real com aprovacao (recomendado) e real autonomo. Custodia de chaves descartada; o 1Password e sempre sugerido para segredos. O aprendizado coletivo aceita so fills reconciliados com a exchange. Novo passo 1.7 no ROADMAP.
+
+- **Docs de feature novos:** `Docs/features/escolha-de-venue-e-modo.md` (sem venue nem modo padrao, o que acontece em cada caso e o limite do modo so DEX) e `Docs/features/entrega-de-mensagens.md` (canais do OpenClaw, topico do Telegram, bot dedicado, e o que ainda fala direto com o Discord). `PROGRESS.md` ganha as secoes de autonomia do agente e de entrega, e o indice aponta os dois docs e o inventario do `SKILL.md`.
 
 ## v1.8.0 — 2026-09-24
 

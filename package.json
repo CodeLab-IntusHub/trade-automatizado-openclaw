@@ -1,6 +1,6 @@
 {
   "name": "trade-automatizado-openclaw",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "private": true,
   "description": "Playwright checks for the OpenClaw trade dashboard.",
   "scripts": {
