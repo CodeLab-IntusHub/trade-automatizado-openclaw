@@ -142,6 +142,7 @@ As travas desta skill (`AUTORIZAR_TRADE_REAL`, allowlists, `settings.json`) são
 - Na exchange: API key **sem permissão de saque** e subconta ou conta separada só com o capital que o bot pode perder.
 - Segredos: sempre sugerir o **1Password** (referências `op://` com `op run`) ou o gerenciador de segredos que o operador já usa; nunca pedir segredo no chat. A skill não guarda credencial de ninguém.
 - `AUTORIZAR_TRADE_REAL=sim` (ou uma das variáveis equivalentes) registra que o agente decidiu operar real naquela execução. É confirmação de intenção e rastro, não é trava.
+- O `doctor` **avisa** quando a API key da CEX pode sacar (Binance, Bybit, OKX), quando `AUTO_WITHDRAW_ENABLED=true` liga o saque automático da Nado e quando o OpenClaw executa sem pedir aprovação (`openclaw exec-policy show`). É aviso, para o operador ter ciência. Se ele quiser bloqueio, `BLOQUEAR_SAQUE=sim` e `BLOQUEAR_SEM_APROVACAO=sim` fazem o `doctor` reprovar e o comando de trade ser recusado. O que não dá para verificar nunca bloqueia. Não mudar essas variáveis sem o operador pedir.
 
 ## Env esperadas
 

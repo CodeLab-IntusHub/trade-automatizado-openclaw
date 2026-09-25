@@ -427,7 +427,7 @@ DEFAULT_PAYLOAD = {
                 "real_com_aprovacao": "tools.exec do OpenClaw em allowlist estreita, com aprovacao para os comandos de trade; mais key sem saque e capital isolado. security: full ou allowlist larga contornam a aprovacao.",
                 "real_autonomo": "so a exchange: key sem saque e subconta com o capital que o bot pode perder",
             },
-            "note": "AUTORIZAR_TRADE_REAL registra a decisao de operar real; nao e trava.",
+            "note": "AUTORIZAR_TRADE_REAL registra a decisao de operar real; nao e trava. O doctor avisa key com saque e OpenClaw sem aprovacao; BLOQUEAR_SAQUE=sim e BLOQUEAR_SEM_APROVACAO=sim transformam o aviso em bloqueio, se o operador quiser.",
             "reference": "Docs/decisions/0007-autonomia-do-agente.md",
         },
         {

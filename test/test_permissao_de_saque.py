@@ -100,17 +100,19 @@ def _check(relatorio: dict) -> dict | None:
     return next((c for c in relatorio["checks"] if c["name"] == "cex_key_sem_saque"), None)
 
 
-def test_doctor_reprova_key_que_pode_sacar(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_doctor_reprova_key_que_pode_sacar_com_bloqueio_ligado(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Por padrao e aviso (decisao do autor, 25/09); com `BLOQUEAR_SAQUE`, reprova.
+    O caso padrao esta em `test_bloqueios_configuraveis.py`."""
     monkeypatch.setenv("CEX_API_KEY", "k")
     monkeypatch.setenv("CEX_API_SECRET", "s")
+    monkeypatch.setenv("BLOQUEAR_SAQUE", "sim")
     relatorio = _doctor_com(monkeypatch, ps.Veredicto("binance", PODE, "a key pode sacar"))
-    from workspace import run
 
     check = _check(relatorio)
     assert check is not None and check["ok"] is False
     # `status` sozinho nao prova nada: no ambiente de teste outros checks
     # bloqueantes ja reprovam. O que importa e este estar entre os que reprovam.
-    reprovados = [c["name"] for c in relatorio["checks"] if c["name"] in run.BLOCKING_CHECKS and not c["ok"]]
+    reprovados = [c["name"] for c in relatorio["checks"] if c["name"] in relatorio["blocking_checks"] and not c["ok"]]
     assert "cex_key_sem_saque" in reprovados
     assert relatorio["status"] == "attention"
 

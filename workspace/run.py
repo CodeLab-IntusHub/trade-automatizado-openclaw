@@ -26,7 +26,8 @@ if str(REPO_DIR) not in sys.path:
 from workspace.venues import cex_credentials, permissao_de_saque, venue_summary  # noqa: E402
 from workspace.venues.sandbox import resolve_sandbox, sandbox_settings_keys  # noqa: E402
 from workspace.venues.config import mensagem_de_modo_nao_escolhido, modos_compativeis, selected_venues  # noqa: E402
-from workspace.config import ConfigError, load_settings  # noqa: E402
+from workspace.config import ConfigError, coerce_bool, load_settings  # noqa: E402
+from workspace import politica_openclaw
 from workspace.settings_schema import validar_settings  # noqa: E402
 _logger = logging.getLogger(__name__)
 REQUIREMENTS = WORKSPACE_DIR / "requirements.txt"
@@ -189,6 +190,9 @@ NON_SECRET_CONFIG_ENV = {
     "SETUP_NOTIFY_ENTRY_WHATSAPP_TARGET",
     "SETUP_NOTIFY_ENTRY_WHATSAPP_ACCOUNT",
     "SETUP_NOTIFY_REQUIRE_CHART_FOR_ENTRY",
+    # Bloqueios opcionais do operador (aviso por padrao; ADR 0007).
+    "BLOQUEAR_SAQUE",
+    "BLOQUEAR_SEM_APROVACAO",
 }
 TRADE_COMMANDS = {
     "open",
@@ -703,11 +707,56 @@ BLOCKING_CHECKS = frozenset(
         "venues_config",
         "settings_schema",
         "venue_escolhida",
-        # Reprova so quando a venue confirma que a key saca; "nao verificado"
-        # passa, dizendo que nao verificou (ADR 0007).
-        "cex_key_sem_saque",
     }
 )
+
+# Decisao do autor (25/09/2026): saque e OpenClaw sem aprovacao sao aviso;
+# bloquear e escolha do operador. Com o bloqueio ligado, o check passa a
+# reprovar o `doctor` e o comando de trade e recusado. "Nao verificado" nunca
+# bloqueia: a duvida nao prova nada.
+BLOQUEAR_SAQUE_ENV = "BLOQUEAR_SAQUE"
+BLOQUEAR_SEM_APROVACAO_ENV = "BLOQUEAR_SEM_APROVACAO"
+_BLOQUEIOS_OPCIONAIS = {
+    BLOQUEAR_SAQUE_ENV: ("cex_key_sem_saque", "saque_automatico"),
+    BLOQUEAR_SEM_APROVACAO_ENV: ("openclaw_aprovacao",),
+}
+
+
+def _bloqueio_ativo(nome: str) -> bool:
+    bruto = os.environ.get(nome, "")
+    return coerce_bool(bruto, nome) if bruto.strip() else False
+
+
+def _checks_bloqueados_pelo_operador() -> set[str]:
+    """Levanta `ConfigError` nomeando a variavel se o valor nao for booleano."""
+    return {check for nome, checks in _BLOQUEIOS_OPCIONAIS.items() if _bloqueio_ativo(nome) for check in checks}
+
+
+def _saque_automatico_ligado() -> bool:
+    # A mesma leitura do `workspace/nado/auto_trade_nado.py`: so `true` liga.
+    return os.environ.get("AUTO_WITHDRAW_ENABLED", "false").lower() == "true"
+
+
+def _check_saque_automatico() -> dict[str, object]:
+    return {
+        "name": "saque_automatico",
+        "ok": False,
+        "detail": "AUTO_WITHDRAW_ENABLED=true: o workspace/nado/auto_trade_nado.py saca sozinho da Nado "
+        f"(fora da politica de key sem saque do ADR 0007; {BLOQUEAR_SAQUE_ENV}=sim bloqueia)",
+        "verificado": True,
+    }
+
+
+def _check_openclaw_aprovacao() -> dict[str, object]:
+    """O OpenClaw pede aprovacao antes de executar? (ADR 0007)"""
+    veredicto = politica_openclaw.consultar()
+    verificado = veredicto.estado != politica_openclaw.NAO_VERIFICAVEL
+    return {
+        "name": "openclaw_aprovacao",
+        "ok": veredicto.estado in {politica_openclaw.PROTEGIDO, politica_openclaw.NAO_VERIFICAVEL},
+        "detail": veredicto.detalhe if verificado else f"nao verificado: {veredicto.detalhe}",
+        "verificado": verificado,
+    }
 
 
 def _check_key_sem_saque(cex_id: str) -> dict[str, object]:
@@ -816,12 +865,45 @@ def doctor() -> dict[str, object]:
         settings_error is None,
         str(settings_error) if settings_error else "ok",
     )
+    report["checks"].append(_check_openclaw_aprovacao())
+    if _saque_automatico_ligado():
+        report["checks"].append(_check_saque_automatico())
+    bloqueantes = set(BLOCKING_CHECKS)
+    try:
+        bloqueantes |= _checks_bloqueados_pelo_operador()
+    except ConfigError as exc:
+        add("config_bloqueios", False, str(exc))
+        bloqueantes.add("config_bloqueios")
+    report["blocking_checks"] = sorted(bloqueantes)
     report["status"] = (
         "ok"
-        if all(item["ok"] for item in report["checks"] if item["name"] in BLOCKING_CHECKS)
+        if all(item["ok"] for item in report["checks"] if item["name"] in bloqueantes)
         else "attention"
     )
     return report
+
+
+def _motivos_de_bloqueio_do_operador() -> list[str]:
+    """Com o bloqueio ligado pelo operador, o que recusa o comando de trade.
+
+    Nao verificado nao recusa: avisa no stderr e segue.
+    """
+    bloqueados = _checks_bloqueados_pelo_operador()
+    checks: list[dict[str, object]] = []
+    if "saque_automatico" in bloqueados and _saque_automatico_ligado():
+        checks.append(_check_saque_automatico())
+    cex_id = selected_venues().cex_id
+    if "cex_key_sem_saque" in bloqueados and cex_id and cex_credentials(cex_id).get("api_key"):
+        checks.append(_check_key_sem_saque(cex_id))
+    if "openclaw_aprovacao" in bloqueados:
+        checks.append(_check_openclaw_aprovacao())
+    motivos: list[str] = []
+    for check in checks:
+        if not check["verificado"]:
+            print(f"aviso: {check['name']} {check['detail']}", file=sys.stderr)
+        elif not check["ok"]:
+            motivos.append(str(check["detail"]))
+    return motivos
 
 
 def _writable_dir(path: Path) -> bool:
@@ -928,6 +1010,26 @@ def _run_cli(args: list[str]) -> int:
             )
         )
         return 2
+    if args and args[0] in TRADE_COMMANDS and not inspection_only:
+        try:
+            motivos = _motivos_de_bloqueio_do_operador()
+        except ConfigError as exc:
+            motivos = [str(exc)]
+        if motivos:
+            print(
+                json.dumps(
+                    {
+                        "status": "blocked",
+                        "reason": "bloqueio_do_operador",
+                        "message": "; ".join(motivos)
+                        + f" (bloqueio ligado pelo operador em {BLOQUEAR_SAQUE_ENV}/{BLOQUEAR_SEM_APROVACAO_ENV})",
+                        "command": args[0],
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return 2
 
     no_bootstrap = not _bootstrap_allowed()
     py = _venv_python()
