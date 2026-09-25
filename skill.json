@@ -1,7 +1,7 @@
 {
   "name": "trade-automatizado-openclaw",
   "version": "1.9.0",
-  "description": "Skill OpenClaw para setups delta-neutros e ordens solo em DEX/CEX configuráveis, com wizard por corretora, defaults Nado DEX/Kraken CEX, CEX genérica via CCXT, Hyperliquid DEX builtin, stop por alvo configuravel e DEX custom por adapter Python, margin sizing, guardrails, bootstrap seguro e dashboard HTML local do usuário.",
+  "description": "Skill OpenClaw para setups delta-neutros e ordens solo em DEX/CEX configuráveis, com wizard por corretora, sem venue nem modo padrão (o operador escolhe), CEX genérica via CCXT, Hyperliquid DEX builtin, stop por alvo configuravel e DEX custom por adapter Python, margin sizing, guardrails, bootstrap seguro e dashboard HTML local do usuário.",
   "author": "CodeLab-IntusHub",
   "license": "Proprietary",
   "homepage": "https://github.com/CodeLab-IntusHub/trade-automatizado-openclaw",
