@@ -1,6 +1,6 @@
 # Roadmap
 
-> Última atualização: 24 de setembro de 2026
+> Última atualização: 25 de setembro de 2026
 > Versão do produto na criação deste plano: 1.6.0
 
 Plano de produto do IntusCripto: de uma instância central que transmite sinais
@@ -183,8 +183,15 @@ com aprovação** (recomendado) e **real autônomo**.
   3. O `doctor` avisa quando detectar que o OpenClaw dispensa aprovação
      (`security: full`). Antes: confirmar o formato de `tools.exec` e de
      `~/.openclaw/exec-approvals.json`.
-  4. `AUTORIZAR_TRADE_REAL` passa a ser registrada no log como rastro de
-     auditoria, e a documentação deixa de chamá-la de trava.
+  4. A confirmação de operação real passa a ser registrada no log como rastro
+     de auditoria, **qualquer que seja a variável usada** — o código aceita
+     quatro como equivalentes: `AUTORIZAR_TRADE_REAL`, `CONFIRMAR_TRADE_REAL`,
+     `TRADE_AUTOMATIZADO_CONFIRM_LIVE` e `DELTA_NEUTRAL_CONFIRM_LIVE`. A
+     documentação deixa de chamá-las de trava.
+  5. `workspace/nado/auto_trade_nado.py` tem saque automático
+     (`AUTO_WITHDRAW_ENABLED`), contra a política de key sem saque. É script
+     avulso, que nenhum comando da skill chama: decidir se sai do pacote ou
+     fica documentado como fora da política.
 - **Pronto quando:** nenhum doc de operador apresenta trava da skill como
   segurança; os passos 2 e 3 têm teste; e um operador novo sabe, pelo
   onboarding, qual modo está usando e o que o protege.
@@ -504,4 +511,5 @@ Os itens 2 e 3 são decididos **fora** deste repositório, na plataforma.
 | 24/09/2026 | Passo 3.2: o ecossistema nasce no schema `trading` existente, reformulável; inventário de uso antes de qualquer migration destrutiva |
 | 24/09/2026 | Portão da Fase 3 e etapas A–H em "Ordem e dependências"; 3.9 passa a depender da Fase 5 |
 | 24/09/2026 | Fase 3 pela plataforma: repo é satélite do `intushub-core`, acesso por Edge Function (ADR 0006); passos 3.8 (compartilhamento de setups) e 3.9 (central de aprendizagem) |
-| 25/09/2026 | Passos 1.6 (sem venue nem modo padrão) e 1.7 (autonomia do agente, ADR 0007); 3.9 aceita só fills reconciliados; premortem da Fase 3 ganha três riscos obrigatórios |
+| 24/09/2026 | Passo 1.6: sem venue padrão (código na #37) |
+| 25/09/2026 | Passo 1.6: sem modo de execução padrão (#38); passo 1.7 (autonomia do agente, ADR 0007); 3.9 aceita só fills reconciliados; premortem da Fase 3 ganha três riscos obrigatórios |

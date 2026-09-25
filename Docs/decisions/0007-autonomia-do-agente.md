@@ -75,7 +75,11 @@ produto é independente e não guarda credencial de ninguém.
 
 **`AUTORIZAR_TRADE_REAL` fica, com outro papel:** deixa de ser apresentada como
 trava e passa a ser **rastro de auditoria**. Ela registra que o agente decidiu
-operar real, naquela execução, e vai para o log.
+operar real, naquela execução, e vai para o log. O mesmo vale para as três
+variáveis que o código aceita como equivalentes (`CONFIRMAR_TRADE_REAL`,
+`TRADE_AUTOMATIZADO_CONFIRM_LIVE` e `DELTA_NEUTRAL_CONFIRM_LIVE`): o registro
+olha para qualquer uma delas, ou uma execução autorizada por outra ficaria sem
+rastro.
 
 **O que entra no aprendizado coletivo:** só **resultados conferíveis na
 exchange**, ou seja, fills reconciliados pela API da venue. O relato do agente
