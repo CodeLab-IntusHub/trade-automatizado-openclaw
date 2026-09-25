@@ -196,6 +196,29 @@ com aprovação** (recomendado) e **real autônomo**.
   segurança; os passos 2 e 3 têm teste; e um operador novo sabe, pelo
   onboarding, qual modo está usando e o que o protege.
 
+### 1.8 Entrega pelos canais do OpenClaw do operador
+
+Decisão do autor em 25/09/2026: a entrega (Telegram, WhatsApp, Discord e o que
+mais o OpenClaw tiver) usa os canais configurados no OpenClaw do próprio
+operador, com opção de tópico no Telegram ou bot dedicado. A skill não lê nem
+guarda token de bot: bot dedicado é uma conta dedicada no OpenClaw.
+
+- **Mapa (25/09):** o Discord ia direto pela API REST nos três componentes
+  (`setup-live`, scanner e watcher), lendo o token até do
+  `~/.openclaw/openclaw.json`, com fallback ao OpenClaw desligado; o canal
+  padrão era `telegram`; o tópico do Telegram existia só no `setup-live`, sem
+  documentação; a audiência "@Intus Club Member" estava fixa; os defaults
+  divergiam entre componentes.
+- **`setup-live` — feito em 25/09/2026:** tudo por `openclaw message send`,
+  sem canal nem conta padrão, tópico com flag. Teste em
+  `test/test_entrega_pelo_openclaw.py`.
+- **Falta:** scanner (`ccxt_entry_scanner.py`) e watcher
+  (`discord_signal_watcher.py`) no mesmo caminho, com a mesma configuração;
+  audiência e marca como configuração; onboarding perguntando canal, destino,
+  conta e tópico em vez de só Discord "padrão Zeus".
+- **Pronto quando:** nenhum componente chama API de mensageria direto, nenhum
+  lê token de bot, e os três leem a mesma configuração de entrega.
+
 **Critério de pronto da fase:** instalar a skill num bot limpo e operar sem
 herdar nada da instância original.
 
@@ -494,7 +517,7 @@ Os itens 2 e 3 são decididos **fora** deste repositório, na plataforma.
 | Etapa | Passos | Depende de |
 |---|---|---|
 | A — fechamentos pequenos | 0.2, 0.3 | — |
-| B — skill genérica | 1.1 → 1.7 | A; o 1.3 exige decidir item a item o que falta no pacote |
+| B — skill genérica | 1.1 → 1.8 | A; o 1.3 exige decidir item a item o que falta no pacote |
 | C — painel local | 2.1 → 2.6 | nada; corre em paralelo com B |
 | D — portão | os quatro itens acima | — ; pode começar já, em paralelo |
 | E — ecossistema | 3.1 → 3.8 (3.8 depois de 3.3 e 3.4) | D |
