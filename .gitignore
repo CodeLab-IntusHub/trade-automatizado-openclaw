@@ -35,3 +35,7 @@ workspace/batch-*.json
 
 # Config local do operador (a versionada e settings.json)
 settings.local.json
+
+# Cobertura (medicao local e da CI)
+.coverage
+cov.json

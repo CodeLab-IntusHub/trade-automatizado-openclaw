@@ -5,6 +5,7 @@
 ### Adicionado
 
 - **`doctor` avisa chave de DEX que pode sacar** (`dex_key_sem_saque`, ROADMAP 1.7). Hyperliquid: se o endereco derivado da chave e o da conta, e a chave principal, que saca (a API wallet nao saca). Nado: sem linked signer, a skill assina com a owner key, que saca; com linked signer fica "nao verificado", porque a documentacao da Nado nao fecha se ele saca. Sem rede. Aviso por padrao; `BLOQUEAR_SAQUE=sim` torna bloqueio, como na CEX.
+- **Piso de cobertura com catraca na CI** (portao da Fase 3, item 1). O job `cobertura (piso com catraca)` reprova se a cobertura cair abaixo do piso em `ci/cobertura-piso.txt` (50%; medido 50,7%) ou se a PR baixar o piso em relacao a `main`. Com 2 pontos de folga, sugere subir.
 
 ## v1.10.0 — 2026-09-25
 

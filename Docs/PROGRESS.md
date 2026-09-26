@@ -122,6 +122,9 @@ Windows e Linux são alvos suportados e testados. A CI roda a suíte em
 `main` é protegida com 8 checks obrigatórios, aplicados também a
 administradores: a matriz de pytest (4 combinações), a suíte com o SDK da Nado,
 `ruff` (sintaxe e nome indefinido), `mypy` nos módulos anotados e o `validate`
-do skill-ci. Cobertura, `pip-audit` e o ruff completo reportam sem bloquear.
+do skill-ci. `pip-audit` e o ruff completo reportam sem bloquear.
 
-Cobertura atual: ~42%. Sem piso definido — a decisão é medir antes de fixar.
+Cobertura: 50,7% em 25/09/2026, com **piso de 50% e catraca** no job
+`cobertura (piso com catraca)`: o piso fica em `ci/cobertura-piso.txt`, a
+cobertura não pode cair abaixo dele e nenhuma PR pode baixá-lo em relação à
+`main` (`ci/catraca_cobertura.py`). Com folga de 2 pontos, o job sugere subir.

@@ -497,7 +497,7 @@ Não bloqueia as fases, mas cada item tem um gatilho natural.
 
 | Item | Situação | Quando atacar |
 |---|---|---|
-| Piso de cobertura | ~42%, reporta sem bloquear | Antes da Fase 3 — contrato público precisa de proteção contra regressão. Piso no nível atual, com catraca |
+| Piso de cobertura | **Feito em 25/09/2026:** piso de 50% (medido 50,7%) com catraca em `ci/cobertura-piso.txt` | Subir o piso junto com a cobertura; o job avisa quando há folga |
 | Log estruturado | Não existe; 87 `except` não registram nada | Junto da Fase 2 — o painel precisa de eventos confiáveis para mostrar |
 | `workspace/cli.py` (8.594 linhas) | Monolito | Com propósito: extrair a emissão de sinal na Fase 3, a camada de dados na Fase 2. Nunca como projeto isolado |
 | Helpers de ambiente restantes | Os de direção de dinheiro e proteção já foram fechados | Baixa prioridade |
@@ -520,8 +520,8 @@ risco, e por isso tem um **portão** antes do primeiro passo.
 
 Nenhum passo da Fase 3 começa antes de:
 
-1. **Piso de cobertura com catraca** (trilha contínua): contrato público
-   precisa de proteção contra regressão.
+1. ~~**Piso de cobertura com catraca**~~ **feito em 25/09/2026** (50%, só
+   sobe; `ci/cobertura-piso.txt`).
 2. **Escritor atual do schema `trading` identificado** (passo 3.2, item 1): o
    schema tem dados e nenhum repositório versionado escreve nele.
 3. **Decisão da plataforma sobre onde vivem os dados de operadores externos**
