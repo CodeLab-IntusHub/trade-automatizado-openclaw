@@ -1,7 +1,7 @@
 # Travas na exchange e rastro de auditoria
 
 > Última atualização: 25 de setembro de 2026
-> Versão: 1.10.0
+> Versão: 1.11.0 (não publicada)
 
 ## Visão Geral
 
@@ -35,9 +35,22 @@ daí:
 - É a única chamada de rede do `doctor`, e só roda com credencial de CEX
   configurada; timeout de 10 s. A mensagem de erro não é repassada (pode ecoar
   a requisição): só o tipo da exceção.
-- DEX fica de fora nesta versão. Na Hyperliquid, uma API wallet (agent) não
-  saca, e a chave principal saca; na Nado, a owner key saca. Conferir isso é o
-  próximo passo.
+
+## Key sem saque na DEX (`dex_key_sem_saque`)
+
+Sem rede: a pergunta é *qual* chave o operador configurou.
+
+| DEX | Regra | Resultado |
+|---|---|---|
+| Hyperliquid | endereço derivado da chave (CCXT) = `HYPERLIQUID_WALLET_ADDRESS` → chave principal | pode sacar |
+| Hyperliquid | endereço diferente → API wallet (agent) | sem saque ("API wallets [...] without having withdrawal permissions", app.hyperliquid.xyz/API) |
+| Nado | só owner key (a skill assina com ela) | pode sacar |
+| Nado | com `NADO_LINKED_SIGNER_PRIVATE_KEY` | não verificado: a doc da Nado diz que o linked signer assina executes, e saque é um execute |
+| DEX por adapter | — | não verificado |
+
+Chave malformada vira "não verificado" sem repassar o valor. Sem chave
+configurada, o check não aparece. Aviso por padrão, bloqueio com
+`BLOQUEAR_SAQUE`, como na CEX.
 
 ## OpenClaw sem aprovação (`openclaw_aprovacao`)
 
@@ -67,7 +80,7 @@ são aviso. Quem quiser bloqueio liga:
 
 | Variável | Transforma em bloqueio |
 |---|---|
-| `BLOQUEAR_SAQUE=sim` | `cex_key_sem_saque` e `saque_automatico` |
+| `BLOQUEAR_SAQUE=sim` | `cex_key_sem_saque`, `dex_key_sem_saque` e `saque_automatico` |
 | `BLOQUEAR_SEM_APROVACAO=sim` | `openclaw_aprovacao` (sem aprovação ou revisor automático) |
 
 Ligado, o check reprova o `doctor` (`blocking_checks` no relatório) e o
@@ -110,7 +123,7 @@ diretório de log (`DELTA_NEUTRAL_LOG_DIR`):
 | Bloqueio configurável | `workspace/run.py` (`_checks_bloqueados_pelo_operador`, `_motivos_de_bloqueio_do_operador`) | doctor e comando de trade |
 | Rastro | `workspace/cli.py` (`_record_live_trade_confirmation`) | grava a linha de auditoria |
 
-Testes: `test/test_permissao_de_saque.py`, `test/test_politica_openclaw.py`,
+Testes: `test/test_permissao_de_saque.py`, `test/test_dex_key_sem_saque.py`, `test/test_politica_openclaw.py`,
 `test/test_bloqueios_configuraveis.py` e `test/test_auditoria_trade_real.py`.
 O `conftest` desliga a rede e o `openclaw` dessas consultas em toda a suíte.
 
@@ -120,3 +133,4 @@ O `conftest` desliga a rede e o `openclaw` dessas consultas em toda a suíte.
 |---|---|
 | 25/09/2026 | Check `cex_key_sem_saque` no `doctor` (Binance, Bybit, OKX) e rastro de auditoria da confirmação real |
 | 25/09/2026 | Saque vira aviso; `openclaw_aprovacao` e `saque_automatico`; bloqueio configurável (`BLOQUEAR_SAQUE`, `BLOQUEAR_SEM_APROVACAO`) |
+| 25/09/2026 | `dex_key_sem_saque`: Hyperliquid (chave principal × API wallet) e Nado (owner key × linked signer) |

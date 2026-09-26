@@ -187,7 +187,9 @@ com aprovação** (recomendado) e **real autônomo**.
      avisa se puder; onde não expõe, diz que não conseguiu verificar.
      **Feito em 25/09/2026 para CEX** (Binance, Bybit e OKX expõem; as demais
      ficam "não verificado"). Por decisão do autor no mesmo dia, é **aviso**;
-     `BLOQUEAR_SAQUE=sim` o torna bloqueio (doctor e comando de trade). Falta DEX: API wallet da Hyperliquid não saca,
+     `BLOQUEAR_SAQUE=sim` o torna bloqueio (doctor e comando de trade).
+     **DEX também, em 25/09/2026:** Hyperliquid (chave principal × API wallet)
+     e Nado (owner key saca; linked signer não verificado). Falta DEX: API wallet da Hyperliquid não saca,
      a chave principal saca; a owner key da Nado saca.
   3. O `doctor` avisa quando detectar que o OpenClaw dispensa aprovação
      (`security: full`). Antes: confirmar o formato de `tools.exec` e de
