@@ -10,6 +10,13 @@
     }
   },
 
+  "_comentario_backtest": "Preferencias de backtest. universo_auditoria: allowlist (padrao) ou outro universo do operador, ex. hyperliquid_top_50.",
+  "backtest": {
+    "capital_por_cenario_usd": 1000,
+    "relatorio": "dashboard_html",
+    "universo_auditoria": "allowlist"
+  },
+
   "setups": {
     "triangle-breakout": {
       "pivot_window": 2,

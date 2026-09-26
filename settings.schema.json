@@ -25,6 +25,11 @@
         }
       },
 
+      "backtest": {
+        "_comentario": "Preferencias de backtest (ROADMAP 1.2): antes eram texto do SKILL.md. Defaults em workspace/preferencias.py.",
+        "campos": ["capital_por_cenario_usd", "relatorio", "universo_auditoria"]
+      },
+
       "setups": {
         "_comentario": "Parametros por setup. A lista e POR SETUP de proposito: uma lista unica aceitaria 'funding-arb.pivot_window', e a chave ficaria morta do mesmo jeito.",
         "filhos": {
