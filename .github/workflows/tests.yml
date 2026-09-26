@@ -197,7 +197,9 @@ jobs:
         # cobertura nao pode cair abaixo dele, e a PR nao pode baixa-lo em
         # relacao a main -- o piso so sobe. Linha de base em 25/09/2026: 50,7%.
         run: |
-          git fetch --depth=1 origin main
+          # Destino explicito: no checkout de PR, `git fetch origin main` sem
+          # destino pode so atualizar o FETCH_HEAD, e a comparacao sumiria calada.
+          git fetch --depth=1 origin +refs/heads/main:refs/remotes/origin/main
           git show origin/main:ci/cobertura-piso.txt > piso-main.txt 2>/dev/null || rm -f piso-main.txt
           set +e
           python ci/catraca_cobertura.py ci/cobertura-piso.txt cov.json piso-main.txt > catraca.txt

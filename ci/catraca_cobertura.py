@@ -39,7 +39,12 @@ def main(argv: list[str]) -> int:
         print(f"piso ausente: {piso_arquivo}")
         return 1
     medido = float(json.loads(cov_json.read_text(encoding="utf-8"))["totals"]["percent_covered"])
-    erros, avisos = verificar(piso=piso, piso_main=_ler_piso(piso_main_arquivo), medido=medido)
+    piso_main = _ler_piso(piso_main_arquivo)
+    if piso_main is None:
+        # Primeira vez (a main ainda nao tem piso) ou o fetch da main falhou:
+        # nos dois casos a catraca nao compara -- e tem de dizer isso.
+        print("aviso: sem piso da main para comparar; a catraca so checa o piso desta PR")
+    erros, avisos = verificar(piso=piso, piso_main=piso_main, medido=medido)
     for aviso in avisos:
         print(f"aviso: {aviso}")
     for erro in erros:

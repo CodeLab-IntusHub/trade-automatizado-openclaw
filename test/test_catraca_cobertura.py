@@ -67,3 +67,20 @@ def test_main_sem_arquivo_da_main(tmp_path: Path) -> None:
 def test_piso_versionado_e_inteiro_e_esta_abaixo_da_medicao_conhecida() -> None:
     piso = int((ROOT / "ci" / "cobertura-piso.txt").read_text(encoding="utf-8").strip())
     assert 0 < piso <= 100
+
+
+def test_piso_apagado_na_pr_reprova(tmp_path: Path, capsys) -> None:
+    """Apagar `ci/cobertura-piso.txt` nao pode desligar a catraca."""
+    (tmp_path / "piso-main.txt").write_text("50\n", encoding="utf-8")
+    (tmp_path / "cov.json").write_text(json.dumps({"totals": {"percent_covered": 51.0}}), encoding="utf-8")
+    rc = cc.main([str(tmp_path / "apagado.txt"), str(tmp_path / "cov.json"), str(tmp_path / "piso-main.txt")])
+    assert rc == 1
+    assert "piso ausente" in capsys.readouterr().out
+
+
+def test_sem_piso_na_main_avisa(tmp_path: Path, capsys) -> None:
+    """Sem o piso da main, a catraca nao compara -- e diz isso, em vez de calar."""
+    (tmp_path / "piso.txt").write_text("50\n", encoding="utf-8")
+    (tmp_path / "cov.json").write_text(json.dumps({"totals": {"percent_covered": 51.0}}), encoding="utf-8")
+    cc.main([str(tmp_path / "piso.txt"), str(tmp_path / "cov.json"), str(tmp_path / "nao-existe.txt")])
+    assert "sem piso da main" in capsys.readouterr().out
