@@ -1,5 +1,11 @@
 # Changelog
 
+## Nao publicado
+
+### Adicionado
+
+- **`doctor` avisa chave de DEX que pode sacar** (`dex_key_sem_saque`, ROADMAP 1.7). Hyperliquid: se o endereco derivado da chave e o da conta, e a chave principal, que saca (a API wallet nao saca). Nado: sem linked signer, a skill assina com a owner key, que saca; com linked signer fica "nao verificado", porque a documentacao da Nado nao fecha se ele saca. Sem rede. Aviso por padrao; `BLOQUEAR_SAQUE=sim` torna bloqueio, como na CEX.
+
 ## v1.10.0 — 2026-09-25
 
 Toda entrega pelo OpenClaw do operador, e as travas que valem no lugar certo.

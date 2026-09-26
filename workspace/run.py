@@ -717,7 +717,7 @@ BLOCKING_CHECKS = frozenset(
 BLOQUEAR_SAQUE_ENV = "BLOQUEAR_SAQUE"
 BLOQUEAR_SEM_APROVACAO_ENV = "BLOQUEAR_SEM_APROVACAO"
 _BLOQUEIOS_OPCIONAIS = {
-    BLOQUEAR_SAQUE_ENV: ("cex_key_sem_saque", "saque_automatico"),
+    BLOQUEAR_SAQUE_ENV: ("cex_key_sem_saque", "dex_key_sem_saque", "saque_automatico"),
     BLOQUEAR_SEM_APROVACAO_ENV: ("openclaw_aprovacao",),
 }
 
@@ -735,6 +735,20 @@ def _checks_bloqueados_pelo_operador() -> set[str]:
 def _saque_automatico_ligado() -> bool:
     # A mesma leitura do `workspace/nado/auto_trade_nado.py`: so `true` liga.
     return os.environ.get("AUTO_WITHDRAW_ENABLED", "false").lower() == "true"
+
+
+def _check_dex_key_sem_saque(dex_id: str) -> dict[str, object] | None:
+    """A chave da DEX pode sacar? Sem rede: depende de qual chave esta configurada."""
+    veredicto = permissao_de_saque.verificar_dex(dex_id)
+    if veredicto is None:
+        return None
+    verificado = veredicto.estado in {permissao_de_saque.SEM_SAQUE, permissao_de_saque.PODE_SACAR}
+    return {
+        "name": "dex_key_sem_saque",
+        "ok": veredicto.estado != permissao_de_saque.PODE_SACAR,
+        "detail": veredicto.detalhe if verificado else f"nao verificado: {veredicto.detalhe}",
+        "verificado": verificado,
+    }
 
 
 def _check_saque_automatico() -> dict[str, object]:
@@ -865,6 +879,10 @@ def doctor() -> dict[str, object]:
         settings_error is None,
         str(settings_error) if settings_error else "ok",
     )
+    if dex_id:
+        dex_check = _check_dex_key_sem_saque(dex_id)
+        if dex_check is not None:
+            report["checks"].append(dex_check)
     report["checks"].append(_check_openclaw_aprovacao())
     if _saque_automatico_ligado():
         report["checks"].append(_check_saque_automatico())
@@ -892,7 +910,12 @@ def _motivos_de_bloqueio_do_operador() -> list[str]:
     checks: list[dict[str, object]] = []
     if "saque_automatico" in bloqueados and _saque_automatico_ligado():
         checks.append(_check_saque_automatico())
-    cex_id = selected_venues().cex_id
+    selecao = selected_venues()
+    cex_id = selecao.cex_id
+    if "dex_key_sem_saque" in bloqueados and selecao.dex_id:
+        dex_check = _check_dex_key_sem_saque(selecao.dex_id)
+        if dex_check is not None:
+            checks.append(dex_check)
     if "cex_key_sem_saque" in bloqueados and cex_id and cex_credentials(cex_id).get("api_key"):
         checks.append(_check_key_sem_saque(cex_id))
     if "openclaw_aprovacao" in bloqueados:
