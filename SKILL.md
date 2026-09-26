@@ -300,11 +300,11 @@ Para presença/ausência de sinal, a fonte da verdade é:
 4. mesmo motor de avaliação dos setups usado pelo runtime;
 5. relatório de cobertura da auditoria, incluindo ativos/timeframes com erro ou rate limit.
 
-No fluxo Hyperliquid top 50, auditar via Hyperliquid/candles reais antes de afirmar “não teve trade”. Se a auditoria encontrar sinais anteriores ao start do runner/no-replay, reportar como sinais detectáveis não publicados e não republicar automaticamente sem autorização explícita.
+O universo auditado é `backtest.universo_auditoria` (padrão: a allowlist; o operador pode usar outro, como `hyperliquid_top_50`), com os valores efetivos em `setup-check` → `preferencias`. Auditar via candles reais da venue antes de afirmar “não teve trade”. Se a auditoria encontrar sinais anteriores ao start do runner/no-replay, reportar como sinais detectáveis não publicados e não republicar automaticamente sem autorização explícita.
 
 ## Padrão de visualização de backtests
 
-Quando o owner pedir backtest, usar como padrão o dashboard HTML v3 auditado definido em 2026-07-21. Não entregar tabela gigante no chat como substituto quando o pedido envolver visualização/ranking/filtros.
+Quando o usuário pedir backtest, usar o formato de `backtest.relatorio` (padrão: `dashboard_html`, o dashboard HTML auditado). Não entregar tabela gigante no chat como substituto quando o pedido envolver visualização/ranking/filtros.
 
 Requisitos obrigatórios:
 
@@ -313,7 +313,7 @@ Requisitos obrigatórios:
 - Manter colunas legíveis: ativo, local/venue, setup, timeframe, período, tipo, trades, wins/losses, WR, PnL, capital, resultado, final, PF, DD, média, melhor, pior, Sharpe, status e observação.
 - Separar linhas agregadas de linhas detalhadas por ativo/setup/período.
 - Incluir glossário didático de siglas e premissas/limitações do backtest.
-- Incluir simulação de capital quando o owner pedir; default operacional recente: US$1.000 por cenário, salvo instrução diferente.
+- Incluir simulação de capital quando o usuário pedir, com o capital de `backtest.capital_por_cenario_usd` por cenário, salvo instrução diferente.
 - Validar antes de enviar com QA automatizado em navegador real/headless: sem erro JavaScript/console, payload carregado, colunas renderizadas, filtros funcionando, contagem HTML = JSON/CSV e export CSV sem quebrar o script.
 - Se o QA falhar, corrigir e só então enviar o anexo.
 

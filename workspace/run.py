@@ -27,7 +27,7 @@ from workspace.venues import cex_credentials, permissao_de_saque, venue_summary 
 from workspace.venues.sandbox import resolve_sandbox, sandbox_settings_keys  # noqa: E402
 from workspace.venues.config import mensagem_de_modo_nao_escolhido, modos_compativeis, selected_venues  # noqa: E402
 from workspace.config import ConfigError, coerce_bool, load_settings  # noqa: E402
-from workspace import politica_openclaw
+from workspace import politica_openclaw, preferencias
 from workspace.settings_schema import validar_settings  # noqa: E402
 _logger = logging.getLogger(__name__)
 REQUIREMENTS = WORKSPACE_DIR / "requirements.txt"
@@ -612,6 +612,14 @@ def _erro_de_vocabulario_do_settings() -> str | None:
     return "; ".join(problemas) or None
 
 
+def _preferencias_efetivas() -> dict[str, object]:
+    """Valores que o agente usa em backtest e auditoria (ROADMAP 1.2)."""
+    try:
+        return {"backtest": preferencias.preferencias_de_backtest()}
+    except ConfigError as exc:
+        return {"erro": str(exc)}
+
+
 def setup_check() -> dict[str, object]:
     env_loaded = _load_env_file()
     _safe_mkdirs()
@@ -631,6 +639,7 @@ def setup_check() -> dict[str, object]:
     selecao = selected_venues()
     return {
         "settings_error": _erro_de_vocabulario_do_settings(),
+        "preferencias": _preferencias_efetivas(),
         "status": "ok" if _dependencies_ready(venv_deps) else "needs_bootstrap",
         "runtime": {
             "python": sys.version.split()[0],

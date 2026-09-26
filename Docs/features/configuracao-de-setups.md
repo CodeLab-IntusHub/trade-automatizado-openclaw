@@ -1,6 +1,6 @@
 # Configuração de setups
 
-**Versão:** 1.0.0 · **Última atualização:** 14/09/2026
+**Versão:** 1.1.0 · **Última atualização:** 25/09/2026
 
 Parâmetros de setup são configuráveis por arquivo, sem editar código.
 
@@ -53,6 +53,21 @@ mudavam editando o código.
 alvos não pode ser vazia — as duas condições são recusadas no boot, com a chave
 nomeada.
 
+## Preferências de backtest
+
+Até a v1.10.0, o `SKILL.md` ditava ao agente valores de uma instância. Agora
+são chaves (ROADMAP 1.2), com default em `workspace/preferencias.py`:
+
+| Chave | Default | O que decide |
+|---|---|---|
+| `backtest.capital_por_cenario_usd` | `1000` | capital da simulação por cenário (positivo) |
+| `backtest.relatorio` | `dashboard_html` | formato do relatório de backtest |
+| `backtest.universo_auditoria` | `allowlist` | universo auditado antes de afirmar "não teve trade" |
+
+O `setup-check` mostra os valores efetivos em `preferencias.backtest`; é deles
+que o agente parte. O universo padrão é a allowlist, e não um universo de uma
+venue (como `hyperliquid_top_50`), porque isso seria venue padrão.
+
 ## Validação
 
 Valor inválido derruba o comando no boot, antes do primeiro ciclo. Isso é
@@ -71,3 +86,4 @@ recusado — `settings.json` é versionado.
 |------|---------|
 | 14/09/2026 | Documento inicial: `settings.json`, precedência e parâmetros por setup (PRs #7 e #9) |
 | 24/09/2026 | Seção de changelog adicionada |
+| 25/09/2026 | Preferências de backtest em `backtest.*` (ROADMAP 1.2) |

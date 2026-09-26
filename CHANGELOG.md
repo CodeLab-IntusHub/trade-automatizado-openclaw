@@ -2,8 +2,13 @@
 
 ## Nao publicado
 
+### Mudanca de comportamento (atencao ao atualizar)
+
+- **Universo da auditoria passa a ser configuracao, com a allowlist como padrao.** O `SKILL.md` mandava o agente auditar o "fluxo Hyperliquid top 50"; agora ele le `backtest.universo_auditoria` (padrao `allowlist`). Quem audita o top 50 da Hyperliquid define `"backtest": {"universo_auditoria": "hyperliquid_top_50"}` no `settings.local.json`.
+
 ### Adicionado
 
+- **Preferencias de backtest em `backtest.*`** (ROADMAP 1.2): `capital_por_cenario_usd` (1000), `relatorio` (`dashboard_html`) e `universo_auditoria`. O `setup-check` mostra os valores efetivos em `preferencias.backtest`, e o `SKILL.md` referencia as chaves em vez dos valores.
 - **`doctor` avisa chave de DEX que pode sacar** (`dex_key_sem_saque`, ROADMAP 1.7). Hyperliquid: se o endereco derivado da chave e o da conta, e a chave principal, que saca (a API wallet nao saca). Nado: sem linked signer, a skill assina com a owner key, que saca; com linked signer fica "nao verificado", porque a documentacao da Nado nao fecha se ele saca. Sem rede. Aviso por padrao; `BLOQUEAR_SAQUE=sim` torna bloqueio, como na CEX.
 - **Piso de cobertura com catraca na CI** (portao da Fase 3, item 1). O job `cobertura (piso com catraca)` reprova se a cobertura cair abaixo do piso em `ci/cobertura-piso.txt` (50%; medido 50,7%) ou se a PR baixar o piso em relacao a `main`. Com 2 pontos de folga, sugere subir.
 

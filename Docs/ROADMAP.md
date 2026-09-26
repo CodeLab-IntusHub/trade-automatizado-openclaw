@@ -108,6 +108,11 @@ auditado, padrão visual do relatório de backtest.
   opera percebe diferença.
 - **Pronto quando:** o `SKILL.md` referencia a chave, não o valor; o schema
   aceita a chave; teste cobre o default.
+- **Feito em 25/09/2026:** `backtest.capital_por_cenario_usd` (1000),
+  `backtest.relatorio` (`dashboard_html`) e `backtest.universo_auditoria`
+  (`allowlist`, não `hyperliquid_top_50`: universo de uma venue como padrão
+  seria venue padrão). O `setup-check` mostra os valores efetivos. Teste em
+  `test/test_preferencias_de_backtest.py`. **Passo concluído.**
 
 ### 1.3 Scripts que "ficam no workspace"
 

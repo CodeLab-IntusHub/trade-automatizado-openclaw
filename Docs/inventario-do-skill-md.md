@@ -68,10 +68,10 @@ Além do grupo, duas marcas que não dependem dele:
 | 268 | "Formato correto do **IntusCripto**: uma única mensagem com texto + imagem anexada, sem card/embed nativo. Use `SETUP_NOTIFY_DISCORD_NATIVE_EMBED=false`, `SETUP_NOTIFY_BRAND=INTUSCRIPTO` e `SETUP_NOTIFY_DISCORD_BOX=false`." | I + **⚠** | formato e marca da entrega são escolha de quem opera — já são variáveis; o texto deve descrever as opções, não impor a da instância. Contradiz a linha 39 — **resolvido em 25/09**: a seção virou "Entrega de mensagens", com marca e audiência como configuração |
 | 269–272 | menção de cargo, validação antes de canal público, `setup-live` como fluxo oficial | G | |
 | 276–284 | fonte da verdade para presença/ausência de sinal | G | |
-| 286 | "No fluxo **Hyperliquid top 50**, auditar via Hyperliquid…" | I | fluxo de uma instância; a regra geral já está em 278–284 |
-| 290 | "Quando o **owner** pedir backtest, usar como padrão o **dashboard HTML v3** auditado **definido em 2026-07-21**" | I + H | preferência de instância com data de decisão |
+| 286 | "No fluxo **Hyperliquid top 50**, auditar via Hyperliquid…" | I | fluxo de uma instância; a regra geral já está em 278–284 — **resolvido em 25/09**: `backtest.universo_auditoria` |
+| 290 | "Quando o **owner** pedir backtest, usar como padrão o **dashboard HTML v3** auditado **definido em 2026-07-21**" | I + H | preferência de instância com data de decisão — **resolvido em 25/09**: `backtest.relatorio` |
 | 292–301 | requisitos do relatório de backtest (filtros, colunas, glossário, QA em navegador) | I | "padrão visual do relatório de backtest", citado no ROADMAP 1.2 |
-| 299 | "default operacional recente: **US$1.000** por cenário" | I | capital de simulação padrão, citado no ROADMAP 1.2 |
+| 299 | "default operacional recente: **US$1.000** por cenário" | I | capital de simulação padrão, citado no ROADMAP 1.2 — **resolvido em 25/09**: `backtest.capital_por_cenario_usd` |
 | 303 | "Scripts atuais do padrão ficam **no workspace**" | **1.3** | fora do pacote |
 | 307–331 | dashboard do usuário: comandos, regras do painel, validação de publicação externa | G | |
 | 332 | reiniciar `delta-dashboard-publisher.service` | I | nome de serviço systemd de uma máquina |
