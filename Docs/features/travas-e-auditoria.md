@@ -45,9 +45,12 @@ Sem rede: a pergunta é *qual* chave o operador configurou.
 | Hyperliquid | endereço derivado da chave (CCXT) = `HYPERLIQUID_WALLET_ADDRESS` → chave principal | pode sacar |
 | Hyperliquid | endereço diferente → API wallet (agent) | sem saque ("API wallets [...] without having withdrawal permissions", app.hyperliquid.xyz/API) |
 | Nado | só owner key (a skill assina com ela) | pode sacar |
-| Nado | com `NADO_LINKED_SIGNER_PRIVATE_KEY` | não verificado: a doc da Nado diz que o linked signer assina executes, e saque é um execute |
+| Nado | com linked signer, mas `NADO_ALLOW_OWNER_FALLBACK` e `DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK` ligados | pode sacar: se o linked signer falhar, a owner key assina |
+| Nado | com `NADO_LINKED_SIGNER_PRIVATE_KEY` e sem fallback | não verificado: a doc da Nado diz que o linked signer assina executes, e saque é um execute |
 | DEX por adapter | — | não verificado |
 
+Chave e conta da Hyperliquid seguem a precedência do adapter: env, depois
+`DEX_CONFIG_JSON`. O endereço é comparado sem o prefixo `0x` nos dois lados.
 Chave malformada vira "não verificado" sem repassar o valor. Sem chave
 configurada, o check não aparece. Aviso por padrão, bloqueio com
 `BLOQUEAR_SAQUE`, como na CEX.

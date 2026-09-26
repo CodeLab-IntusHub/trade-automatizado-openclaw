@@ -118,27 +118,54 @@ _HYPERLIQUID = {"hyperliquid", "hyperliquid-dex", "hyperliquid_dex"}
 _NADO = {"nado", "nado-dex", "nado_dex"}
 
 
+def _sem_0x(endereco: str) -> str:
+    endereco = endereco.strip().lower()
+    return endereco.removeprefix("0x")
+
+
 def _endereco_da_chave(chave: str) -> str:
     import ccxt
 
-    return str(ccxt.hyperliquid().eth_get_address_from_private_key(chave)).lower()
+    return _sem_0x(str(ccxt.hyperliquid().eth_get_address_from_private_key(chave)))
+
+
+def _credenciais_hyperliquid(dex_id: str) -> tuple[str, str]:
+    """A mesma precedencia do `cli._load_hyperliquid_config`: env, depois
+    `DEX_CONFIG_JSON`. Olhar so o env fazia o check sumir para quem configura
+    pelo JSON."""
+    from workspace.venues.config import _first_env, dex_config, dex_env_names
+
+    nomes = dex_env_names(dex_id)
+    cfg = dex_config(dex_id)
+    chave = _first_env(*nomes["private_key"]) or str(cfg.get("private_key") or cfg.get("privateKey") or "")
+    conta = _first_env(*nomes["wallet_address"]) or str(cfg.get("wallet_address") or cfg.get("walletAddress") or "")
+    return chave, conta
+
+
+def _env_ligado(nome: str) -> bool:
+    import os
+
+    from workspace.config import coerce_bool
+
+    bruto = os.environ.get(nome, "")
+    return coerce_bool(bruto, nome) if bruto.strip() else False
 
 
 def verificar_dex(dex_id: str) -> Veredicto | None:
     """`None` quando nao ha chave configurada para verificar."""
     from workspace.venues.config import _first_env, dex_env_names
 
-    nomes = dex_env_names(dex_id)
     if dex_id in _HYPERLIQUID:
-        chave = _first_env(*nomes["private_key"])
-        conta = _first_env(*nomes["wallet_address"]).lower()
+        chave, conta = _credenciais_hyperliquid(dex_id)
         if not chave or not conta:
             return None
         try:
             endereco = _endereco_da_chave(chave)
         except Exception as exc:  # noqa: BLE001 -- chave malformada: so o tipo, nunca o valor
             return Veredicto(dex_id, ERRO, f"nao deu para derivar o endereco da chave ({type(exc).__name__})")
-        if endereco == conta:
+        # Sem o prefixo nos dois lados: a conta colada sem `0x` fazia a chave
+        # principal passar por API wallet -- um falso "seguro".
+        if endereco == _sem_0x(conta):
             return Veredicto(
                 dex_id,
                 PODE_SACAR,
@@ -146,18 +173,33 @@ def verificar_dex(dex_id: str) -> Veredicto | None:
             )
         return Veredicto(dex_id, SEM_SAQUE, "a chave da Hyperliquid e de uma API wallet (agent), que nao saca")
     if dex_id in _NADO:
+        nomes = dex_env_names(dex_id)
         if not _first_env(*nomes["owner_private_key"]):
             return None
-        if _first_env(*nomes["linked_signer_private_key"]):
+        if not _first_env(*nomes["linked_signer_private_key"]):
             return Veredicto(
                 dex_id,
-                NAO_VERIFICAVEL,
-                "a Nado assina com o linked signer; a documentacao nao diz se ele saca (saque e um execute, "
-                "e o WithdrawCollateralV2 aceita destinatario)",
+                PODE_SACAR,
+                "sem linked signer, a skill assina com a owner key da Nado, que saca: configure NADO_LINKED_SIGNER_PRIVATE_KEY",
+            )
+        # A mesma regra do `cli.build_engine`: com o fallback pedido e a
+        # confirmacao privilegiada, a owner key pode assinar se o linked
+        # signer falhar.
+        try:
+            fallback = _env_ligado("NADO_ALLOW_OWNER_FALLBACK") and _env_ligado("DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK")
+        except Exception as exc:  # noqa: BLE001 -- ConfigError: o texto nomeia a variavel, sem segredo
+            return Veredicto(dex_id, ERRO, str(exc))
+        if fallback:
+            return Veredicto(
+                dex_id,
+                PODE_SACAR,
+                "NADO_ALLOW_OWNER_FALLBACK e DELTA_NEUTRAL_CONFIRM_PRIVILEGED_FALLBACK ligados: se o linked signer "
+                "falhar, a skill assina com a owner key da Nado, que saca",
             )
         return Veredicto(
             dex_id,
-            PODE_SACAR,
-            "sem linked signer, a skill assina com a owner key da Nado, que saca: configure NADO_LINKED_SIGNER_PRIVATE_KEY",
+            NAO_VERIFICAVEL,
+            "a Nado assina com o linked signer; a documentacao nao diz se ele saca (saque e um execute, "
+            "e o WithdrawCollateralV2 aceita destinatario)",
         )
     return Veredicto(dex_id, NAO_VERIFICAVEL, f"a DEX {dex_id} (adapter) nao informa a permissao da chave: confira na venue")
