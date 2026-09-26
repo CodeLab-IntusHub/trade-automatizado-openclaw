@@ -1,6 +1,17 @@
 # Changelog
 
-## Nao publicado
+## v1.10.0 — 2026-09-25
+
+Toda entrega pelo OpenClaw do operador, e as travas que valem no lugar certo.
+O scanner e o watcher passam a entregar pelo mesmo caminho do `setup-live`, sem
+token de bot; o onboarding pergunta canal, destino, conta e topico, e tambem o
+modo de autonomia do agente. O `doctor` avisa quando a API key da CEX pode
+sacar, quando o saque automatico da Nado esta ligado e quando o OpenClaw
+executa sem pedir aprovacao -- aviso por padrao, bloqueio se o operador ligar
+`BLOQUEAR_SAQUE`/`BLOQUEAR_SEM_APROVACAO`. Cada execucao real deixa rastro de
+auditoria. **Antes de atualizar:** se o scanner ou o watcher entregam no
+Discord, configure-o como canal no seu OpenClaw; o WhatsApp do scanner passa a
+exigir `SETUP_NOTIFY_WHATSAPP_ENABLED=true`.
 
 ### Mudanca de comportamento (atencao ao atualizar)
 

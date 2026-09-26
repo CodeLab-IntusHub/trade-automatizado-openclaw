@@ -1,7 +1,7 @@
 # Entrega de mensagens
 
 > Última atualização: 25 de setembro de 2026
-> Versão: 1.10.0 (não publicada)
+> Versão: 1.10.0
 
 ## Visão Geral
 

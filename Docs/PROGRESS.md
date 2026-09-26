@@ -1,7 +1,7 @@
 # Progresso
 
 > Última atualização: 25 de setembro de 2026
-> Versão da skill: 1.9.0
+> Versão da skill: 1.10.0
 
 Estado do **produto** — o que existe e funciona. O que vem depois está no
 [ROADMAP](ROADMAP.md); o porquê das decisões de arquitetura, em
